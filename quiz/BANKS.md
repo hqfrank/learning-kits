@@ -11,7 +11,7 @@ One row per bank: topic, section, knowledge-point count, question count, date ge
 | nvidia-gpu-anatomy | 02-threads-warps-blocks-grids | 8 | 37 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 03-occupancy-and-registers | 8 | 32 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 04-cuda-cores-vs-tensor-cores | 8 | 32 | expanded 2026-10-07 |
-| nvidia-gpu-anatomy | 05-memory-hierarchy | 8 | 32 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 05-memory-hierarchy | 9 | 36 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 06-caches-and-working-sets | 8 | 32 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 07-sharing-the-gpu | 8 | 31 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 08-measuring-a-gpu | 8 | 32 | expanded 2026-10-07 |

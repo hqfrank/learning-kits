@@ -14,6 +14,7 @@ window.QUIZ_BANKS.push({
     "l2-ratio-capacity": { title: "L2 streaming is 12-15× DRAM; Thor grew capacity not speed", summary: "L2-resident streaming is 12.4× (Orin) / 14.6× (Thor) faster than DRAM. L2 latency did not improve Orin→Thor (146 vs 156 ns); only L2 capacity grew 8× (4→32 MB). Thor's advantage is 'more data stays resident', not 'reached faster'.", source: "05-memory-hierarchy §On Orin and Thor" },
     "latency-numbers": { title: "Latency landmarks per level", summary: "Dependent-load latency: L1 ~29.9 ns (Orin) / 25.3 ns (Thor); L2 146 / 156 ns; DRAM 675 / 510 ns.", source: "05-memory-hierarchy §On Orin and Thor; constants.json" },
     "working-set-regime": { title: "Where the working set sits decides speed", summary: "The first question of a robot kernel is whether its working set is under 4 MB, between 4-32 MB, or over 32 MB — that picks the bandwidth regime. A policy fitting Thor's 32 MB L2 runs an order of magnitude faster than one spilling to DRAM.", source: "05-memory-hierarchy §Why it matters" }
+    "scratchpad-vs-cache": { title: "Shared memory is a scratchpad, not a cache", summary: "A scratchpad's contents are chosen by the program through explicit loads and stores in its own address space, so it never misses and nothing is evicted; a cache's contents are chosen by hardware from recent use. 'Scratchpad' is the generic architecture term; NVIDIA says 'shared memory'.", source: "05-memory-hierarchy §Terms introduced; glossary" },
   },
   questions: [
     { id: "q1", type: "mcq", kp: "the-ladder",
@@ -165,5 +166,25 @@ window.QUIZ_BANKS.push({
       prompt: "Where a kernel's working set sits in the ladder decides its speed more than its raw FLOP count does.",
       answer: true,
       explanation: "The kit's framing: the first question is which bandwidth regime (under 4 MB / 4-32 MB / over 32 MB) the footprint lands in.", source: "05-memory-hierarchy §Why it matters" }
+    ,
+    { id: "q34", type: "mcq", kp: "scratchpad-vs-cache",
+      prompt: "What makes CUDA shared memory a **scratchpad** rather than a cache?",
+      choices: ["It is faster than L1", "The program decides its contents with explicit loads and stores; hardware never fills or evicts it", "It is shared by all SMs", "It is backed by DRAM automatically"],
+      answer: 1,
+      explanation: "A cache is filled and evicted by hardware according to recent use; a scratchpad holds exactly what the program put there, in its own address space, with no misses.", source: "05-memory-hierarchy §Terms introduced (scratchpad memory)" },
+    { id: "q35", type: "tf", kp: "scratchpad-vs-cache",
+      prompt: "\"Scratchpad memory\" is NVIDIA's official name for the per-block on-chip buffer.",
+      answer: false,
+      explanation: "NVIDIA's documentation says \"shared memory\". Scratchpad is the generic computer-architecture class that shared memory belongs to.", source: "05-memory-hierarchy §Terms introduced; glossary" },
+    { id: "q36", type: "multi", kp: "scratchpad-vs-cache",
+      prompt: "Select every property that holds for shared memory but NOT for the L1 cache.",
+      choices: ["Contents chosen by the program", "Accesses can miss", "Nothing is evicted while the block runs", "Lives in the SM's L1/shared SRAM array"],
+      answer: [0, 2],
+      explanation: "Both live in the same per-SM array (carveout), but only shared memory is program-filled and eviction-free; L1 can miss and is hardware-managed.", source: "05-memory-hierarchy §Common confusions; §Terms introduced" },
+    { id: "q37", type: "mcq", kp: "scratchpad-vs-cache",
+      prompt: "Why can the tiled GEMM promise 32x reuse of each loaded element?",
+      choices: ["Because L2 is large enough to hold the tile", "Because the kernel copied the tile into shared memory, so reuse does not depend on a replacement policy", "Because registers hold the whole tile", "Because the hardware prefetches the next tile"],
+      answer: 1,
+      explanation: "The guarantee comes from the scratchpad: the block put the tile there and it stays until the block is done. A cache could only hope the tile survives eviction.", source: "05-memory-hierarchy §Terms introduced; C-KIT-NOTES B3" }
   ]
 });
