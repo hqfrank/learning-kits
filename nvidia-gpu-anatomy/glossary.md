@@ -55,10 +55,10 @@ board; the full value and source live in `constants.json`.
 - **p99** — the 99th-percentile latency; the tail metric for deadline-bound work. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
 - **pipelining** — stages in a lane so a new instruction enters each cycle while earlier ones are in flight; throughput per cycle despite multi-cycle latency (01-sm-and-smsp).
 - **PTX** — the virtual instruction set CUDA compiles to, above the native SASS (08-measuring-a-gpu).
-- **register file** — the per-SM store of 32-bit registers (65536 on these boards, = 256 KB; the whole SM, split into four SMSP slices) holding threads' local variables (03-occupancy-and-registers).
+- **register file** — the per-SM store of 32-bit registers (65536 on these boards, = 256 KB), built as four SMSP banks, shared by all warps resident on the SM from any block. Registers in it are assigned to threads at launch and indexed by name, not address (03-occupancy-and-registers).
 - **register spill / local memory** — values beyond a thread's register allocation live in local memory, per-thread addressed memory backed by L1 → L2 → DRAM; the one path from register pressure to memory traffic (03-occupancy-and-registers).
 - **register wall** — the tile size at which accumulator registers exhaust the 64K file and collapse occupancy. Reused from `../jetson-orin-thor-metrics/glossary.md` (03-occupancy-and-registers).
-- **registers** — per-thread fastest storage in the SM register file; one register is one 32-bit (4 B) slot. Not to be confused with a 128 B cache line (03-occupancy-and-registers, 05-memory-hierarchy).
+- **registers** — a thread's assigned slots in its SM's register file; one register is one 32-bit (4 B) slot, indexed by name (R0, R1, …) and reachable only by that thread. Not to be confused with a 128 B cache line (03-occupancy-and-registers, 05-memory-hierarchy).
 - **resident warps / blocks** — the warps and blocks an SM holds at once; capped at 48 warps and 16 (Orin) / 24 (Thor) blocks per SM (02-threads-warps-blocks-grids).
 - **ridge** — the arithmetic intensity where the compute and bandwidth roofs cross. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
 - **roofline** — a plot of achievable rate vs arithmetic intensity, bounded by compute and bandwidth roofs. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
