@@ -34,3 +34,7 @@ window.QUIZ_BANKS.push({
 ```
 
 Question types: `mcq` (one correct index), `tf`, `numeric` (with optional `unit` and absolute `tolerance`; default ±5 %), `multi` (array of correct indices). Prompts and choices accept `` `code` `` and `**bold**`.
+
+## Validation
+
+`node check-banks.js` (from `quiz/`) checks every bank in the manifest: syntax, kp references, answer shapes, template board values, note paths. A `pre-commit` hook in `../.githooks` runs it; enable with `git config core.hooksPath .githooks` after cloning.

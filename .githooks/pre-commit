@@ -1,0 +1,3 @@
+#!/bin/sh
+# Refuse to commit if any quiz bank fails validation.
+cd "$(git rev-parse --show-toplevel)" && node quiz/check-banks.js >/dev/null || { echo "quiz banks invalid: run node quiz/check-banks.js"; exit 1; }
