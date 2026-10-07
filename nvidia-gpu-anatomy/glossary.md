@@ -48,6 +48,7 @@ board; the full value and source live in `constants.json`.
 - **MAXN / locked clocks** — the maximum-clock regime with GPU frequency fixed. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
 - **memory controller** — the single path from the GPU (and, on an integrated SoC, the CPU) to DRAM (00-the-big-picture, 05-memory-hierarchy).
 - **MIG (Multi-Instance GPU)** — spatial partitioning of a GPU into isolated instances with dedicated compute, cache and memory. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
+- **mma shape (m×n×k)** — the fixed tile one warp-level `mma` multiplies (A m×k, B k×n, C m×n); FP16 `m16n8k16`, INT8/FP8 `m16n8k32`, TF32 `m16n8k8`; output always 16×8 (04-cuda-cores-vs-tensor-cores).
 - **MPS (Multi-Process Service)** — lets several processes share one GPU context, with an optional per-client SM cap. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
 - **ncu (Nsight Compute)** — the kernel profiler reporting stall counters and occupancy. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
 - **NVFP4** — block-scaled 4-bit float (E2M1 + per-block scale); Thor only. Reused from `../jetson-orin-thor-metrics/glossary.md` (04-cuda-cores-vs-tensor-cores).

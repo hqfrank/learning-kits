@@ -18,6 +18,16 @@ A CUDA-core ceiling has one shape: issue rate × 32 lanes × ops-per-lane × 4 s
 
 A tensor core instead consumes matrix tiles. The portable path is the warp-level **`mma`** instruction (classic MMA), which any hand-written kernel can issue (C-KIT-NOTES A3). Blackwell adds **`tcgen05`**, a fifth-generation datapath that stages operands in shared memory and **tensor memory (TMEM)** and accumulates in TMEM; it is reached only through tuned libraries (cuBLAS/CUTLASS) (B-BLACKWELL CUTLASS docs; C-KIT-NOTES A3). So on Blackwell there are two tensor ceilings per precision: the classic floor and the much higher tcgen05 ceiling.
 
+**How small is "small"?** The classic warp-level `mma` fixes its tile shape in the instruction name, m×n×k: A is m×k, B is k×n, the accumulator C/D is m×n. The kit's A.3 shapes (C-KIT-NOTES A3 §Setup):
+
+| Precision | Shape | A tile | B tile | C/D tile | MACs / instruction |
+|---|---|---|---|---|---|
+| FP16 | `m16n8k16` | 16×16 | 16×8 | 16×8 | 2048 |
+| INT8, FP8 | `m16n8k32` | 16×32 | 32×8 | 16×8 | 4096 |
+| TF32 | `m16n8k8` | 16×8 | 8×8 | 16×8 | 1024 |
+
+The output tile is always 16×8 = 128 values (4 per thread across the warp), and k grows as the element narrows, so one instruction consumes the same operand *bytes* at every precision (A: 16×16×2 B = 16×32×1 B = 512 B). The datapath is fixed in bytes, not elements, which is why narrower types retire proportionally more MACs per instruction. The 32×32 tile of the B3 tiled GEMM is a *block-level* unit staged in shared memory; the tensor core never sees it whole. A kernel carves it into fragments and issues one `mma` per fragment product — a 32×32×32 block step is 2×4×2 = 16 `m16n8k16` instructions. "Small" is relative to the matrices (thousands on a side) and to `tcgen05`, where a single Thor instruction can cover up to 128×256 in M×N with operands in shared/tensor memory — a large part of why that path reaches ~3× the classic rate (C-KIT-NOTES A3.6; B-BLACKWELL; **my explanation** of the byte-constancy and the 16-instruction count).
+
 **Who holds the matrix when a warp issues `mma`?** All 32 threads, in **fragments**. For the kit's FP16 shape `m16n8k16` (C-KIT-NOTES A3): A is 16×16 = 256 fp16 values, 8 per thread (4 registers, two fp16 packed per 32-bit register); B is 16×8 = 128 values, 4 per thread (2 registers); the fp32 accumulator C/D is 16×8 = 128 values, 4 per thread (4 registers). The warp issues one `mma`; the sub-partition's tensor core reads every thread's fragments, computes the whole 16×8×16 product, and writes the 128 results back scattered over all 32 threads' accumulator registers (A-PM warp-matrix functions; **my explanation** of the per-thread counts from the shape). No thread owns the tensor core and no thread idles: the warp owns it. This is why the kit saturates tensor throughput by sweeping ILP and warps *per sub-partition* — one tensor core, fed by whichever resident warps have an `mma` ready (C-KIT-NOTES A3).
 
 **`tcgen05` breaks that picture.** On Thor the fifth-generation MMA is issued by a single thread, its operands live in shared memory and tensor memory rather than in the warp's registers, and it runs asynchronously while the warp continues (B-BLACKWELL; C-KIT-NOTES A3). The other 31 threads are not idle because nobody is waiting on registers; the tensor core works from memory. The matrix per instruction is far larger and the rate far higher (192.5 vs 64.4 TFLOP/s FP16, `tensor_tcgen05_fp16` vs `tensor_classic_fp16`), but a kernel written with plain `mma` never touches it — the "programmability cost" of A.3.6.
@@ -69,3 +79,4 @@ A vision-language-action policy is almost all matmul, so it lives on the tensor 
 - **TF32 / FP8 / FP16 / INT8** — tensor-core precisions; Orin has FP16/TF32/INT8, Thor adds FP8 and NVFP4 (C-PLAT).
 - **fragment** — the slice of a matrix tile (A, B or accumulator) that one thread of the warp holds in its registers for a warp-level `mma`; the 32 fragments together are the whole tile (A-PM warp-matrix functions).
 - **instruction width (w)** — the arithmetic operations one lane retires per instruction: 2 for FFMA, 4 for packed-FP16 HFMA2, 8 for dp4a; independent of the issue rate θ (C-KIT-NOTES A2).
+- **mma shape (m×n×k)** — the fixed tile a warp-level `mma` multiplies: A m×k times B k×n into C m×n; e.g. `m16n8k16` for FP16 (C-KIT-NOTES A3).
