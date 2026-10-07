@@ -32,6 +32,7 @@ board; the full value and source live in `constants.json`.
 - **half2 / HFMA2** — packed FP16: two FP16 values per 32-bit lane, one instruction per pair. Reused from `../jetson-orin-thor-metrics/glossary.md` (04-cuda-cores-vs-tensor-cores).
 - **hit / miss** — a requested cache line present in / absent from a cache level (06-caches-and-working-sets).
 - **ILP (instruction-level parallelism)** — independent instructions from one thread in flight together; the A1 probe's four chains (01-sm-and-smsp).
+- **instruction width (w)** — ops one lane retires per instruction (FFMA 2, HFMA2 4, dp4a 8); multiplies the issue rate θ in the CUDA-core ceiling formula (04-cuda-cores-vs-tensor-cores).
 - **integrated SoC** — CPU and GPU on one chip sharing one physical memory and one controller. Reused from `../jetson-orin-thor-metrics/glossary.md` (00-the-big-picture, 05-memory-hierarchy).
 - **INT pipe** — the integer arithmetic pipeline in a sub-partition, separate from FP32 on Ampere and later (01-sm-and-smsp).
 - **issue rate** — warp instructions issued per cycle per sub-partition; bounded by the dispatch port, not occupancy. Related to the metrics-kit **issue rate (θ)** (03-occupancy-and-registers).
