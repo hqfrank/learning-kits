@@ -174,5 +174,20 @@ window.QUIZ_BANKS.push({
       choices: ["L1 sharing between SMs", "The scheduler freely interleaving two kernels' blocks (co-scheduling lockout)", "Branch prediction", "Register spilling"],
       answer: 1,
       explanation: "Independent blocks can be interleaved onto SMs — the mechanism behind the kit's co-scheduling lockout.", source: "02-threads-warps-blocks-grids §How it works; C-KIT-NOTES B4" }
+    ,
+    { id: "q34", type: "mcq", kp: "shared-memory-barrier",
+      prompt: "In CUDA, \"shared memory\" refers to which storage?",
+      choices: ["The L2 cache, shared by all SMs", "A block's slice of its SM's L1/shared array, visible only to that block", "Unified LPDDR shared by CPU and GPU", "The register file shared by the SM's warps"],
+      answer: 1,
+      explanation: "Despite the name, shared memory is shared only within one block: a programmer-managed scratchpad carved from the SM's L1/shared array. L2 is shared GPU-wide but is a hardware cache, not addressed deliberately.", source: "02-threads-warps-blocks-grids §How it works (point 1); A-PM §1.2.3.3" },
+    { id: "q35", type: "tf", kp: "shared-memory-barrier",
+      prompt: "Two blocks resident on the same SM can read each other's shared memory.",
+      answer: false,
+      explanation: "Each block gets its own private allocation of the array; even on the same SM the other block cannot address it. Cross-block data goes through global memory (L2/DRAM).", source: "02-threads-warps-blocks-grids §How it works (scope table)" },
+    { id: "q36", type: "mcq", kp: "shared-memory-barrier",
+      prompt: "Why is block-level shared memory worth using when L2 is visible to every thread anyway?",
+      choices: ["L2 cannot hold data written by a kernel", "The per-SM array is ~5x lower latency and the program controls what is in it", "Shared memory is larger than L2", "L2 is only reachable from the CPU"],
+      answer: 1,
+      explanation: "A round trip to L2 costs ~150 ns on both boards against ~25-30 ns for the per-SM array, and the block decides exactly what the scratchpad holds, whereas L2 keeps whatever was touched recently.", source: "02-threads-warps-blocks-grids §How it works; constants latency_l1, latency_l2" }
   ]
 });
