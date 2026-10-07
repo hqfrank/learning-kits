@@ -6,51 +6,70 @@ One row per bank: topic, section, knowledge-point count, question count, date ge
 
 | Topic | Section | KPs | Questions | Date |
 |---|---|---|---|---|
-| nvidia-gpu-anatomy | 00-the-big-picture | 7 | 15 | 2026-10-07 |
-| nvidia-gpu-anatomy | 01-sm-and-smsp | 9 | 24 | 2026-10-07 |
-| nvidia-gpu-anatomy | 02-threads-warps-blocks-grids | 8 | 23 | 2026-10-07 |
-| nvidia-gpu-anatomy | 03-occupancy-and-registers | 8 | 24 | 2026-10-07 |
-| nvidia-gpu-anatomy | 04-cuda-cores-vs-tensor-cores | 8 | 21 | 2026-10-07 |
-| nvidia-gpu-anatomy | 05-memory-hierarchy | 8 | 21 | 2026-10-07 |
-| nvidia-gpu-anatomy | 06-caches-and-working-sets | 8 | 22 | 2026-10-07 |
-| nvidia-gpu-anatomy | 07-sharing-the-gpu | 8 | 21 | 2026-10-07 |
-| nvidia-gpu-anatomy | 08-measuring-a-gpu | 8 | 21 | 2026-10-07 |
+| nvidia-gpu-anatomy | 00-the-big-picture | 7 | 23 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 01-sm-and-smsp | 9 | 36 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 02-threads-warps-blocks-grids | 8 | 34 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 03-occupancy-and-registers | 8 | 32 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 04-cuda-cores-vs-tensor-cores | 8 | 32 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 05-memory-hierarchy | 8 | 32 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 06-caches-and-working-sets | 8 | 32 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 07-sharing-the-gpu | 8 | 31 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 08-measuring-a-gpu | 8 | 32 | expanded 2026-10-07 |
 
-**Totals:** 9 banks, 72 knowledge points, 192 questions.
+**Totals:** 9 banks, 72 knowledge points, 284 authored questions (294 after board-template expansion).
 
 Notes: every question is sourced to its note section and, where numeric, to a value in
 `../nvidia-gpu-anatomy/constants.json` (via the note's citation). Distractors are drawn from each
-note's own "Common confusions". The recently expanded sections were covered with dedicated
-knowledge points: note 01 (warp instruction, issue-vs-latency, pipelining, CPU-vs-GPU latency
-hiding, register-file banks), note 02 (shared memory + barrier, scope/ordering table), note 03
-(what registers hold, registers vs L1/shared, spills), note 05 (registers are not a cache level),
-note 06 (streaming vs dependent pointer chase).
+note's own "Common confusions". **Expanded 2026-10-07:** every knowledge point now carries 4–5
+questions spanning distinct angles (definition / mechanism / contrast / scenario / numeric). All
+existing question ids and knowledge points were preserved. Single-board numerics were converted to
+board templates (`template.vars.board` + `values{orin,thor}` + `answerFrom`/`answerByBoard`) so the
+same point is asked on both boards from `constants.json`: max blocks per SM (16/24), register-file
+size (4/5 MB), CUDA FP16 multiple (1.87/1.01×), L2:DRAM ratio (12.4/14.6×), DRAM & L1 latency
+(675/510, 29.9/25.3 ns), eviction penalty (4.6/3.3×), lockout onset (8/14%), controller-contention
+peak (1.53/2.53×). Derived-number questions (the 1.51× clock × SM-count rule, the 63% and 60.7%
+datasheet fractions) now show their inputs in the prompt or ask which kernel class the rule applies
+to, rather than asking for a memorised product.
 
 ## jetson-orin-thor-metrics — Jetson Orin/Thor: a Measured Reference for Robotics Workloads
 
 | Topic | Section | KPs | Questions | Date |
 |---|---|---|---|---|
-| jetson-orin-thor-metrics | 00-platforms | 6 | 13 | 2026-10-07 |
-| jetson-orin-thor-metrics | A1-fp-int-pipe-interleaving | 7 | 15 | 2026-10-07 |
-| jetson-orin-thor-metrics | A2-cuda-core-ceilings | 6 | 15 | 2026-10-07 |
-| jetson-orin-thor-metrics | A3-tensor-core-ceilings | 7 | 15 | 2026-10-07 |
-| jetson-orin-thor-metrics | A4-nvfp4-ceiling | 7 | 15 | 2026-10-07 |
-| jetson-orin-thor-metrics | A5-l1-bandwidth-ceiling | 5 | 11 | 2026-10-07 |
-| jetson-orin-thor-metrics | A6-bandwidth-vs-footprint | 6 | 14 | 2026-10-07 |
-| jetson-orin-thor-metrics | A7-latency-landmarks | 6 | 14 | 2026-10-07 |
-| jetson-orin-thor-metrics | B1-copy-engine-dram-direction | 6 | 13 | 2026-10-07 |
-| jetson-orin-thor-metrics | B2-cache-level-interference | 6 | 13 | 2026-10-07 |
-| jetson-orin-thor-metrics | B3-matrix-profile-stall-decomposition | 6 | 13 | 2026-10-07 |
-| jetson-orin-thor-metrics | B4-gemm-victim-interference | 6 | 13 | 2026-10-07 |
-| jetson-orin-thor-metrics | B5-tensor-under-cpu-contention | 6 | 14 | 2026-10-07 |
-| jetson-orin-thor-metrics | B6-cotenancy-interference-matrix | 7 | 15 | 2026-10-07 |
-| jetson-orin-thor-metrics | B7-aggregate-throughput | 6 | 13 | 2026-10-07 |
-| jetson-orin-thor-metrics | B8-cotenancy-real-shape-mix-ladder | 7 | 15 | 2026-10-07 |
-| jetson-orin-thor-metrics | C1-pi05-solo-latency | 7 | 16 | 2026-10-07 |
-| jetson-orin-thor-metrics | C2-cotenancy-under-gpu-load | 5 | 10 | 2026-10-07 |
-| jetson-orin-thor-metrics | L4-scheduling-ladder | 8 | 16 | 2026-10-07 |
+| jetson-orin-thor-metrics | 00-platforms | 6 | 24 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | A1-fp-int-pipe-interleaving | 7 | 28 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | A2-cuda-core-ceilings | 6 | 25 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | A3-tensor-core-ceilings | 7 | 28 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | A4-nvfp4-ceiling | 7 | 28 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | A5-l1-bandwidth-ceiling | 5 | 21 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | A6-bandwidth-vs-footprint | 6 | 24 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | A7-latency-landmarks | 6 | 24 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | B1-copy-engine-dram-direction | 6 | 25 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | B2-cache-level-interference | 6 | 24 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | B3-matrix-profile-stall-decomposition | 6 | 25 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | B4-gemm-victim-interference | 6 | 24 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | B5-tensor-under-cpu-contention | 6 | 25 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | B6-cotenancy-interference-matrix | 7 | 28 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | B7-aggregate-throughput | 6 | 25 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | B8-cotenancy-real-shape-mix-ladder | 7 | 28 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | C1-pi05-solo-latency | 7 | 30 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | C2-cotenancy-under-gpu-load | 5 | 20 | expanded 2026-10-07 |
+| jetson-orin-thor-metrics | L4-scheduling-ladder | 8 | 32 | expanded 2026-10-07 |
 
-**Totals:** 19 banks, 120 knowledge points, 263 questions.
+**Totals:** 19 banks, 120 knowledge points, 488 authored questions (505 after board-template
+expansion). Every knowledge point now carries 4-5 questions from distinct angles (definition,
+mechanism, contrast, scenario, numeric).
+
+**Expanded 2026-10-07 (EXPAND MODE):** every existing question id and knowledge point was kept
+unchanged. Each KP was raised to 4-5 questions. Single-board numerics with both-board values in
+`constants.json` were converted to board templates (`{Board}`/`{name}`, one variant per board):
+00 L2 size; A3 classic FP16; A5 per-SM/aggregate L1; A6 L2:DRAM ratio, L2 and DRAM plateaus; A7
+L1/L2/DRAM latency (ns and cycles); B2 chase plateau; B4 lockout onset, controller peak; B5
+bandwidth cliff; B6 one-sided slowdown; B8 WBC solo p99. Derived-number questions were rewritten
+to show their inputs rather than ask for the memorised product: the 1.51x clock x SM-count scaling
+(00 q9 now gives 1.575x20 and 1.30x16), the tcgen05-vs-classic 3.0x (A3 q4 gives 192.5 and 64.4),
+and the L1 clock-ratio 1.2x (A5 q7 gives 1.575 and 1.30 GHz). Fraction-of-datasheet questions
+already carried their numerator and denominator in the prompt and were left as measured-value
+questions.
 
 Notes: every numeric question draws its value and tolerance from `../jetson-orin-thor-metrics/constants.json`
 via the note's citation (e.g. L2:DRAM ratio 12.4x/14.6x, lockout onset 8%/14%, 172 GB/s CPU floor,
