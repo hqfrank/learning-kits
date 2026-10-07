@@ -43,6 +43,7 @@ board; the full value and source live in `constants.json`.
 - **lane** — one of the 32 thread slots in a warp, numbered 0–31 (00-the-big-picture).
 - **LD/ST unit (LSU)** — the load/store pipeline that issues memory instructions. See **LSU** in `../jetson-orin-thor-metrics/glossary.md` (01-sm-and-smsp).
 - **lockout onset** — the co-tenant warp-slot occupancy above which the victim completes nothing; ≈8% Orin, ≈14% Thor. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
+- **lockstep** — the 32 threads of a warp executing one issued instruction together; ordering for free within a warp, suspended during divergence (02-threads-warps-blocks-grids).
 - **MAXN / locked clocks** — the maximum-clock regime with GPU frequency fixed. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
 - **memory controller** — the single path from the GPU (and, on an integrated SoC, the CPU) to DRAM (00-the-big-picture, 05-memory-hierarchy).
 - **MIG (Multi-Instance GPU)** — spatial partitioning of a GPU into isolated instances with dedicated compute, cache and memory. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
@@ -66,6 +67,7 @@ board; the full value and source live in `constants.json`.
 - **SFU (special-function unit)** — the sub-partition pipeline for transcendentals (sin, exp, reciprocal) (01-sm-and-smsp).
 - **shared context** — all tenants in one CUDA context, each on its own stream; streams do not isolate them. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
 - **shared memory (per block)** — the block's private allocation of its SM's L1/shared array, the fast channel between a block's threads (02-threads-warps-blocks-grids).
+- **shuffle (`__shfl_*_sync`)** — one warp instruction that routes a register value between lanes for all 32 lanes at once; register-to-register communication without shared memory (02-threads-warps-blocks-grids).
 - **SIMT** — Single-Instruction Multiple-Threads: a warp runs one instruction across 32 threads that may still branch independently (00-the-big-picture, 02-threads-warps-blocks-grids).
 - **SM (streaming multiprocessor)** — the GPU's compute unit; holds blocks and runs their warps. Reused from `../jetson-orin-thor-metrics/glossary.md` (00-the-big-picture, 01-sm-and-smsp).
 - **SM co-scheduling** — the block scheduler placing two kernels' blocks on the same SMs. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).

@@ -26,6 +26,10 @@ A grid may hold millions of blocks while the GPU has only tens of SMs, so blocks
 
 Note the default: there is **no** ordering between warps otherwise, even inside one block. The scheduler issues from whichever warp is ready, so warp 3 may run far ahead of warp 0; the barrier is the only thing that imposes order, and it exists only at block scope. Two blocks on the *same* SM do not share shared memory and cannot barrier either; they are strangers sharing hardware.
 
+**The warp row, unpacked.** *Lockstep by construction* means the 32 threads of a warp execute the same instruction at the same time because only one instruction is issued per warp — one program counter for 32 lanes. No barrier enforces it; the hardware cannot do otherwise. So within a warp a thread never needs to wait for a sibling to reach the same point. The exception is **warp divergence**: when threads branch differently the warp runs each path in turn with the other lanes masked, and lockstep is suspended until the paths reconverge; since Volta the warp-level intrinsics take an explicit lane mask (`0xffffffff`) and `__syncwarp()` re-establishes convergence (A-PM §1.2.2.2, §3.2.2.1). Two warps in a block have two program counters and are ordered only by `__syncthreads()`.
+
+*Shuffle instructions* are the register-to-register channel this lockstep enables. Registers are private per thread, but in one warp instruction (`SHFL`; CUDA `__shfl_sync`, `__shfl_up/down_sync`, `__shfl_xor_sync`) every lane hands one register's value to another lane and receives one back — 32 values routed across the warp at once, through the register datapath, without shared memory or a barrier. A 32-value warp sum is five `__shfl_down_sync` steps (offsets 16, 8, 4, 2, 1); the same reduction across a block needs a shared-memory array and `__syncthreads()` between steps. Shuffles are the workhorse of reductions, prefix sums and the fragment rearrangement around tensor-core `mma` ([[04-cuda-cores-vs-tensor-cores]]) (A-PM warp shuffle functions; **my explanation** of the examples).
+
 | Scope | Communicates through | Ordering guarantee |
 |---|---|---|
 | threads of one warp | registers via shuffle instructions, shared memory | lockstep by construction (one instruction) |
@@ -68,3 +72,5 @@ Block and grid shape decide how a kernel shares an SM with others. A control-loo
 - **shared memory (per block)** — the block's private, programmer-managed allocation of its SM's L1/shared array; visible to all the block's threads and no one else (A-PM §1.2.3.3).
 - **barrier / `__syncthreads()`** — a block-wide synchronisation point; no thread proceeds until every thread of the block has arrived. The only ordering guarantee between warps (A-PM §1.2.2.3).
 - **coalescing** — the LD/ST unit merging a warp's 32 addresses into as few 128 B line requests as possible; a scalar load across consecutive addresses is one request per warp (A-PM §1.2.3.3.1).
+- **lockstep** — the 32 threads of a warp executing one issued instruction together; the warp's built-in ordering, suspended only during divergence (A-PM §1.2.2.2).
+- **shuffle (`__shfl_*_sync`)** — a warp instruction that moves a register value from one lane to another for all 32 lanes at once; the register-to-register channel within a warp (A-PM warp shuffle functions).
