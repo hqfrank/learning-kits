@@ -1,0 +1,128 @@
+<mxfile host="app.diagrams.net"><diagram id="p03" name="03-memory-hierarchy"><mxGraphModel dx="800" dy="600" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="680" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <mxCell id="title" value="Thor grew L2 8x (4 -&gt; 32 MB) but L2 latency did NOT change (146 -&gt; 156 ns): more data stays resident, not reached faster" style="text;html=0;align=center;verticalAlign=middle;fontSize=13;fontStyle=1;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="20" y="10" width="860" height="40" as="geometry" />
+    </mxCell>
+
+    <mxCell id="colhdr_scope" value="level  (fastest/smallest at top)" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="60" y="56" width="300" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="colhdr_orin" value="Orin (Ampere)" style="text;html=0;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="372" y="56" width="150" height="22" as="geometry" />
+    </mxCell>
+    <mxCell id="colhdr_thor" value="Thor (Blackwell)" style="text;html=0;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="532" y="56" width="150" height="22" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l_reg" value="Registers
+per thread (in SM register file)" style="rounded=1;whiteSpace=wrap;html=0;fontSize=11;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="60" y="84" width="300" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="reg_o" value="64K regs / SM
+fastest" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="372" y="84" width="150" height="44" as="geometry" />
+    </mxCell>
+    <mxCell id="reg_t" value="64K regs / SM
+fastest" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="532" y="84" width="150" height="44" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l_l1" value="L1 cache / shared memory
+per SM (private)" style="rounded=1;whiteSpace=wrap;html=0;fontSize=11;fontStyle=1;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="60" y="136" width="300" height="52" as="geometry" />
+    </mxCell>
+    <mxCell id="l1_o" value="164 KB
+datapath 128 B/cyc
+latency 29.9 ns" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="372" y="136" width="150" height="52" as="geometry" />
+    </mxCell>
+    <mxCell id="l1_t" value="228 KB
+datapath 128 B/cyc
+latency 25.3 ns" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="532" y="136" width="150" height="52" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l_l2" value="L2 cache
+shared by ALL SMs (device-wide)" style="rounded=1;whiteSpace=wrap;html=0;fontSize=11;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="60" y="196" width="300" height="56" as="geometry" />
+    </mxCell>
+    <mxCell id="l2_o" value="4 MB
+resident read 2200 GB/s
+latency 146 ns" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="372" y="196" width="150" height="56" as="geometry" />
+    </mxCell>
+    <mxCell id="l2_t" value="32 MB  (8x)
+resident read 3790 GB/s
+latency 156 ns  (unchanged!)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="532" y="196" width="150" height="56" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l_mc" value="Memory controller
+ONE path to DRAM, shared by GPU + CPU" style="rounded=1;whiteSpace=wrap;html=0;fontSize=11;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+      <mxGeometry x="60" y="260" width="300" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="mc_o" value="single controller" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="372" y="260" width="150" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="mc_t" value="single controller" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="532" y="260" width="150" height="40" as="geometry" />
+    </mxCell>
+
+    <mxCell id="l_dram" value="LPDDR DRAM (global memory)
+slowest/largest; physically shared with CPU (integrated SoC)" style="rounded=1;whiteSpace=wrap;html=0;fontSize=11;fontStyle=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="60" y="308" width="300" height="52" as="geometry" />
+    </mxCell>
+    <mxCell id="dram_o" value="LPDDR5
+read 177 GB/s (meas.)
+latency 675 ns" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="372" y="308" width="150" height="52" as="geometry" />
+    </mxCell>
+    <mxCell id="dram_t" value="LPDDR5X
+read 259 GB/s (meas.)
+latency 510 ns" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="532" y="308" width="150" height="52" as="geometry" />
+    </mxCell>
+
+    <mxCell id="e1" value="miss" style="endArrow=classic;html=0;fontSize=9;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#333333;" edge="1" parent="1" source="l_reg" target="l_l1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e2" value="miss" style="endArrow=classic;html=0;fontSize=9;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#333333;" edge="1" parent="1" source="l_l1" target="l_l2">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e3" value="miss" style="endArrow=classic;html=0;fontSize=9;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#333333;" edge="1" parent="1" source="l_l2" target="l_mc">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="e4" value="" style="endArrow=classic;html=0;exitX=0.5;exitY=1;entryX=0.5;entryY=0;strokeColor=#333333;" edge="1" parent="1" source="l_mc" target="l_dram">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="cpu" value="CPU cores
+(14x on Thor)" style="rounded=1;whiteSpace=wrap;html=0;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="730" y="246" width="130" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="copy" value="Copy engines
+(H2D/D2H/D2D)" style="rounded=1;whiteSpace=wrap;html=0;fontSize=10;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="730" y="292" width="130" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="cpu_e" value="also feed the controller" style="endArrow=classic;html=0;fontSize=9;exitX=0;exitY=0.5;entryX=1;entryY=0.3;strokeColor=#b85450;" edge="1" parent="1" source="cpu" target="l_mc">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="copy_e" value="" style="endArrow=classic;html=0;exitX=0;exitY=0.5;entryX=1;entryY=0.7;strokeColor=#b85450;" edge="1" parent="1" source="copy" target="l_mc">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <mxCell id="finding" value="Two facts the kit stresses:  (1) L2-resident streaming is 12.4x (Orin) / 14.6x (Thor) faster than DRAM.  (2) L2 latency barely moved generation-to-generation (146 -&gt; 156 ns) while L2 capacity grew 8x.  Bigger L2 = more data stays resident, not resident data reached faster." style="text;html=0;align=left;verticalAlign=middle;fontSize=11;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="60" y="372" width="800" height="54" as="geometry" />
+    </mxCell>
+
+    <mxCell id="legend" value="Legend:  blue = Orin measured   green = Thor measured   latency = dependent-load landmark   &quot;resident read&quot; = bandwidth when the working set fits that level.  Latency rises + bandwidth falls going down; capacity rises." style="text;html=0;align=left;verticalAlign=top;fontSize=10;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+      <mxGeometry x="60" y="434" width="800" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="src" value="Sources (constants.json): registers_per_sm 64K [Platforms Table 1]; l1_shared_per_sm 164/228 KB, l1_read_datapath 128 B/cyc [Platforms Table 1]; l2_size 4/32 MB, l2_dram_capacity_ratio 8x [Platforms Table 1]; l2_resident_read_bandwidth 2200/3790 GB/s [A.6]; dram_bandwidth_read_measured 177/259 GB/s [A.6]; l2_dram_bandwidth_ratio 12.4/14.6x [A.6]; latency_l1 29.9/25.3 ns, latency_l2 146/156 ns, latency_dram 675/510 ns [A.7].  Hierarchy + unified memory: CUDA Prog. Guide 1.2.3 (A-PM)." style="text;html=0;align=left;verticalAlign=top;fontSize=9;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="60" y="480" width="800" height="68" as="geometry" />
+    </mxCell>
+  </root>
+</mxGraphModel></diagram></mxfile>

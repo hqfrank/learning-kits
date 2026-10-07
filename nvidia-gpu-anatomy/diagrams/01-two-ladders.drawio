@@ -1,0 +1,87 @@
+<mxfile host="app.diagrams.net"><diagram id="p01" name="01-two-ladders">
+    <mxGraphModel dx="800" dy="600" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="640" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="title" value="Two ladders, one chip: the software ladder you write maps onto the hardware ladder that runs it" style="text;html=0;align=center;verticalAlign=middle;fontSize=14;fontStyle=1;whiteSpace=wrap;" vertex="1" parent="1">
+          <mxGeometry x="20" y="12" width="860" height="26" as="geometry" />
+        </mxCell>
+
+        <mxCell id="swhdr" value="SOFTWARE  (what you write)" style="text;html=0;align=center;verticalAlign=middle;fontSize=12;fontStyle=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="70" y="52" width="260" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="hwhdr" value="HARDWARE  (what runs it)" style="text;html=0;align=center;verticalAlign=middle;fontSize=12;fontStyle=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="560" y="52" width="260" height="26" as="geometry" />
+        </mxCell>
+
+        <mxCell id="sw_thread" value="thread
+one instance of the kernel" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="92" width="260" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="sw_warp" value="warp = 32 threads
+the scheduling unit (lanes 0-31)" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="162" width="260" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="sw_block" value="block
+threads that share memory + sync" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="232" width="260" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="sw_grid" value="grid
+all blocks of one launch" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="70" y="302" width="260" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="sw_kernel" value="kernel
+the function launched on the grid" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="70" y="372" width="260" height="48" as="geometry" />
+        </mxCell>
+
+        <mxCell id="hw_lane" value="lane
+one of 32 slots in a warp" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="560" y="92" width="260" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_smsp" value="SMSP (sub-partition)
+1 warp scheduler + 1 dispatch port
+4 per SM" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="560" y="162" width="260" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_sm" value="SM (streaming multiprocessor)
+holds blocks, runs their warps
+Orin 16 SMs  |  Thor 20 SMs" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="560" y="232" width="260" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="hw_gpu" value="GPU
+all SMs behind one shared L2
++ one memory controller" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;" vertex="1" parent="1">
+          <mxGeometry x="560" y="302" width="260" height="48" as="geometry" />
+        </mxCell>
+
+        <mxCell id="map1" value="runs in" style="endArrow=classic;html=0;fontSize=10;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#666666;" edge="1" parent="1" source="sw_thread" target="hw_lane">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="map2" value="a warp runs on ONE SMSP" style="endArrow=classic;html=0;fontSize=10;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#b85450;" edge="1" parent="1" source="sw_warp" target="hw_smsp">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="map3" value="a block resides on ONE SM" style="endArrow=classic;html=0;fontSize=10;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#b85450;" edge="1" parent="1" source="sw_block" target="hw_sm">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="map4" value="a grid spreads over ALL SMs" style="endArrow=classic;html=0;fontSize=10;fontStyle=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;strokeColor=#b85450;" edge="1" parent="1" source="sw_grid" target="hw_gpu">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend" value="Legend
+blue = software term you write     green = hardware unit that runs it
+red arrow = the key mapping     dashed = kernel (no single HW unit; it starts a grid)
+block-to-SM order is NOT guaranteed (A-PM 1.2.2.1)" style="text;html=0;align=left;verticalAlign=top;fontSize=10;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+          <mxGeometry x="70" y="446" width="420" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="src" value="Sources (all counts from constants.json)
+warp = 32 threads, lane 0-31; block on one SM; grid any order: CUDA Prog. Guide 1.2.2 (A-PM)
+SMSP per SM = 4: smsp_per_sm [Platforms Table 1]
+SM count 16 / 20: sm_count [Platforms Table 1]
+clock 1.30 / 1.575 GHz -&gt; issue-bound speedup 1.51x: gpu_clock_maxn_locked [Platforms Table 1]" style="text;html=0;align=left;verticalAlign=top;fontSize=10;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="510" y="446" width="310" height="86" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram></mxfile>

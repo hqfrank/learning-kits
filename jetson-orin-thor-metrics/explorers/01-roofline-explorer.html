@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Roofline explorer — on these boards, memory decides, not TOPS</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#181b22; --ink:#f2f4f8; --muted:#aeb6c2;
+    --line:#2a2f3a; --accent:#5db0ff; --pred:#5db0ff; --meas:#ffcf4d;
+    --roof-compute:#ff6b6b; --roof-mem:#7ee787; --ok:#7ee787; --warn:#ffcf4d;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f6f7f9;--panel:#fff;--ink:#15181d;--muted:#4a5160;--line:#d6dae1;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  header{padding:20px 24px 8px;max-width:1200px;margin:0 auto;}
+  h1{font-size:21px;margin:0 0 6px;line-height:1.25}
+  .sub{color:var(--muted);max-width:70ch;margin:0}
+  main{display:grid;grid-template-columns:360px 1fr;gap:18px;
+    max-width:1200px;margin:0 auto;padding:16px 24px 40px;}
+  @media (max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 4px}
+  .val{color:var(--ink);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select,button{font:inherit;background:var(--panel);color:var(--ink);
+    border:1px solid var(--line);border-radius:7px;padding:6px 10px}
+  button{cursor:pointer}
+  button:hover,button:focus-visible{border-color:var(--accent);outline:2px solid transparent}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .cases button{font-size:12px;padding:5px 8px}
+  .headline{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:10px}
+  .big{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .tag{font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+    padding:2px 6px;border-radius:4px;background:#2a2f3a;color:var(--muted)}
+  .tag.pred{background:#143050;color:var(--pred)}
+  .tag.meas{background:#4a3c10;color:var(--meas)}
+  .metric small{display:block;color:var(--muted);font-size:12px}
+  svg{width:100%;height:auto;display:block;background:var(--panel);border-radius:8px}
+  .why{margin-top:12px;padding:12px;border-left:3px solid var(--accent);
+    background:rgba(93,176,255,.07);border-radius:0 8px 8px 0}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td.src{color:var(--muted)}
+  footer{max-width:1200px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:12.5px}
+  code{background:#2a2f3a40;padding:1px 5px;border-radius:4px}
+  .legend{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;margin-top:6px}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+  details{margin-top:10px}
+  summary{cursor:pointer;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Roofline explorer: on Orin and Thor, where a kernel lands on the roofline is a memory question, not a TOPS question</h1>
+  <p class="sub">A kernel's <strong>arithmetic intensity</strong> (FLOPs moved per byte moved) decides which ceiling binds it:
+  the sloped memory roof on the left, the flat compute roof on the right. Change the bytes, FLOPs and working-set footprint below and
+  watch which roof binds, which cache level the footprint falls into, and the predicted latency. The π0.5 cases show the
+  <span style="color:var(--meas)">measured</span> latency beside the <span style="color:var(--pred)">predicted</span> one — the gap is the lesson.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="controls">
+    <label for="board">Board</label>
+    <select id="board" aria-label="Board">
+      <option value="thor">Thor T5000 (Blackwell, sm_110)</option>
+      <option value="orin">AGX Orin (Ampere, sm_87)</option>
+    </select>
+
+    <label for="prec">Precision roof</label>
+    <select id="prec" aria-label="Precision roof">
+      <option value="tensor_tcgen05_fp16">Tensor tcgen05 FP16 (Thor)</option>
+      <option value="tensor_classic_fp16">Tensor classic mma FP16</option>
+      <option value="tensor_classic_int8">Tensor classic mma INT8</option>
+      <option value="nvfp4_dense_ceiling">Tensor NVFP4 dense (Thor)</option>
+      <option value="cuda_fp32_ceiling">CUDA-core FP32</option>
+    </select>
+
+    <label for="bytes">Bytes per inference: <span class="val" id="bytesV"></span></label>
+    <input type="range" id="bytes" min="0" max="1" step="0.001" aria-describedby="bytesV">
+
+    <label for="flops">FLOPs per inference: <span class="val" id="flopsV"></span></label>
+    <input type="range" id="flops" min="0" max="1" step="0.001" aria-describedby="flopsV">
+
+    <label for="foot">Working-set footprint: <span class="val" id="footV"></span></label>
+    <input type="range" id="foot" min="0" max="1" step="0.001" aria-describedby="footV">
+
+    <div class="cases" role="group" aria-label="Preloaded cases">
+      <button data-case="pi05_16">π0.5 16-bit</button>
+      <button data-case="pi05_8">π0.5 8-bit</button>
+      <button data-case="pi05_action">π0.5 action expert alone</button>
+      <button data-case="wbc">WBC MLP</button>
+      <button data-case="gemm">1024² FP32 GEMM</button>
+    </div>
+    <details>
+      <summary>What the sliders mean</summary>
+      <p style="font-size:12.5px;color:var(--muted)">Bytes and FLOPs are per inference; their ratio is arithmetic intensity
+      (x-axis). Footprint is the bytes the kernel keeps resident per pass; it decides which cache level serves the traffic, and
+      the explorer streams the bytes at that level's measured bandwidth. The sloped roof uses the bandwidth of the level the
+      footprint lands in (L1 aggregate / L2-resident / DRAM).</p>
+    </details>
+  </section>
+
+  <section>
+    <div class="panel">
+      <div class="headline">
+        <div class="metric"><div class="big" id="outAI">—</div><small>arithmetic intensity (FLOP/byte) · <span class="tag">derived</span></small></div>
+        <div class="metric"><div class="big" id="outRoof">—</div><small id="outRoofWhat">binding roof</small></div>
+        <div class="metric"><div class="big" id="outLat">—</div><small>predicted latency <span class="tag pred">predicted</span></small></div>
+        <div class="metric"><div class="big" id="outMeas">—</div><small id="outMeasWhat">measured <span class="tag meas">measured</span></small></div>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--roof-compute)"></span>compute roof</span>
+        <span><span class="swatch" style="background:var(--roof-mem)"></span>memory roof (level the footprint lands in)</span>
+        <span><span class="swatch" style="background:var(--pred)"></span>predicted point</span>
+        <span><span class="swatch" style="background:var(--meas)"></span>measured point</span>
+      </div>
+      <svg id="chart" viewBox="0 0 640 420" role="img"
+        aria-label="Log-log roofline. The horizontal axis is arithmetic intensity in FLOP per byte; the vertical axis is attained rate in TFLOP per second. A sloped memory roof meets a flat compute roof at the ridge. The current workload is a predicted point; preloaded real cases add a measured point.">
+      </svg>
+      <p id="aria-live" aria-live="polite" style="position:absolute;left:-9999px"></p>
+      <div class="why" id="why"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2 style="font-size:15px;margin:0 0 4px">Sources for every number on this page</h2>
+      <table id="srcTable"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Generated 2026-10-02 as rung 3 (learn-explorer) of the <em>jetson-orin-thor-metrics</em> learning kit.
+  Source material: <code>book.pdf</code> — "Jetson Orin (sm_87) and Thor (sm_110): a Measured Reference for Robotics Workloads"
+  (Docs A–C), plus the L4 <code>KEY-LEARNINGS.md</code>. Every parameter is loaded from <code>params.json</code> (copied from
+  <code>constants.json</code>), not retyped. This is a study aid; numbers are the sources' own measured or predicted values as
+  labelled, and the roofline model here is a teaching simplification of §A.2/A.3/A.6 and §C.1.</p>
+</footer>
+
+<script type="application/json" id="params">
+{
+  "_about": "Parameters for the two explorers in this folder. Every entry is copied verbatim (value + unit + source) from ../constants.json, which traces each number to book.pdf (section + table) or the L4 KEY-LEARNINGS.md. Nothing here is retyped from prose; load this file. Where an explorer needs a value constants.json does not carry as a scalar (e.g. a compute roof for a precision the book reports per datapath), the source string names the note/table it was lifted from and labels any derivation 'estimate'. Rung 3 (learn-explorer).",
+
+  "sm_count": {
+    "orin": {"value": 16, "unit": "SM", "source": "Platforms Table 1 (n_SM)"},
+    "thor": {"value": 20, "unit": "SM", "source": "Platforms Table 1 (n_SM)"}
+  },
+  "gpu_clock_maxn_locked": {
+    "orin": {"value": 1.30, "unit": "GHz", "source": "Platforms Table 1 (f)"},
+    "thor": {"value": 1.575, "unit": "GHz", "source": "Platforms Table 1 (f)"}
+  },
+  "l1_read_datapath": {"value": 128, "unit": "B/cycle/SM", "source": "Platforms Table 1 (L1 read datapath)"},
+  "l2_size": {
+    "orin": {"value": 4, "unit": "MB", "source": "Platforms Table 1 (L2 cache)"},
+    "thor": {"value": 32, "unit": "MB", "source": "Platforms Table 1 (L2 cache)"}
+  },
+
+  "l1_read_aggregate": {
+    "orin": {"value": 2067, "unit": "GB/s", "source": "A.6/A.5 Table A.5.1 (predicted vs measured L1 BW)"},
+    "thor": {"value": 3038, "unit": "GB/s", "source": "A.5 Table A.5.1 (predicted vs measured L1 BW)"}
+  },
+  "l2_resident_read_bandwidth": {
+    "orin": {"value": 2200, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 83% of datapath estimate"},
+    "thor": {"value": 3790, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 94% of datapath estimate"}
+  },
+  "dram_bandwidth_read_measured": {
+    "orin": {"value": 177, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 86% of spec"},
+    "thor": {"value": 259, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 95% of spec"}
+  },
+
+  "cuda_fp32_ceiling": {
+    "orin": {"value": 5.15, "unit": "TFLOP/s", "source": "A.2 Table A.2.2 (CUDA-core ceilings)"},
+    "thor": {"value": 7.82, "unit": "TFLOP/s", "source": "A.2 Table A.2.2 (CUDA-core ceilings)"}
+  },
+  "tensor_classic_fp16": {
+    "orin": {"value": 42.5, "unit": "TFLOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 42.6"},
+    "thor": {"value": 64.4, "unit": "TFLOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 64.5"}
+  },
+  "tensor_classic_int8": {
+    "orin": {"value": 83.4, "unit": "TOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 85.2"},
+    "thor": {"value": 128.8, "unit": "TOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 129.0"}
+  },
+  "tensor_tcgen05_fp16": {
+    "thor": {"value": 192.5, "unit": "TFLOP/s", "source": "A.3 Table A.3.3 (tcgen05 vs datasheet); 75% of ~258 estimate"}
+  },
+  "nvfp4_dense_ceiling": {
+    "thor": {"value": 627.8, "unit": "TFLOP/s", "source": "A.4 Table A.4.2 (NVFP4 dense/sparse); 60.7% of 1035 dense-equiv datasheet"}
+  },
+
+  "pi05_sustained_bandwidth": {"value": 197.3, "unit": "GB/s", "source": "C.1 Table C.1.2 / ref [C]; emc-ground-truth, pi0.5 arm0prime (Thor)"},
+
+  "pi05_latency_predicted": {
+    "thor_16bit": {"value": 64.1, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 15.6 Hz"},
+    "thor_8bit": {"value": 37.4, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 26.7 Hz"},
+    "orin_16bit": {"value": 162.7, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 6.1 Hz, not yet measured"},
+    "orin_8bit": {"value": 87.0, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 11.5 Hz, not yet measured"}
+  },
+  "pi05_latency_measured": {
+    "thor_bf16": {"value": 90.06, "unit": "ms", "source": "C.1 Table C.1.6 (measured); Wbf16Abf16, 1.40x optimism vs predicted"},
+    "thor_fp8": {"value": 53.03, "unit": "ms", "source": "C.1 Table C.1.6 (measured); Wfp8Afp8@fp16, 1.42x optimism"}
+  },
+  "pi05_dram_bytes_measured": {
+    "thor_bf16": {"value": 19.44, "unit": "GB/inference", "source": "C.1 Table C.1.6 (measured)"},
+    "thor_fp8": {"value": 11.58, "unit": "GB/inference", "source": "C.1 Table C.1.6 (measured)"}
+  },
+  "pi05_flops_per_inference": {"value": 4344, "unit": "GFLOP/inference", "source": "L4 KEY-LEARNINGS VLA-solo; pi0.5 4344 GFLOP at AI 176 (Thor)"},
+  "pi05_action_expert_params": {"value": 0.30, "unit": "billion params", "source": "C.1 'How' (Gemma-300M action expert, 0.30 B); re-read at n_steps=10"},
+  "pi05_action_denoising_steps": {"value": 10, "unit": "steps", "source": "C.1 'How' (n_steps = 10 denoising iterations)"},
+  "pi05_prefill_rate_thor": {"value": 94, "unit": "TFLOP/s", "source": "C.1 Table C.1.2 (R_gate/up,R_down,R_qkvo ~94 TFLOP/s Thor at M=712)"},
+  "pi05_prefill_rate_orin": {"value": 24, "unit": "TFLOP/s", "source": "C.1 Table C.1.2 (~24 TFLOP/s Orin at M=712)"},
+
+  "wbc_mlp_shape": {"value": "80-512-256-128-23", "unit": "INT8 MLP", "source": "B.8 (WBC victim: batch-1 INT8 MLP 80->512->256->128->23)"},
+  "wbc_solo_p99": {
+    "orin": {"value": 0.0596, "unit": "ms", "source": "B.8 Table B.8.1 (WBC p99); 59.6 us solo"},
+    "thor": {"value": 0.0416, "unit": "ms", "source": "B.8 Table B.8.1 (WBC p99); 41.6 us solo"}
+  },
+
+  "lockout_onset_occupancy": {
+    "orin": {"value": 8, "unit": "% warp slots", "source": "B.4 Table B.4.1 (two mechanisms); lockout onset"},
+    "thor": {"value": 14, "unit": "% warp slots", "source": "B.4 Table B.4.1 (two mechanisms); lockout onset"}
+  },
+  "controller_contention_peak": {
+    "orin": {"value": 1.53, "unit": "x slowdown", "source": "B.4 Table B.4.1; peaks at 8 MB (just past 4 MB L2)"},
+    "thor": {"value": 2.53, "unit": "x slowdown", "source": "B.4 Table B.4.1; 2.25-2.53x, onsets at 32 MB L2"}
+  },
+  "dram_bandwidth_sustained_M": {
+    "orin": {"value": 190, "unit": "GB/s", "source": "B.6 Table B.6.1 (co-tenancy parameters), cited to [M]"},
+    "thor": {"value": 245, "unit": "GB/s", "source": "B.6 Table B.6.1 (co-tenancy parameters), cited to [M]"}
+  },
+  "cpu_hog_bandwidth_cliff_half_ceiling": {
+    "orin": {"value": 50, "unit": "GB/s", "source": "B.5 section B.5.5 (bandwidth setpoint, Fig B.5.2); ~half CPU unthrottled ceiling"},
+    "thor": {"value": 120, "unit": "GB/s", "source": "B.5 section B.5.5 (bandwidth setpoint, Fig B.5.2); ~half CPU unthrottled ceiling"}
+  },
+  "l2_eviction_plateau_pointerchase_predicted": {
+    "orin": {"value": 4.6, "unit": "x slowdown", "source": "B.2 Table B.2.1 (plateau predictions); L2:DRAM latency ratio"},
+    "thor": {"value": 3.3, "unit": "x slowdown", "source": "B.2 Table B.2.1 (plateau predictions); L2:DRAM latency ratio"}
+  },
+
+  "cotenancy_matrix_thor_measured": {
+    "IC_IC": {"value": 1.97, "unit": "x", "source": "B.6 Table B.6.3 (predicted vs measured cells); SM fair-share, pred 2.0"},
+    "IM_IM": {"value": 1.96, "unit": "x", "source": "B.6 Table B.6.3; DRAM share, pred 2.08"},
+    "IC_IM": {"value": 1.12, "unit": "x", "source": "B.6 Table B.6.3; memory victim/compute aggressor low"},
+    "IM_IC": {"value": 4.19, "unit": "x", "source": "B.6 Table B.6.3; compute aggressor poisons memory victim, pred ~1.08"},
+    "RC_RM": {"value": 1.50, "unit": "x", "source": "B.6 Table B.6.3; real compute aggressor on real memory victim"},
+    "RM_RC": {"value": 2.3, "unit": "x (hat)", "source": "B.6 Table B.6.3; floor-corrected"}
+  },
+  "cotenancy_matrix_orin_measured": {
+    "IC_IC": {"value": 1.99, "unit": "x", "source": "B.6 Table B.6.3; SM fair-share, pred 2.0"},
+    "IM_IM": {"value": 1.92, "unit": "x", "source": "B.6 Table B.6.3; DRAM share, pred 1.7"},
+    "IC_IM": {"value": 1.01, "unit": "x", "source": "B.6 Table B.6.3"},
+    "IM_IC": {"value": 2.66, "unit": "x", "source": "B.6 Table B.6.3; compute aggressor poisons memory victim, pred ~1.0"},
+    "RC_RM": {"value": 1.30, "unit": "x", "source": "B.6 Table B.6.3"},
+    "RM_RC": {"value": 3.6, "unit": "x (hat)", "source": "B.6 Table B.6.3; floor-corrected"}
+  },
+
+  "wbc_p99_single_aggressor_thor": {
+    "int8_compute_idle": {"value": 1.70, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU idle"},
+    "int8_compute_hog": {"value": 3.37, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU hog"},
+    "fp32_mem_idle": {"value": 0.64, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU idle"},
+    "fp32_mem_hog": {"value": 4.71, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU hog"},
+    "vlm_prefill_idle": {"value": 0.52, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU idle (overlap gate lower bound)"},
+    "vlm_prefill_hog": {"value": 4.52, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU hog"},
+    "vlm_decode_idle": {"value": 0.12, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU idle (lower bound)"},
+    "vlm_decode_hog": {"value": 0.74, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU hog (lower bound)"},
+    "vla_backbone_idle": {"value": 0.20, "unit": "ms", "source": "B.8 Table B.8.1; VLA NVFP4 tensor, CPU idle (lower bound)"},
+    "vla_backbone_hog": {"value": 0.72, "unit": "ms", "source": "B.8 Table B.8.1; VLA NVFP4 tensor, CPU hog (lower bound)"}
+  },
+  "wbc_p99_single_aggressor_orin": {
+    "int8_compute_idle": {"value": 1.44, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU idle"},
+    "int8_compute_hog": {"value": 2.23, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU hog"},
+    "fp32_mem_idle": {"value": 0.84, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU idle"},
+    "fp32_mem_hog": {"value": 1.17, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU hog"},
+    "vlm_prefill_idle": {"value": 0.51, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU idle"},
+    "vlm_prefill_hog": {"value": 1.29, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU hog"},
+    "vlm_decode_idle": {"value": 0.36, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU idle (lower bound)"},
+    "vlm_decode_hog": {"value": 0.50, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU hog (lower bound)"}
+  },
+  "wbc_worst_mix_p99": {
+    "thor": {"value": 5.9, "unit": "ms", "source": "B.8 Fig B.8.1 (mix ladder); 141x solo, 3 tenants + CPU hog, under 10 ms deadline"}
+  },
+  "wbc_deadline": {"value": 10, "unit": "ms", "source": "B.8 section B.8.1 (100 Hz control budget)"},
+
+  "shared_context_wbc_penalty": {"value": 64, "unit": "x p99", "source": "L4 KEY-LEARNINGS rung-1a; pi0.5 shared context 1.74 -> 110.7 ms, 51% dropped"},
+  "shared_context_wbc_p99": {"value": 110.7, "unit": "ms", "source": "L4 KEY-LEARNINGS rung-1a; pi0.5 shared context, 51% ticks dropped"},
+  "separate_context_wbc_p99": {
+    "pi05": {"value": 17, "unit": "ms", "source": "L4 KEY-LEARNINGS matched-topology; 4.9% dropped, still over 10 ms"},
+    "groot": {"value": 14.3, "unit": "ms", "source": "L4 KEY-LEARNINGS GR00T separate context; 8.3x p99, 98% throughput held"}
+  },
+  "plain_mps_wbc_p99": {"value": 61, "unit": "ms", "source": "L4 KEY-LEARNINGS rung-3a; pi0.5 plain MPS, drop 51->25%, still over budget"},
+  "mps_cap_wbc_p99": {
+    "pi05_cap25": {"value": 7.5, "unit": "ms", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"},
+    "pi05_cap35": {"value": 9.1, "unit": "ms", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"},
+    "groot_cap35": {"value": 8.9, "unit": "ms", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"}
+  },
+  "mps_cap_vla_rate_retained": {
+    "pi05_cap35": {"value": 0.90, "unit": "fraction", "source": "L4 KEY-LEARNINGS MPS 3b; pi0.5 5 -> 4.5 Hz"},
+    "pi05_cap25": {"value": 0.72, "unit": "fraction", "source": "L4 KEY-LEARNINGS MPS 3b; pi0.5 5 -> 3.6 Hz"},
+    "groot_cap35": {"value": 0.87, "unit": "fraction", "source": "L4 KEY-LEARNINGS MPS 3b; GR00T 10 -> 8.7 Hz"}
+  },
+  "cpu_memory_load_floor": {"value": 172, "unit": "GB/s", "source": "L4 KEY-LEARNINGS; WBC collapses regardless of precision or MPS cap; ~70% of 245 GB/s roof"},
+  "sm_fair_share": {"value": 2, "unit": "x (S=N)", "source": "B.6 Table B.6.2; SM fair-share null model, two grid-filling tenants"}
+}
+
+</script>
+
+<script>
+//==================== pure prediction functions (also run under node) ====================
+// Factored so 01-roofline-explorer can be require()'d for the NaN sweep + self-tests.
+(function(global){
+  // bytes in a megabyte / gigabyte
+  const MB = 1024*1024, GB = 1024*1024*1024;
+
+  // Eq (teaching form of §A.6 / §C.1): arithmetic intensity = FLOP per byte.
+  function arithmetic_intensity(flops, bytes){ return flops / bytes; }
+
+  // Which cache level serves a footprint, and that level's measured streaming bandwidth (GB/s).
+  // Source: footprint < L2 capacity -> L2-resident plateau (A.6 Table A.6.2); else DRAM plateau.
+  // A footprint under ~L1-per-SM aggregate working set is reported as L1 but still streamed at
+  // the L2-resident rate (teaching simplification: L1 is per-SM, the roofline here is device-wide).
+  function cache_level(footprintBytes, P, board){
+    const l2cap = P.l2_size[board].value * MB;
+    if(footprintBytes <= l2cap) return "L2";
+    return "DRAM";
+  }
+  function memory_bandwidth_GBs(footprintBytes, P, board){
+    return cache_level(footprintBytes,P,board) === "L2"
+      ? P.l2_resident_read_bandwidth[board].value
+      : P.dram_bandwidth_read_measured[board].value;
+  }
+
+  // Compute roof (TFLOP/s or TOP/s) for the selected precision on the board.
+  function compute_roof_TFLOPs(precKey, P, board){
+    const e = P[precKey];
+    if(!e) return NaN;
+    const v = e[board];
+    return v ? v.value : NaN; // some roofs (tcgen05, nvfp4) are Thor-only -> NaN on Orin
+  }
+
+  // Roofline attainable rate at an arithmetic intensity (TFLOP/s): min(compute, mem_bw * AI).
+  // mem_bw is GB/s; AI is FLOP/byte; product is FLOP/s -> /1e3 for TFLOP/s (GB/s * FLOP/byte = GFLOP/s).
+  function attainable_TFLOPs(ai, roofTFLOPs, memBW_GBs){
+    const memRoof_TFLOPs = (memBW_GBs * ai) / 1e3; // GB/s * FLOP/B = GFLOP/s -> /1e3 TFLOP/s
+    return Math.min(roofTFLOPs, memRoof_TFLOPs);
+  }
+
+  // Ridge point: AI where memory roof meets compute roof.
+  function ridge_FLOPperByte(roofTFLOPs, memBW_GBs){
+    return (roofTFLOPs * 1e3) / memBW_GBs; // TFLOP/s -> GFLOP/s, / GB/s = FLOP/byte
+  }
+
+  // Predicted latency (ms) = bytes / mem_bw if memory-bound, else FLOPs / compute_roof.
+  // Teaching form of C.1: bandwidth-limited phases use weight-bytes / B_DRAM; compute-limited
+  // use FLOPs / measured rate. We pick whichever the roofline says binds at this AI.
+  function predict_latency_ms(flops, bytes, footprintBytes, precKey, P, board){
+    const roof = compute_roof_TFLOPs(precKey,P,board);           // TFLOP/s
+    const memBW = memory_bandwidth_GBs(footprintBytes,P,board);  // GB/s
+    const ai = arithmetic_intensity(flops,bytes);
+    const ridge = ridge_FLOPperByte(roof, memBW);
+    if(ai < ridge){
+      // memory-bound: time = bytes / bandwidth. bytes in B, bandwidth GB/s.
+      return (bytes / (memBW*GB)) * 1e3;
+    } else {
+      // compute-bound: time = FLOPs / rate. FLOPs, rate TFLOP/s = 1e12 FLOP/s.
+      return (flops / (roof*1e12)) * 1e3;
+    }
+  }
+
+  const api = {MB,GB,arithmetic_intensity,cache_level,memory_bandwidth_GBs,
+    compute_roof_TFLOPs,attainable_TFLOPs,ridge_FLOPperByte,predict_latency_ms};
+
+  if(typeof module!=="undefined" && module.exports){ module.exports = api; }
+  global.ROOFLINE = api;
+})(typeof window!=="undefined" ? window : globalThis);
+
+
+//==================== browser UI (skipped under node) ====================
+if(typeof window!=="undefined"){
+  const R = window.ROOFLINE, MB=R.MB, GB=R.GB;
+  const P = JSON.parse(document.getElementById("params").textContent);
+
+  // log-slider helpers: slider 0..1 maps to [lo,hi] in log space
+  const logmap = (t,lo,hi)=>lo*Math.pow(hi/lo,t);
+  const loginv = (v,lo,hi)=>Math.log(v/lo)/Math.log(hi/lo);
+  const RB = {bytes:[1*MB,50*GB], flops:[1e9,2e13], foot:[1*1024,256*MB]};
+
+  const el = id=>document.getElementById(id);
+  const fmtBytes = b=> b>=GB? (b/GB).toFixed(2)+" GB" : b>=MB? (b/MB).toFixed(1)+" MB" : b>=1024? (b/1024).toFixed(0)+" KB" : b.toFixed(0)+" B";
+  const fmtFlops = f=> f>=1e12? (f/1e12).toFixed(2)+" TFLOP" : (f/1e9).toFixed(1)+" GFLOP";
+
+  // preloaded real cases (each lands sliders on a source-backed workload)
+  // bytes/flops/foot in raw bytes/FLOPs. 'measured' is {ms,label} where the source has it.
+  const CASES = {
+    pi05_16: {board:"thor", prec:"tensor_tcgen05_fp16",
+      bytes: P.pi05_dram_bytes_measured.thor_bf16.value*GB,
+      flops: P.pi05_flops_per_inference.value*1e9,
+      foot: 6.27*GB, // Wbf16Abf16 engine size on disk, C.1 Table C.1.6; far exceeds L2 -> DRAM
+      predMs: P.pi05_latency_predicted.thor_16bit.value,
+      measMs: P.pi05_latency_measured.thor_bf16.value, measLabel:"π0.5 16-bit (Wbf16Abf16)"},
+    pi05_8: {board:"thor", prec:"tensor_tcgen05_fp16",
+      bytes: P.pi05_dram_bytes_measured.thor_fp8.value*GB,
+      flops: P.pi05_flops_per_inference.value*1e9,
+      foot: 3.69*GB,
+      predMs: P.pi05_latency_predicted.thor_8bit.value,
+      measMs: P.pi05_latency_measured.thor_fp8.value, measLabel:"π0.5 8-bit (Wfp8Afp8@fp16)"},
+    // action expert alone: 0.30B params re-read 10 steps at ~2 bytes (16-bit). Memory-bound by design.
+    pi05_action: {board:"thor", prec:"tensor_tcgen05_fp16",
+      bytes: P.pi05_action_expert_params.value*1e9 * 2 * P.pi05_action_denoising_steps.value,
+      flops: 0.30e9*2* P.pi05_action_denoising_steps.value * 712, // ~2*params*steps*tokens, teaching estimate
+      foot: 0.30e9*2, // one copy of the action-expert weights
+      predMs: null, measMs:null, measLabel:null, note:"action expert alone (memory-bound, AI≈10 in C.1)"},
+    wbc: {board:"thor", prec:"tensor_classic_int8",
+      bytes: (80*512+512*256+256*128+128*23)*1, // INT8 MLP weights, 1 byte each
+      flops: 2*(80*512+512*256+256*128+128*23), // 2 FLOP per MAC, batch 1
+      foot: (80*512+512*256+256*128+128*23)*1,
+      predMs:null, measMs: P.wbc_solo_p99.thor.value, measLabel:"WBC solo p99 (Thor)"},
+    gemm: {board:"orin", prec:"cuda_fp32_ceiling",
+      bytes: 3*1024*1024*4, // three 1024x1024 FP32 matrices
+      flops: 2*Math.pow(1024,3), // 2 N^3
+      foot: 3*1024*1024*4,
+      predMs:null, measMs:null, measLabel:null, note:"compute-bound: AI = N/3·(ops/byte), right of the ridge"},
+  };
+
+  let state = {board:"thor", prec:"tensor_tcgen05_fp16",
+    bytes: CASES.pi05_16.bytes, flops: CASES.pi05_16.flops, foot: CASES.pi05_16.foot,
+    measMs:CASES.pi05_16.measMs, measLabel:CASES.pi05_16.measLabel, note:null};
+
+  function syncSlidersFromState(){
+    el("bytes").value = loginv(clamp(state.bytes,RB.bytes[0],RB.bytes[1]),...RB.bytes);
+    el("flops").value = loginv(clamp(state.flops,RB.flops[0],RB.flops[1]),...RB.flops);
+    el("foot").value  = loginv(clamp(state.foot ,RB.foot[0] ,RB.foot[1] ),...RB.foot);
+    el("board").value = state.board; el("prec").value = state.prec;
+  }
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+
+  // ---- chart drawing (SVG, log-log) ----
+  const SVGNS="http://www.w3.org/2000/svg";
+  const AI_MIN=1, AI_MAX=10000, Y_MIN=1, Y_MAX=1000; // FLOP/byte ; TFLOP/s
+  const PX={l:56,r:16,t:16,b:44}, W=640,H=420;
+  const plotW=W-PX.l-PX.r, plotH=H-PX.t-PX.b;
+  const xpix=ai=> PX.l + plotW*(Math.log10(ai)-Math.log10(AI_MIN))/(Math.log10(AI_MAX)-Math.log10(AI_MIN));
+  const ypix=tf=> PX.t + plotH*(1-(Math.log10(tf)-Math.log10(Y_MIN))/(Math.log10(Y_MAX)-Math.log10(Y_MIN)));
+
+  function mk(tag,attrs,text){const n=document.createElementNS(SVGNS,tag);
+    for(const k in attrs)n.setAttribute(k,attrs[k]); if(text!=null)n.textContent=text; return n;}
+
+  function draw(){
+    const svg=el("chart"); svg.innerHTML="";
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    svg.style.transition = reduce? "none":"";
+    // grid + axes (decades)
+    for(let d=0; Math.pow(10,d)<=AI_MAX; d++){ const ai=Math.pow(10,d); if(ai<AI_MIN)continue;
+      const x=xpix(ai); svg.appendChild(mk("line",{x1:x,y1:PX.t,x2:x,y2:H-PX.b,stroke:"#2a2f3a",'stroke-width':1}));
+      svg.appendChild(mk("text",{x:x,y:H-PX.b+16,fill:"#aeb6c2","font-size":10,"text-anchor":"middle"},"10"+sup(d)));
+    }
+    for(let d=0; Math.pow(10,d)<=Y_MAX; d++){ const tf=Math.pow(10,d);
+      const y=ypix(tf); svg.appendChild(mk("line",{x1:PX.l,y1:y,x2:W-PX.r,y2:y,stroke:"#2a2f3a","stroke-width":1}));
+      svg.appendChild(mk("text",{x:PX.l-6,y:y+3,fill:"#aeb6c2","font-size":10,"text-anchor":"end"},"10"+sup(d)));
+    }
+    svg.appendChild(mk("text",{x:(PX.l+W-PX.r)/2,y:H-6,fill:"#aeb6c2","font-size":11,"text-anchor":"middle"},"arithmetic intensity (FLOP / byte)"));
+    svg.appendChild(mk("text",{x:14,y:(PX.t+H-PX.b)/2,fill:"#aeb6c2","font-size":11,"text-anchor":"middle",transform:`rotate(-90 14 ${(PX.t+H-PX.b)/2})`},"attained rate (TFLOP/s)"));
+
+    const roof = R.compute_roof_TFLOPs(state.prec,P,state.board);
+    const memBW = R.memory_bandwidth_GBs(state.foot,P,state.board);
+    const level = R.cache_level(state.foot,P,state.board);
+
+    if(!isFinite(roof)){
+      svg.appendChild(mk("text",{x:W/2,y:H/2,fill:"#ffcf4d","font-size":13,"text-anchor":"middle"},
+        "This precision roof is Thor-only — pick another, or switch board."));
+      return {roof,memBW,level};
+    }
+
+    // memory roof (sloped): rate = memBW*AI/1e3, drawn until it hits the compute roof
+    const ridge = R.ridge_FLOPperByte(roof,memBW);
+    const pMemLo = {x:xpix(AI_MIN), y:ypix(clamp(memBW*AI_MIN/1e3,Y_MIN,Y_MAX))};
+    const pRidge = {x:xpix(clamp(ridge,AI_MIN,AI_MAX)), y:ypix(clamp(roof,Y_MIN,Y_MAX))};
+    svg.appendChild(mk("line",{x1:pMemLo.x,y1:pMemLo.y,x2:pRidge.x,y2:pRidge.y,
+      stroke:"var(--roof-mem)","stroke-width":2.5}));
+    // compute roof (flat) from ridge to right edge
+    svg.appendChild(mk("line",{x1:pRidge.x,y1:ypix(roof),x2:xpix(AI_MAX),y2:ypix(roof),
+      stroke:"var(--roof-compute)","stroke-width":2.5}));
+    svg.appendChild(mk("text",{x:xpix(AI_MAX)-4,y:ypix(roof)-6,fill:"var(--roof-compute)","font-size":10,"text-anchor":"end"},
+      roof.toFixed(0)+" "+(state.prec==="tensor_classic_int8"?"TOP/s":"TFLOP/s")));
+    svg.appendChild(mk("text",{x:xpix(ridge),y:ypix(roof)+14,fill:"#aeb6c2","font-size":10,"text-anchor":"middle"},
+      "ridge "+ridge.toFixed(0)));
+    svg.appendChild(mk("text",{x:pMemLo.x+6,y:pMemLo.y-6,fill:"var(--roof-mem)","font-size":10},
+      memBW.toFixed(0)+" GB/s ("+level+")"));
+
+    // predicted workload point
+    const ai = R.arithmetic_intensity(state.flops,state.bytes);
+    const attained = R.attainable_TFLOPs(ai,roof,memBW);
+    const px=xpix(clamp(ai,AI_MIN,AI_MAX)), py=ypix(clamp(attained,Y_MIN,Y_MAX));
+    svg.appendChild(mk("line",{x1:px,y1:PX.t,x2:px,y2:H-PX.b,stroke:"var(--pred)","stroke-width":1,"stroke-dasharray":"3 3",opacity:.6}));
+    svg.appendChild(mk("circle",{cx:px,cy:py,r:6,fill:"var(--pred)",stroke:"#0b1220","stroke-width":1.5}));
+    svg.appendChild(mk("text",{x:px+9,y:py-8,fill:"var(--pred)","font-size":11},"predicted"));
+
+    // measured dot (distinct: diamond, measured latency implies a measured attained rate at same AI)
+    if(state.measMs!=null){
+      const measRate = state.flops / (state.measMs/1e3) / 1e12; // TFLOP/s actually delivered
+      const mx=xpix(clamp(ai,AI_MIN,AI_MAX)), my=ypix(clamp(measRate,Y_MIN,Y_MAX));
+      svg.appendChild(mk("rect",{x:mx-5,y:my-5,width:10,height:10,transform:`rotate(45 ${mx} ${my})`,
+        fill:"var(--meas)",stroke:"#0b1220","stroke-width":1.5}));
+      svg.appendChild(mk("text",{x:mx+9,y:my+14,fill:"var(--meas)","font-size":11},"measured"));
+    }
+    return {roof,memBW,level,ridge,ai,attained};
+  }
+  const sup=d=>String(d).replace(/-/,"⁻").replace(/[0-9]/g,c=>"⁰¹²³⁴⁵⁶⁷⁸⁹"[c]);
+
+  function update(){
+    // read sliders unless a case just set state directly
+    state.board=el("board").value; state.prec=el("prec").value;
+    state.bytes=logmap(+el("bytes").value,...RB.bytes);
+    state.flops=logmap(+el("flops").value,...RB.flops);
+    state.foot =logmap(+el("foot").value ,...RB.foot);
+    el("bytesV").textContent=fmtBytes(state.bytes);
+    el("flopsV").textContent=fmtFlops(state.flops);
+    el("footV").textContent =fmtBytes(state.foot);
+
+    const d = draw();
+    const ai = R.arithmetic_intensity(state.flops,state.bytes);
+    el("outAI").textContent = ai.toFixed(ai<10?1:0);
+    if(!isFinite(d.roof)){ el("outRoof").textContent="n/a"; el("outRoofWhat").textContent="roof not on this board";
+      el("outLat").textContent="—"; el("outMeas").textContent="—"; el("why").textContent="This precision roof exists only on Thor. Switch the board selector to Thor, or choose a CUDA-core / classic-mma roof that both boards have."; return; }
+
+    const bound = ai < d.ridge ? "memory" : "compute";
+    el("outRoof").textContent = bound==="memory"
+      ? d.memBW.toFixed(0)+" GB/s"
+      : d.roof.toFixed(0)+(state.prec==="tensor_classic_int8"?" TOP/s":" TFLOP/s");
+    el("outRoofWhat").innerHTML = bound==="memory"
+      ? "binding roof: memory ("+d.level+") <span class='tag'>measured</span>"
+      : "binding roof: compute <span class='tag'>measured</span>";
+
+    const lat = R.predict_latency_ms(state.flops,state.bytes,state.foot,state.prec,P,state.board);
+    el("outLat").textContent = lat<1? (lat*1000).toFixed(0)+" µs" : lat.toFixed(lat<10?1:0)+" ms";
+
+    if(state.measMs!=null){
+      el("outMeas").textContent = state.measMs<1? (state.measMs*1000).toFixed(0)+" µs" : state.measMs.toFixed(1)+" ms";
+      el("outMeasWhat").innerHTML = (state.measLabel||"measured")+" <span class='tag meas'>measured</span>";
+    } else { el("outMeas").textContent="—"; el("outMeasWhat").innerHTML="no measured value for this point <span class='tag'>n/a</span>"; }
+
+    // why panel
+    const l2cap=P.l2_size[state.board].value;
+    let gap="";
+    if(state.measMs!=null && lat>0){
+      const ratio=state.measMs/lat;
+      gap = ` The measured latency is <strong>${ratio.toFixed(2)}×</strong> the predicted — the source finds π0.5's first-principles prediction optimistic by a consistent 1.40–1.50× (§C.1), because the engine moves more bytes than an unfused weight-stream and launch overhead is unmodelled.`;
+    }
+    el("why").innerHTML =
+      `<strong>${bound==="memory"?"Memory-bound":"Compute-bound"}.</strong> `+
+      `Arithmetic intensity ${ai.toFixed(ai<10?1:0)} FLOP/byte is ${bound==="memory"?"left of":"right of"} the ridge (${d.ridge.toFixed(0)} FLOP/byte), so the `+
+      `${bound==="memory"?"sloped memory roof binds — latency is set by bytes ÷ bandwidth, not FLOPs ÷ TOPS":"flat compute roof binds — latency is set by FLOPs ÷ the measured rate"}. `+
+      `The ${fmtBytes(state.foot)} footprint ${state.foot<=l2cap*MB?`fits ${state.board==='thor'?'Thor':'Orin'}'s ${l2cap} MB L2, so traffic streams at the L2-resident ${d.memBW.toFixed(0)} GB/s plateau`:`exceeds ${state.board==='thor'?'Thor':'Orin'}'s ${l2cap} MB L2, so traffic falls to the ${d.memBW.toFixed(0)} GB/s DRAM plateau`} (§A.6).`+
+      (state.note?` <em>${state.note}.</em>`:"")+gap;
+
+    el("aria-live").textContent =
+      `${bound} bound, arithmetic intensity ${ai.toFixed(1)} FLOP per byte, binding roof ${el("outRoof").textContent}, predicted latency ${el("outLat").textContent}`+
+      (state.measMs!=null?`, measured ${el("outMeas").textContent}`:"");
+  }
+
+  function applyCase(key){
+    const c=CASES[key]; state.board=c.board; state.prec=c.prec;
+    state.bytes=c.bytes; state.flops=c.flops; state.foot=c.foot;
+    state.measMs=c.measMs!==undefined?c.measMs:null; state.measLabel=c.measLabel||null; state.note=c.note||null;
+    syncSlidersFromState(); update();
+  }
+
+  // sources table generated from params
+  function buildSrcTable(){
+    const rows=[
+      ["L2-resident read bandwidth (Thor)", P.l2_resident_read_bandwidth.thor],
+      ["L2-resident read bandwidth (Orin)", P.l2_resident_read_bandwidth.orin],
+      ["DRAM read bandwidth (Thor)", P.dram_bandwidth_read_measured.thor],
+      ["DRAM read bandwidth (Orin)", P.dram_bandwidth_read_measured.orin],
+      ["L2 capacity (Thor)", P.l2_size.thor],
+      ["L2 capacity (Orin)", P.l2_size.orin],
+      ["Tensor tcgen05 FP16 roof (Thor)", P.tensor_tcgen05_fp16.thor],
+      ["Tensor classic FP16 roof (Thor)", P.tensor_classic_fp16.thor],
+      ["Tensor classic FP16 roof (Orin)", P.tensor_classic_fp16.orin],
+      ["Tensor classic INT8 roof (Thor)", P.tensor_classic_int8.thor],
+      ["NVFP4 dense roof (Thor)", P.nvfp4_dense_ceiling.thor],
+      ["CUDA-core FP32 roof (Thor)", P.cuda_fp32_ceiling.thor],
+      ["CUDA-core FP32 roof (Orin)", P.cuda_fp32_ceiling.orin],
+      ["π0.5 predicted latency 16-bit (Thor)", P.pi05_latency_predicted.thor_16bit],
+      ["π0.5 measured latency 16-bit (Thor)", P.pi05_latency_measured.thor_bf16],
+      ["π0.5 predicted latency 8-bit (Thor)", P.pi05_latency_predicted.thor_8bit],
+      ["π0.5 measured latency 8-bit (Thor)", P.pi05_latency_measured.thor_fp8],
+      ["π0.5 DRAM bytes 16-bit (Thor)", P.pi05_dram_bytes_measured.thor_bf16],
+      ["π0.5 DRAM bytes 8-bit (Thor)", P.pi05_dram_bytes_measured.thor_fp8],
+      ["π0.5 FLOPs per inference", P.pi05_flops_per_inference],
+      ["WBC solo p99 (Thor)", P.wbc_solo_p99.thor],
+    ];
+    const tb=el("srcTable").querySelector("tbody");
+    rows.forEach(([name,e])=>{ const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${name}</td><td class="val">${e.value} ${e.unit}</td><td class="src">${e.source}</td>`;
+      tb.appendChild(tr); });
+  }
+
+  ["board","prec","bytes","flops","foot"].forEach(id=>{
+    el(id).addEventListener("input",()=>{ state.measMs=null; state.measLabel=null; state.note=null;
+      requestAnimationFrame(update); });
+  });
+  document.querySelectorAll(".cases button").forEach(b=>
+    b.addEventListener("click",()=>applyCase(b.dataset.case)));
+
+  buildSrcTable();
+  applyCase("pi05_16"); // start from a real case, not arbitrary defaults
+
+  //==================== self-tests (console.assert) ====================
+  // Reproduce the source's own numbers from the prediction functions.
+  (function selftest(){
+    const near=(a,b,tol,msg)=>console.assert(Math.abs(a-b)<=tol, msg+` got ${a}, want ${b}±${tol}`);
+    // 1. π0.5 16-bit action+weight stream is memory-bound: predicting bytes/bandwidth at the
+    //    sustained 197.3 GB/s roof reproduces the right order (tens of ms). Here we check the
+    //    bandwidth-limited latency of the measured 19.44 GB at the sustained rate = ~98 ms,
+    //    close to the measured 90.06 ms (within the C.1 1.40x optimism band when using the roof).
+    const t16 = (P.pi05_dram_bytes_measured.thor_bf16.value*R.GB)/(P.pi05_sustained_bandwidth.value*R.GB)*1e3;
+    near(t16, 98, 6, "π0.5 16-bit bytes/sustained-BW latency");
+    // 2. ridge for Thor tcgen05 FP16 against sustained bandwidth = roof*1e3/BW.
+    const ridge = R.ridge_FLOPperByte(P.tensor_tcgen05_fp16.thor.value, P.pi05_sustained_bandwidth.value);
+    near(ridge, 975, 10, "Thor tcgen05 FP16 ridge vs 197.3 GB/s"); // 192.5e3/197.3
+    // 3. compute-bound GEMM: 1024^3*2 FLOP / 5.15 TFLOP/s (Orin FP32) in ms.
+    const tgemm = R.predict_latency_ms(2*Math.pow(1024,3), 3*1024*1024*4, 3*1024*1024*4,
+      "cuda_fp32_ceiling", P, "orin");
+    const want = (2*Math.pow(1024,3))/(5.15e12)*1e3;
+    near(tgemm, want, 0.05, "1024^3 FP32 GEMM latency on Orin");
+    // 4. arithmetic intensity of the measured π0.5 16-bit point ~ 4344 GFLOP / 19.44 GB.
+    const ai = R.arithmetic_intensity(P.pi05_flops_per_inference.value*1e9,
+      P.pi05_dram_bytes_measured.thor_bf16.value*R.GB);
+    near(ai, 208, 15, "π0.5 16-bit arithmetic intensity"); // 4344e9 / 19.44*2^30
+    console.log("roofline self-tests done");
+  })();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,70 @@
+<mxfile host="app.diagrams.net"><diagram id="x90ymccb-g11b" name="05-qos-ladder"><mxGraphModel dx="1200" dy="800" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="960" pageHeight="620" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="t" value="The QoS ladder: context isolation + a 25–35% MPS SM cap returns a 100 Hz loop to 0 drops — but no step moves the 172 GB/s CPU-memory floor" style="text;html=0;fontSize=12;fontStyle=1;align=center;" vertex="1" parent="1"><mxGeometry x="20" y="6" width="920" height="22" as="geometry" /></mxCell>
+    <mxCell id="s" value="One Thor GPU, π0.5 VLA + 100 Hz WBC loop (10 ms deadline). Each step adds discipline; QoS does not add capacity, it assigns the penalty. Values from the L4 campaign [L4]." style="text;html=0;fontSize=9;align=center;fontColor=#555555;" vertex="1" parent="1"><mxGeometry x="20" y="28" width="920" height="14" as="geometry" /></mxCell>
+
+    <!-- The 172 GB/s floor line spanning full width -->
+    <mxCell id="floor" style="endArrow=none;html=0;strokeColor=#b85450;strokeWidth=3;dashed=1;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="60" y="470" as="sourcePoint" /><mxPoint x="900" y="470" as="targetPoint" /></mxGeometry></mxCell>
+    <mxCell id="floorlbl" value="~172 GB/s CPU-memory-load floor - WBC collapses regardless of precision (fp16/int8) or MPS cap. 'No scheduler moves this.' [L4]" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#ffffff;strokeColor=none;fontSize=9;fontStyle=1;fontColor=#b85450;align=center;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="230" y="476" width="520" height="18" as="geometry" /></mxCell>
+
+    <!-- Step 1: shared context (worst, low) -->
+    <mxCell id="st1" value="1 — Shared context
+(one CUDA context, streams)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#ea9999;strokeColor=#b85450;fontSize=9;fontStyle=1;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="60" y="400" width="130" height="60" as="geometry" /></mxCell>
+    <mxCell id="st1v" value="WBC p99 110.7 ms
+64x, 51% dropped" style="rounded=0;whiteSpace=wrap;html=0;fillColor=none;strokeColor=none;fontSize=8;fontColor=#b85450;align=center;fontStyle=1;verticalAlign=bottom;" vertex="1" parent="1"><mxGeometry x="56" y="362" width="138" height="34" as="geometry" /></mxCell>
+
+    <!-- Step 1.5: stream priority not built -->
+    <mxCell id="st15" value="— Stream priority
+NOT a built lever
+(streams don't isolate)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#f4cccc;strokeColor=#b85450;dashed=1;fontSize=8;fontStyle=2;verticalAlign=middle;align=center;" vertex="1" parent="1"><mxGeometry x="195" y="400" width="120" height="60" as="geometry" /></mxCell>
+
+    <!-- Step 2: separate process -->
+    <mxCell id="st2" value="2 — Separate process
+(own context, GPU time-slice)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#fde3e1;strokeColor=#b85450;fontSize=9;fontStyle=1;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="320" y="340" width="130" height="120" as="geometry" /></mxCell>
+    <mxCell id="st2v" value="WBC p99 17 ms (pi0.5)
+4.9% dropped - still >10 ms
+GR00T 14.3 ms, 98% held" style="rounded=0;whiteSpace=wrap;html=0;fillColor=none;strokeColor=none;fontSize=8;fontColor=#000000;align=center;verticalAlign=bottom;" vertex="1" parent="1"><mxGeometry x="312" y="296" width="146" height="40" as="geometry" /></mxCell>
+
+    <!-- Step 3: plain MPS -->
+    <mxCell id="st3" value="3 — Plain MPS
+(no limits)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#fde9d9;strokeColor=#d79b00;fontSize=9;fontStyle=1;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="455" y="300" width="130" height="160" as="geometry" /></mxCell>
+    <mxCell id="st3v" value="WBC p99 61 ms, 25% dropped
+still far over budget
+(oversubscribes aggressor)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=none;strokeColor=none;fontSize=8;fontColor=#000000;align=center;verticalAlign=bottom;" vertex="1" parent="1"><mxGeometry x="447" y="256" width="146" height="40" as="geometry" /></mxCell>
+
+    <!-- Step 4: MPS + SM cap (the fix) -->
+    <mxCell id="st4" value="4 — MPS + SM cap
+25% / 35%  (THE FIX)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#d9ead3;strokeColor=#38761d;fontSize=9;fontStyle=1;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="590" y="230" width="150" height="230" as="geometry" /></mxCell>
+    <mxCell id="st4v" value="WBC p99 cap-25 7.5 ms /
+cap-35 9.1 ms (GR00T 8.9)
+0% dropped under 10 ms (OK)
+VLA cost: cap-35 0.90/0.87,
+cap-25 -> 3.6 Hz (0.72)" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#eaf4e4;strokeColor=#38761d;fontSize=8;fontColor=#1a5a1a;align=center;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="586" y="140" width="158" height="80" as="geometry" /></mxCell>
+
+    <!-- Step 5: MIG deferred -->
+    <mxCell id="st5" value="5 — MIG
+(spatial partition)
+DEFERRED (JetPack bug;
+tech-preview r39.2)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#e0e0e0;strokeColor=#999999;dashed=1;fontSize=9;fontStyle=1;verticalAlign=top;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="745" y="210" width="150" height="250" as="geometry" /></mxCell>
+    <mxCell id="st5v" value="not achievable this revision" style="text;html=0;fontSize=8;fontColor=#777777;align=center;fontStyle=2;labelBackgroundColor=#ffffff;" vertex="1" parent="1"><mxGeometry x="745" y="194" width="150" height="14" as="geometry" /></mxCell>
+
+    <!-- Rising arrow indicating increasing isolation / QoS -->
+    <mxCell id="rise" style="endArrow=classic;html=0;strokeColor=#38761d;strokeWidth=2;dashed=0;" edge="1" parent="1"><mxGeometry relative="1" as="geometry"><mxPoint x="205" y="398" as="sourcePoint" /><mxPoint x="312" y="330" as="targetPoint" /></mxGeometry></mxCell>
+    <mxCell id="riselbl" value="increasing isolation / QoS ->" style="text;html=0;fontSize=8;fontColor=#38761d;fontStyle=2;align=left;rotation=-26;labelBackgroundColor=none;" vertex="1" parent="1"><mxGeometry x="196" y="356" width="140" height="12" as="geometry" /></mxCell>
+
+    <!-- deadline reference line at 10ms concept — annotate near steps -->
+    <mxCell id="ded" value="10 ms deadline: only step 4 (and step 1 solo) clears it" style="text;html=0;fontSize=9;fontColor=#38761d;align=center;fontStyle=1;labelBackgroundColor=none;" vertex="1" parent="1"><mxGeometry x="120" y="70" width="340" height="14" as="geometry" /></mxCell>
+
+    <!-- Legend -->
+    <mxCell id="lg" value="Legend" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f5f5f5;strokeColor=#999999;verticalAlign=top;fontSize=9;fontStyle=1;align=left;spacingLeft=6;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="60" y="498" width="440" height="104" as="geometry" /></mxCell>
+    <mxCell id="lg1" value="— step height ≈ QoS delivered to the WBC loop (higher = better isolation)" style="text;html=0;fontSize=8;align=left;" vertex="1" parent="1"><mxGeometry x="70" y="518" width="425" height="12" as="geometry" /></mxCell>
+    <mxCell id="lg2" value="— red = loop broken · green = loop meets 10 ms deadline (0% drop) · grey dashed = deferred/not-a-lever" style="text;html=0;fontSize=8;align=left;" vertex="1" parent="1"><mxGeometry x="70" y="534" width="425" height="12" as="geometry" /></mxCell>
+    <mxCell id="lg3" value="— thick red dashed line = the ~172 GB/s CPU-memory floor (precision- and cap-invariant)" style="text;html=0;fontSize=8;fontColor=#b85450;align=left;" vertex="1" parent="1"><mxGeometry x="70" y="550" width="425" height="12" as="geometry" /></mxCell>
+    <mxCell id="lg4" value="Takeaway: context isolation is the dominant lever; the SM cap is the finisher (closes the last ~10×, 4.9%-&gt;0%). QoS assigns the penalty, it does not add capacity [L4]." style="text;html=0;fontSize=8;fontStyle=2;align=left;" vertex="1" parent="1"><mxGeometry x="70" y="566" width="425" height="32" as="geometry" /></mxCell>
+
+    <!-- Sources -->
+    <mxCell id="src" value="Sources (from constants.json / notes, not retyped): [L4] L4-scheduling-ladder KEY-LEARNINGS — shared_context_wbc_penalty (64×, 51%), separate_context_wbc_p99 (π0.5 17 ms/4.9%, GR00T 14.3 ms), plain MPS (61 ms/25%), mps_cap_wbc_p99 (cap25 7.5, cap35 9.1/8.9 ms, 0% drop), mps_cap_vla_rate_retained (0.72–0.90), cpu_memory_load_floor (172 GB/s), MIG deferred. WBC solo p99 41.6 µs (Thor) [B.8]." style="text;html=0;fontSize=8;align=left;verticalAlign=top;fontColor=#555555;spacingLeft=4;" vertex="1" parent="1"><mxGeometry x="510" y="498" width="410" height="104" as="geometry" /></mxCell>
+  </root>
+</mxGraphModel></diagram></mxfile>

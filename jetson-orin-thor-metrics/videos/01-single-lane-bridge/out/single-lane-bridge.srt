@@ -1,0 +1,24 @@
+1
+00:00:03,000 --> 00:00:27,775
+A modern robot runs three jobs on one Jetson Thor: a 100 Hz control loop (10 ms deadline), perception, and a VLA planner at ~5 Hz. One GPU, one memory controller, one memory pool — a single-lane bridge.
+
+2
+00:00:28,267 --> 00:01:00,292
+The datasheet promises headroom: NVFP4 advertises 1035 dense TFLOP/s; a tuned library reaches 627.8 (~61%). INT8/FP8 advertise 517; measured ~two-thirds. The control loop needs a rounding error of that. TOPS is not the constraint.
+
+3
+00:01:00,767 --> 00:01:38,617
+Sharing one GPU context is not fair. Below a threshold the victim runs; above it — just 14% of warp slots on Thor, 8% on Orin — the victim is locked out until the co-tenant drains. Bistable: co-running or locked out, no graded middle.
+
+4
+00:01:39,100 --> 00:02:11,275
+The WBC policy's solo p99 is 41.6 us. Under the full co-tenant roster plus a CPU memory hog it inflates to 5.9 ms — 141×. It still fits the 10 ms budget, but barely; almost all of it is spent waiting.
+
+5
+00:02:11,767 --> 00:02:50,992
+Shared context destroys the loop (110.7 ms p99, 51% dropped). A separate process recovers ~90% (~17 ms, still over budget). Plain MPS barely helps. MPS + a 25% SM cap returns it to 0% dropped — the planner pays: 5 → 3.6 Hz.
+
+6
+00:02:51,467 --> 00:03:22,867
+But at ~172 GB/s of CPU memory load — 70% of Thor's 245 GB/s roof — every discipline collapses. The bridge has a fixed capacity. Scheduling decides who pays; it cannot fix a memory problem.
+

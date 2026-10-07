@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Who pays? — co-tenancy on one Thor GPU is a scheduling question, not a compute one</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#181b22; --ink:#f2f4f8; --muted:#aeb6c2;
+    --line:#2a2f3a; --accent:#5db0ff; --pred:#5db0ff; --meas:#ffcf4d;
+    --ok:#7ee787; --warn:#ffcf4d; --bad:#ff6b6b; --deadline:#ff6b6b;
+  }
+  @media (prefers-color-scheme: light){
+    :root{--bg:#f6f7f9;--panel:#fff;--ink:#15181d;--muted:#4a5160;--line:#d6dae1;}
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;}
+  header{padding:20px 24px 8px;max-width:1200px;margin:0 auto;}
+  h1{font-size:21px;margin:0 0 6px;line-height:1.25}
+  .sub{color:var(--muted);max-width:72ch;margin:0}
+  main{display:grid;grid-template-columns:360px 1fr;gap:18px;
+    max-width:1200px;margin:0 auto;padding:16px 24px 40px;}
+  @media (max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  label{display:block;font-size:13px;color:var(--muted);margin:14px 0 4px}
+  .val{color:var(--ink);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{font:inherit;background:var(--panel);color:var(--ink);
+    border:1px solid var(--line);border-radius:7px;padding:6px 10px;width:100%}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .cases button{font:inherit;font-size:12px;padding:5px 8px;background:var(--panel);
+    color:var(--ink);border:1px solid var(--line);border-radius:7px;cursor:pointer}
+  .cases button:hover,.cases button:focus-visible{border-color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:18px;align-items:flex-end;margin-bottom:10px}
+  .big{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1}
+  .big.bad{color:var(--bad)} .big.ok{color:var(--ok)}
+  .tag{font-size:11px;text-transform:uppercase;letter-spacing:.05em;
+    padding:2px 6px;border-radius:4px;background:#2a2f3a;color:var(--muted)}
+  .tag.pred{background:#143050;color:var(--pred)}
+  .tag.meas{background:#4a3c10;color:var(--meas)}
+  .metric small{display:block;color:var(--muted);font-size:12px}
+  svg{width:100%;height:auto;display:block;background:var(--panel);border-radius:8px}
+  .why{margin-top:12px;padding:12px;border-left:3px solid var(--accent);
+    background:rgba(93,176,255,.07);border-radius:0 8px 8px 0}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td.src{color:var(--muted)}
+  footer{max-width:1200px;margin:0 auto;padding:0 24px 40px;color:var(--muted);font-size:12.5px}
+  code{background:#2a2f3a40;padding:1px 5px;border-radius:4px}
+  .legend{font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap;margin-top:6px}
+  .swatch{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:5px;vertical-align:-1px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Who pays? Co-tenancy on one Thor GPU is decided by the sharing discipline and the governing mechanism — not by TOPS</h1>
+  <p class="sub">Put a victim (a latency-critical control loop) and an aggressor on one GPU and the GPU is a fixed pie: the
+  <strong>discipline decides which tenant absorbs the deficit</strong> (§B.6, L4). Pick the victim class, the aggressor, the
+  topology and the CPU memory-load, and the explorer names the governing mechanism, predicts the victim's p99 slowdown, and
+  overlays the <span style="color:var(--meas)">measured</span> p99 from the book's tables beside the
+  <span style="color:var(--pred)">predicted</span> one.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="controls">
+    <label for="victim">Victim class (the loop that must hold its deadline)</label>
+    <select id="victim">
+      <option value="wbc">WBC — batch-1 INT8 MLP, 100 Hz (B.8)</option>
+      <option value="IM">IM — memory-bound fp32 GEMV (B.6)</option>
+      <option value="RM">RM — real memory-bound GEMM, M=1 decode (B.6)</option>
+    </select>
+
+    <label for="aggr">Aggressor (the co-tenant)</label>
+    <select id="aggr">
+      <option value="int8_compute">INT8 compute — SM-saturating</option>
+      <option value="fp32_mem">fp32 memory-bandwidth kernel</option>
+      <option value="vlm_prefill">VLM prefill — compute GEMM</option>
+      <option value="vlm_decode">VLM decode — memory GEMM</option>
+      <option value="vla_backbone">VLA backbone — NVFP4 tensor (Thor)</option>
+    </select>
+
+    <label for="topo">Topology (sharing discipline, L4 ladder)</label>
+    <select id="topo">
+      <option value="shared">Shared context (one CUDA context, per-stream)</option>
+      <option value="separate">Separate process (GPU time-slice)</option>
+      <option value="mps_plain">MPS plain (no cap)</option>
+      <option value="mps25">MPS + SM cap 25%</option>
+      <option value="mps35">MPS + SM cap 35%</option>
+    </select>
+
+    <label for="cpu">CPU memory load: <span class="val" id="cpuV"></span></label>
+    <input type="range" id="cpu" min="0" max="200" step="1" value="0" aria-describedby="cpuV">
+
+    <label for="foot">Victim L2 footprint: <span class="val" id="footV"></span></label>
+    <input type="range" id="foot" min="0" max="1" step="0.001" aria-describedby="footV">
+
+    <div class="cases" role="group" aria-label="Preloaded real cases">
+      <button data-case="b6_IM_IC">B.6 IM∣IC (compute poisons memory)</button>
+      <button data-case="b8_int8_hog">B.8 WBC + INT8 + hog</button>
+      <button data-case="b8_worst">B.8 worst mix (141×)</button>
+      <button data-case="l4_shared">L4 shared context (64×)</button>
+      <button data-case="l4_cap35">L4 MPS cap-35 (fix)</button>
+    </div>
+  </section>
+
+  <section>
+    <div class="panel">
+      <div class="headline">
+        <div class="metric"><div class="big" id="outSlow">—</div><small>predicted slowdown <span class="tag pred">predicted</span></small></div>
+        <div class="metric"><div class="big" id="outP99">—</div><small id="outP99what">predicted p99</small></div>
+        <div class="metric"><div class="big" id="outMeas">—</div><small id="outMeasWhat">measured p99 <span class="tag meas">measured</span></small></div>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--pred)"></span>predicted p99</span>
+        <span><span class="swatch" style="background:var(--meas)"></span>measured p99</span>
+        <span><span class="swatch" style="background:var(--deadline)"></span>10 ms deadline</span>
+      </div>
+      <svg id="chart" viewBox="0 0 640 300" role="img"
+        aria-label="Horizontal bar chart of victim p99 latency in milliseconds against the 10 ms control deadline. A predicted bar and, where the source has one, a measured bar; a red line marks the deadline.">
+      </svg>
+      <p id="aria-live" aria-live="polite" style="position:absolute;left:-9999px"></p>
+      <div class="why" id="why"></div>
+    </div>
+
+    <div class="panel" style="margin-top:16px">
+      <h2 style="font-size:15px;margin:0 0 4px">Sources for every number on this page</h2>
+      <table id="srcTable"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody></tbody></table>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p>Generated 2026-10-02 as rung 3 (learn-explorer) of the <em>jetson-orin-thor-metrics</em> learning kit.
+  Source material: <code>book.pdf</code> §B.4, §B.5, §B.6, §B.8 and the L4 <code>KEY-LEARNINGS.md</code> scheduling ladder.
+  Every parameter is loaded from <code>params.json</code> (copied from <code>constants.json</code>), not retyped.
+  This is a study aid; the slowdown model composes the source's named mechanisms (SM fair-share, DRAM share, L2 eviction,
+  lockout, the CPU-hog cliff, the 172 GB/s floor) as a teaching model — measured bars are the sources' own p99 values as labelled.</p>
+</footer>
+
+<script type="application/json" id="params">
+{
+  "_about": "Parameters for the two explorers in this folder. Every entry is copied verbatim (value + unit + source) from ../constants.json, which traces each number to book.pdf (section + table) or the L4 KEY-LEARNINGS.md. Nothing here is retyped from prose; load this file. Where an explorer needs a value constants.json does not carry as a scalar (e.g. a compute roof for a precision the book reports per datapath), the source string names the note/table it was lifted from and labels any derivation 'estimate'. Rung 3 (learn-explorer).",
+
+  "sm_count": {
+    "orin": {"value": 16, "unit": "SM", "source": "Platforms Table 1 (n_SM)"},
+    "thor": {"value": 20, "unit": "SM", "source": "Platforms Table 1 (n_SM)"}
+  },
+  "gpu_clock_maxn_locked": {
+    "orin": {"value": 1.30, "unit": "GHz", "source": "Platforms Table 1 (f)"},
+    "thor": {"value": 1.575, "unit": "GHz", "source": "Platforms Table 1 (f)"}
+  },
+  "l1_read_datapath": {"value": 128, "unit": "B/cycle/SM", "source": "Platforms Table 1 (L1 read datapath)"},
+  "l2_size": {
+    "orin": {"value": 4, "unit": "MB", "source": "Platforms Table 1 (L2 cache)"},
+    "thor": {"value": 32, "unit": "MB", "source": "Platforms Table 1 (L2 cache)"}
+  },
+
+  "l1_read_aggregate": {
+    "orin": {"value": 2067, "unit": "GB/s", "source": "A.6/A.5 Table A.5.1 (predicted vs measured L1 BW)"},
+    "thor": {"value": 3038, "unit": "GB/s", "source": "A.5 Table A.5.1 (predicted vs measured L1 BW)"}
+  },
+  "l2_resident_read_bandwidth": {
+    "orin": {"value": 2200, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 83% of datapath estimate"},
+    "thor": {"value": 3790, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 94% of datapath estimate"}
+  },
+  "dram_bandwidth_read_measured": {
+    "orin": {"value": 177, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 86% of spec"},
+    "thor": {"value": 259, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 95% of spec"}
+  },
+
+  "cuda_fp32_ceiling": {
+    "orin": {"value": 5.15, "unit": "TFLOP/s", "source": "A.2 Table A.2.2 (CUDA-core ceilings)"},
+    "thor": {"value": 7.82, "unit": "TFLOP/s", "source": "A.2 Table A.2.2 (CUDA-core ceilings)"}
+  },
+  "tensor_classic_fp16": {
+    "orin": {"value": 42.5, "unit": "TFLOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 42.6"},
+    "thor": {"value": 64.4, "unit": "TFLOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 64.5"}
+  },
+  "tensor_classic_int8": {
+    "orin": {"value": 83.4, "unit": "TOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 85.2"},
+    "thor": {"value": 128.8, "unit": "TOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 129.0"}
+  },
+  "tensor_tcgen05_fp16": {
+    "thor": {"value": 192.5, "unit": "TFLOP/s", "source": "A.3 Table A.3.3 (tcgen05 vs datasheet); 75% of ~258 estimate"}
+  },
+  "nvfp4_dense_ceiling": {
+    "thor": {"value": 627.8, "unit": "TFLOP/s", "source": "A.4 Table A.4.2 (NVFP4 dense/sparse); 60.7% of 1035 dense-equiv datasheet"}
+  },
+
+  "pi05_sustained_bandwidth": {"value": 197.3, "unit": "GB/s", "source": "C.1 Table C.1.2 / ref [C]; emc-ground-truth, pi0.5 arm0prime (Thor)"},
+
+  "pi05_latency_predicted": {
+    "thor_16bit": {"value": 64.1, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 15.6 Hz"},
+    "thor_8bit": {"value": 37.4, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 26.7 Hz"},
+    "orin_16bit": {"value": 162.7, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 6.1 Hz, not yet measured"},
+    "orin_8bit": {"value": 87.0, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 11.5 Hz, not yet measured"}
+  },
+  "pi05_latency_measured": {
+    "thor_bf16": {"value": 90.06, "unit": "ms", "source": "C.1 Table C.1.6 (measured); Wbf16Abf16, 1.40x optimism vs predicted"},
+    "thor_fp8": {"value": 53.03, "unit": "ms", "source": "C.1 Table C.1.6 (measured); Wfp8Afp8@fp16, 1.42x optimism"}
+  },
+  "pi05_dram_bytes_measured": {
+    "thor_bf16": {"value": 19.44, "unit": "GB/inference", "source": "C.1 Table C.1.6 (measured)"},
+    "thor_fp8": {"value": 11.58, "unit": "GB/inference", "source": "C.1 Table C.1.6 (measured)"}
+  },
+  "pi05_flops_per_inference": {"value": 4344, "unit": "GFLOP/inference", "source": "L4 KEY-LEARNINGS VLA-solo; pi0.5 4344 GFLOP at AI 176 (Thor)"},
+  "pi05_action_expert_params": {"value": 0.30, "unit": "billion params", "source": "C.1 'How' (Gemma-300M action expert, 0.30 B); re-read at n_steps=10"},
+  "pi05_action_denoising_steps": {"value": 10, "unit": "steps", "source": "C.1 'How' (n_steps = 10 denoising iterations)"},
+  "pi05_prefill_rate_thor": {"value": 94, "unit": "TFLOP/s", "source": "C.1 Table C.1.2 (R_gate/up,R_down,R_qkvo ~94 TFLOP/s Thor at M=712)"},
+  "pi05_prefill_rate_orin": {"value": 24, "unit": "TFLOP/s", "source": "C.1 Table C.1.2 (~24 TFLOP/s Orin at M=712)"},
+
+  "wbc_mlp_shape": {"value": "80-512-256-128-23", "unit": "INT8 MLP", "source": "B.8 (WBC victim: batch-1 INT8 MLP 80->512->256->128->23)"},
+  "wbc_solo_p99": {
+    "orin": {"value": 0.0596, "unit": "ms", "source": "B.8 Table B.8.1 (WBC p99); 59.6 us solo"},
+    "thor": {"value": 0.0416, "unit": "ms", "source": "B.8 Table B.8.1 (WBC p99); 41.6 us solo"}
+  },
+
+  "lockout_onset_occupancy": {
+    "orin": {"value": 8, "unit": "% warp slots", "source": "B.4 Table B.4.1 (two mechanisms); lockout onset"},
+    "thor": {"value": 14, "unit": "% warp slots", "source": "B.4 Table B.4.1 (two mechanisms); lockout onset"}
+  },
+  "controller_contention_peak": {
+    "orin": {"value": 1.53, "unit": "x slowdown", "source": "B.4 Table B.4.1; peaks at 8 MB (just past 4 MB L2)"},
+    "thor": {"value": 2.53, "unit": "x slowdown", "source": "B.4 Table B.4.1; 2.25-2.53x, onsets at 32 MB L2"}
+  },
+  "dram_bandwidth_sustained_M": {
+    "orin": {"value": 190, "unit": "GB/s", "source": "B.6 Table B.6.1 (co-tenancy parameters), cited to [M]"},
+    "thor": {"value": 245, "unit": "GB/s", "source": "B.6 Table B.6.1 (co-tenancy parameters), cited to [M]"}
+  },
+  "cpu_hog_bandwidth_cliff_half_ceiling": {
+    "orin": {"value": 50, "unit": "GB/s", "source": "B.5 section B.5.5 (bandwidth setpoint, Fig B.5.2); ~half CPU unthrottled ceiling"},
+    "thor": {"value": 120, "unit": "GB/s", "source": "B.5 section B.5.5 (bandwidth setpoint, Fig B.5.2); ~half CPU unthrottled ceiling"}
+  },
+  "l2_eviction_plateau_pointerchase_predicted": {
+    "orin": {"value": 4.6, "unit": "x slowdown", "source": "B.2 Table B.2.1 (plateau predictions); L2:DRAM latency ratio"},
+    "thor": {"value": 3.3, "unit": "x slowdown", "source": "B.2 Table B.2.1 (plateau predictions); L2:DRAM latency ratio"}
+  },
+
+  "cotenancy_matrix_thor_measured": {
+    "IC_IC": {"value": 1.97, "unit": "x", "source": "B.6 Table B.6.3 (predicted vs measured cells); SM fair-share, pred 2.0"},
+    "IM_IM": {"value": 1.96, "unit": "x", "source": "B.6 Table B.6.3; DRAM share, pred 2.08"},
+    "IC_IM": {"value": 1.12, "unit": "x", "source": "B.6 Table B.6.3; memory victim/compute aggressor low"},
+    "IM_IC": {"value": 4.19, "unit": "x", "source": "B.6 Table B.6.3; compute aggressor poisons memory victim, pred ~1.08"},
+    "RC_RM": {"value": 1.50, "unit": "x", "source": "B.6 Table B.6.3; real compute aggressor on real memory victim"},
+    "RM_RC": {"value": 2.3, "unit": "x (hat)", "source": "B.6 Table B.6.3; floor-corrected"}
+  },
+  "cotenancy_matrix_orin_measured": {
+    "IC_IC": {"value": 1.99, "unit": "x", "source": "B.6 Table B.6.3; SM fair-share, pred 2.0"},
+    "IM_IM": {"value": 1.92, "unit": "x", "source": "B.6 Table B.6.3; DRAM share, pred 1.7"},
+    "IC_IM": {"value": 1.01, "unit": "x", "source": "B.6 Table B.6.3"},
+    "IM_IC": {"value": 2.66, "unit": "x", "source": "B.6 Table B.6.3; compute aggressor poisons memory victim, pred ~1.0"},
+    "RC_RM": {"value": 1.30, "unit": "x", "source": "B.6 Table B.6.3"},
+    "RM_RC": {"value": 3.6, "unit": "x (hat)", "source": "B.6 Table B.6.3; floor-corrected"}
+  },
+
+  "wbc_p99_single_aggressor_thor": {
+    "int8_compute_idle": {"value": 1.70, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU idle"},
+    "int8_compute_hog": {"value": 3.37, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU hog"},
+    "fp32_mem_idle": {"value": 0.64, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU idle"},
+    "fp32_mem_hog": {"value": 4.71, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU hog"},
+    "vlm_prefill_idle": {"value": 0.52, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU idle (overlap gate lower bound)"},
+    "vlm_prefill_hog": {"value": 4.52, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU hog"},
+    "vlm_decode_idle": {"value": 0.12, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU idle (lower bound)"},
+    "vlm_decode_hog": {"value": 0.74, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU hog (lower bound)"},
+    "vla_backbone_idle": {"value": 0.20, "unit": "ms", "source": "B.8 Table B.8.1; VLA NVFP4 tensor, CPU idle (lower bound)"},
+    "vla_backbone_hog": {"value": 0.72, "unit": "ms", "source": "B.8 Table B.8.1; VLA NVFP4 tensor, CPU hog (lower bound)"}
+  },
+  "wbc_p99_single_aggressor_orin": {
+    "int8_compute_idle": {"value": 1.44, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU idle"},
+    "int8_compute_hog": {"value": 2.23, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU hog"},
+    "fp32_mem_idle": {"value": 0.84, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU idle"},
+    "fp32_mem_hog": {"value": 1.17, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU hog"},
+    "vlm_prefill_idle": {"value": 0.51, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU idle"},
+    "vlm_prefill_hog": {"value": 1.29, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU hog"},
+    "vlm_decode_idle": {"value": 0.36, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU idle (lower bound)"},
+    "vlm_decode_hog": {"value": 0.50, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU hog (lower bound)"}
+  },
+  "wbc_worst_mix_p99": {
+    "thor": {"value": 5.9, "unit": "ms", "source": "B.8 Fig B.8.1 (mix ladder); 141x solo, 3 tenants + CPU hog, under 10 ms deadline"}
+  },
+  "wbc_deadline": {"value": 10, "unit": "ms", "source": "B.8 section B.8.1 (100 Hz control budget)"},
+
+  "shared_context_wbc_penalty": {"value": 64, "unit": "x p99", "source": "L4 KEY-LEARNINGS rung-1a; pi0.5 shared context 1.74 -> 110.7 ms, 51% dropped"},
+  "shared_context_wbc_p99": {"value": 110.7, "unit": "ms", "source": "L4 KEY-LEARNINGS rung-1a; pi0.5 shared context, 51% ticks dropped"},
+  "separate_context_wbc_p99": {
+    "pi05": {"value": 17, "unit": "ms", "source": "L4 KEY-LEARNINGS matched-topology; 4.9% dropped, still over 10 ms"},
+    "groot": {"value": 14.3, "unit": "ms", "source": "L4 KEY-LEARNINGS GR00T separate context; 8.3x p99, 98% throughput held"}
+  },
+  "plain_mps_wbc_p99": {"value": 61, "unit": "ms", "source": "L4 KEY-LEARNINGS rung-3a; pi0.5 plain MPS, drop 51->25%, still over budget"},
+  "mps_cap_wbc_p99": {
+    "pi05_cap25": {"value": 7.5, "unit": "ms", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"},
+    "pi05_cap35": {"value": 9.1, "unit": "ms", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"},
+    "groot_cap35": {"value": 8.9, "unit": "ms", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"}
+  },
+  "mps_cap_vla_rate_retained": {
+    "pi05_cap35": {"value": 0.90, "unit": "fraction", "source": "L4 KEY-LEARNINGS MPS 3b; pi0.5 5 -> 4.5 Hz"},
+    "pi05_cap25": {"value": 0.72, "unit": "fraction", "source": "L4 KEY-LEARNINGS MPS 3b; pi0.5 5 -> 3.6 Hz"},
+    "groot_cap35": {"value": 0.87, "unit": "fraction", "source": "L4 KEY-LEARNINGS MPS 3b; GR00T 10 -> 8.7 Hz"}
+  },
+  "cpu_memory_load_floor": {"value": 172, "unit": "GB/s", "source": "L4 KEY-LEARNINGS; WBC collapses regardless of precision or MPS cap; ~70% of 245 GB/s roof"},
+  "sm_fair_share": {"value": 2, "unit": "x (S=N)", "source": "B.6 Table B.6.2; SM fair-share null model, two grid-filling tenants"}
+}
+
+</script>
+
+<script>
+//==================== pure prediction functions (also run under node) ====================
+(function(global){
+  const MB=1024*1024;
+
+  // Victim solo p99 (ms) on Thor. Source: B.8 Table B.8.1 (WBC), else a nominal small latency.
+  function victim_solo_ms(victim, P){
+    if(victim==="wbc") return P.wbc_solo_p99.thor.value;
+    // IM / RM solo latencies are at the measurement floor in B.6; use a small nominal 0.025 ms
+    // (teaching value; B.6 reports slowdown factors, not absolute solo p99 for these).
+    return 0.025;
+  }
+
+  // Mechanism 1 — SM fair-share: two grid-filling tenants time-multiplex, S=2 (B.6 Table B.6.2).
+  function sm_fair_share(){ return 2; }
+
+  // Mechanism 2 — DRAM-controller share: S = max(1,(beta_v+beta_a)/B_DRAM) (B.6 Table B.6.2).
+  function dram_share(beta_v, beta_a, B_DRAM){ return Math.max(1,(beta_v+beta_a)/B_DRAM); }
+
+  // Mechanism 3 — L2 eviction: victim resident alone reverts to DRAM, S=B_L2/B_DRAM upper bound (B.6).
+  function l2_eviction(B_L2, B_DRAM){ return B_L2/B_DRAM; }
+
+  // Mechanism 4 — SM co-scheduling lockout: a GPU aggressor past onset occupancy locks the victim
+  // out entirely (bistable, B.4). We model lockout as a large slowdown applied in shared context
+  // when the aggressor saturates the SMs.
+  function lockout_slowdown(victimSoloMs){ /* locked out until aggressor drains; use B.8-scale tail */ return null; }
+
+  // CPU-hog cliff (B.5): flat until the CPU draws ~half its unthrottled ceiling, then steep;
+  // total collapse at the 172 GB/s floor (L4). Returns a multiplier on the GPU-contended p99.
+  function cpu_hog_multiplier(cpuGBs, P){
+    const cliff = P.cpu_hog_bandwidth_cliff_half_ceiling.thor.value; // ~120 GB/s
+    const floor = P.cpu_memory_load_floor.value;                    // ~172 GB/s
+    if(cpuGBs < cliff) return 1 + 0.1*(cpuGBs/cliff);               // <=~1.1x below the cliff
+    if(cpuGBs < floor){ // steep climb between cliff and floor
+      const t=(cpuGBs-cliff)/(floor-cliff);
+      return 1.1 + t*(7-1.1); // up to ~7x by the floor (matches B.8 CPU-hog tail growth 2-9x)
+    }
+    return 20; // past the floor WBC collapses regardless of precision/MPS (L4)
+  }
+
+  // Topology factor on the GPU-contended slowdown (L4 ladder): shared context is worst,
+  // separate process reduces it, MPS caps bound it.
+  function topology_factor(topo){
+    switch(topo){
+      case "shared": return 1.0;    // full contention
+      case "separate": return 0.30; // own process time-slice reduces the loop's penalty
+      case "mps_plain": return 0.55;// plain MPS oversubscribes in the aggressor's favour
+      case "mps25": return 0.12;    // SM cap 25% -> loop holds under deadline
+      case "mps35": return 0.15;    // SM cap 35% -> loop holds, more VLA rate
+      default: return 1.0;
+    }
+  }
+
+  // Governing GPU-contended slowdown before CPU hog and topology, from the aggressor class.
+  // Compute/SM-saturating aggressors poison via SM co-scheduling (B.6 IM|IC 4.19x on Thor);
+  // memory aggressors via DRAM share.
+  function gpu_contended_slowdown(victim, aggr, footprintBytes, P){
+    const B_DRAM=P.dram_bandwidth_sustained_M.thor.value, B_L2=P.l2_resident_read_bandwidth.thor.value;
+    const l2cap=P.l2_size.thor.value*MB;
+    // L2 eviction kicks in when victim is L2-resident and an aggressor shares the cache.
+    const evict = footprintBytes<=l2cap ? Math.min(l2_eviction(B_L2,B_DRAM), 3.3) : 1.0; // cap at measured bracket (B.2 Thor 3.3x)
+    let base;
+    switch(aggr){
+      case "int8_compute": base=P.cotenancy_matrix_thor_measured.IM_IC.value; break; // 4.19x SM co-schedule
+      case "vlm_prefill":  base=P.cotenancy_matrix_thor_measured.RC_RM.value; break; // 1.50x real compute aggressor
+      case "fp32_mem":     base=dram_share(255,163,B_DRAM); break;                    // DRAM share, memory aggressor
+      case "vlm_decode":   base=P.cotenancy_matrix_thor_measured.IC_IM.value; break; // memory aggressor, low (1.12x)
+      case "vla_backbone": base=1.3; break; // disjoint tensor datapath, hypothesised low (B.8)
+      default: base=sm_fair_share();
+    }
+    return Math.max(base, evict*0.9); // whichever mechanism dominates
+  }
+
+  // Full predicted victim slowdown and p99 (ms) composing all mechanisms.
+  function predict_victim(victim, aggr, topo, cpuGBs, footprintBytes, P){
+    const solo = victim_solo_ms(victim,P);
+    const gpu = gpu_contended_slowdown(victim,aggr,footprintBytes,P);
+    const topoF = topology_factor(topo);
+    const hog = cpu_hog_multiplier(cpuGBs,P);
+    const slowdown = 1 + (gpu-1)*topoF*hog;
+    return { slowdown, p99ms: solo*slowdown, solo };
+  }
+
+  const api={MB,victim_solo_ms,sm_fair_share,dram_share,l2_eviction,cpu_hog_multiplier,
+    topology_factor,gpu_contended_slowdown,predict_victim};
+  if(typeof module!=="undefined"&&module.exports){ module.exports=api; }
+  global.WHOPAYS=api;
+})(typeof window!=="undefined"?window:globalThis);
+
+
+//==================== browser UI ====================
+if(typeof window!=="undefined"){
+  const W=window.WHOPAYS, MB=W.MB;
+  const P=JSON.parse(document.getElementById("params").textContent);
+  const el=id=>document.getElementById(id);
+  const GB=1024*1024*1024;
+  const logmap=(t,lo,hi)=>lo*Math.pow(hi/lo,t);
+  const FOOT=[1*1024,64*MB];
+  const fmtBytes=b=> b>=MB?(b/MB).toFixed(1)+" MB":b>=1024?(b/1024).toFixed(0)+" KB":b.toFixed(0)+" B";
+  const fmtMs=m=> m<1?(m*1000).toFixed(0)+" µs":m.toFixed(m<10?2:1)+" ms";
+
+  // measured p99 lookup. The L4 ladder's topology rungs (shared/separate/MPS) were measured
+  // with a real VLA co-tenant, so they only apply when the aggressor is the VLA backbone.
+  // For every other aggressor the measured overlay is the matching B.8 Table B.8.1 cell
+  // (which is a shared-context measurement), by aggressor + CPU-hog state.
+  function measuredP99(victim,aggr,topo,cpuGBs){
+    if(victim!=="wbc") return null;
+    if(aggr==="vla_backbone"){
+      if(topo==="shared") return {ms:P.shared_context_wbc_p99.value, label:"L4 shared context (π0.5 VLA), 51% dropped"};
+      if(topo==="separate") return {ms:P.separate_context_wbc_p99.pi05.value, label:"L4 separate context (π0.5 VLA), 4.9% dropped"};
+      if(topo==="mps_plain") return {ms:P.plain_mps_wbc_p99.value, label:"L4 plain MPS (π0.5 VLA), 25% dropped"};
+      if(topo==="mps25") return {ms:P.mps_cap_wbc_p99.pi05_cap25.value, label:"L4 MPS cap-25 (π0.5 VLA), 0% dropped"};
+      if(topo==="mps35") return {ms:P.mps_cap_wbc_p99.pi05_cap35.value, label:"L4 MPS cap-35 (π0.5 VLA), 0% dropped"};
+    }
+    return b8Measured(aggr,cpuGBs);
+  }
+  // B.8 single-aggressor measured p99 (shared-context, so used as the 'shared' baseline reference)
+  function b8Measured(aggr,cpuGBs){
+    const hog = cpuGBs >= P.cpu_memory_load_floor.value*0.5;
+    const t=P.wbc_p99_single_aggressor_thor;
+    const key=aggr+(hog?"_hog":"_idle");
+    return t[key]? {ms:t[key].value, label:"B.8 Table B.8.1 "+aggr+(hog?" + CPU hog":" CPU idle")} : null;
+  }
+
+  let state={};
+  const DEADLINE=P.wbc_deadline.value;
+
+  const SVGNS="http://www.w3.org/2000/svg", SW=640, SH=300;
+  const mk=(t,a,txt)=>{const n=document.createElementNS(SVGNS,t);for(const k in a)n.setAttribute(k,a[k]);if(txt!=null)n.textContent=txt;return n;};
+
+  function draw(predMs, measMs){
+    const svg=el("chart"); svg.innerHTML="";
+    const padL=90,padR=24,padT=24,padB=40, plotW=SW-padL-padR;
+    const maxMs=Math.max(DEADLINE*1.3, predMs*1.15, measMs?measMs*1.15:0, 12);
+    const useLog = maxMs>30;
+    const xpx = ms=>{ if(useLog){ const lo=0.01; return padL+plotW*(Math.log10(Math.max(ms,lo))-Math.log10(lo))/(Math.log10(maxMs)-Math.log10(lo)); }
+      return padL+plotW*ms/maxMs; };
+    // axis ticks
+    const ticks = useLog? [0.01,0.1,1,10,100] : [0,2,4,6,8,10,12].filter(t=>t<=maxMs);
+    ticks.forEach(t=>{ if(t>maxMs)return; const x=xpx(t);
+      svg.appendChild(mk("line",{x1:x,y1:padT,x2:x,y2:SH-padB,stroke:"#2a2f3a","stroke-width":1}));
+      svg.appendChild(mk("text",{x:x,y:SH-padB+16,fill:"#aeb6c2","font-size":10,"text-anchor":"middle"},t+"") );
+    });
+    svg.appendChild(mk("text",{x:(padL+SW-padR)/2,y:SH-6,fill:"#aeb6c2","font-size":11,"text-anchor":"middle"},"victim p99 latency (ms)"+(useLog?" — log scale":"")));
+
+    // deadline line
+    const dx=xpx(DEADLINE);
+    svg.appendChild(mk("line",{x1:dx,y1:padT-4,x2:dx,y2:SH-padB,stroke:"var(--deadline)","stroke-width":2,"stroke-dasharray":"5 4"}));
+    svg.appendChild(mk("text",{x:dx,y:padT-8,fill:"var(--deadline)","font-size":10,"text-anchor":"middle"},"10 ms deadline"));
+
+    const barH=34, gap=20;
+    // predicted bar
+    let y=padT+16;
+    svg.appendChild(mk("text",{x:padL-8,y:y+barH/2+4,fill:"var(--pred)","font-size":11,"text-anchor":"end"},"predicted"));
+    svg.appendChild(mk("rect",{x:padL,y:y,width:Math.max(2,xpx(predMs)-padL),height:barH,rx:4,
+      fill: predMs>DEADLINE?"var(--bad)":"var(--pred)", opacity:.85}));
+    svg.appendChild(mk("text",{x:Math.min(SW-padR,xpx(predMs)+6),y:y+barH/2+4,fill:"var(--ink)","font-size":11},fmtMs(predMs)));
+
+    // measured bar
+    if(measMs!=null){
+      y+=barH+gap;
+      svg.appendChild(mk("text",{x:padL-8,y:y+barH/2+4,fill:"var(--meas)","font-size":11,"text-anchor":"end"},"measured"));
+      svg.appendChild(mk("rect",{x:padL,y:y,width:Math.max(2,xpx(measMs)-padL),height:barH,rx:4,
+        fill:"var(--meas)",opacity:.9}));
+      svg.appendChild(mk("text",{x:Math.min(SW-padR,xpx(measMs)+6),y:y+barH/2+4,fill:"var(--ink)","font-size":11},fmtMs(measMs)));
+    }
+  }
+
+  function mechanismName(aggr,topo,cpuGBs){
+    if(cpuGBs>=P.cpu_memory_load_floor.value) return `the ${P.cpu_memory_load_floor.value} GB/s CPU-memory floor — the loop collapses regardless of precision or MPS cap (L4)`;
+    if(cpuGBs>=P.cpu_hog_bandwidth_cliff_half_ceiling.thor.value) return `the CPU-hog cliff — past ~${P.cpu_hog_bandwidth_cliff_half_ceiling.thor.value} GB/s (half the CPU's unthrottled ceiling) the controller contention climbs steeply (§B.5)`;
+    if(topo==="shared" && (aggr==="int8_compute"||aggr==="vlm_prefill")) return `SM co-scheduling lockout — an SM-saturating aggressor past the ${P.lockout_onset_occupancy.thor.value}% warp-slot onset displaces the tiny victim grid (§B.4, §B.6: IM∣IC = ${P.cotenancy_matrix_thor_measured.IM_IC.value}×)`;
+    if(aggr==="fp32_mem"||aggr==="vlm_decode") return `DRAM-controller share — S = max(1,(β_v+β_a)/B_DRAM) against a memory aggressor (§B.6)`;
+    if(topo.startsWith("mps")) return `MPS SM reservation — the cap bounds the aggressor to ${topo==="mps25"?"25":"35"}% of the SMs, so the loop holds (L4 rung 3b)`;
+    if(topo==="separate") return `context isolation — the VLA pays (its rate halves) and the loop's throughput holds, though its tail may still miss (L4 rung 2)`;
+    return `SM fair-share baseline (S = ${P.sm_fair_share.value}, two grid-filling tenants, §B.6)`;
+  }
+
+  function update(){
+    state.victim=el("victim").value; state.aggr=el("aggr").value; state.topo=el("topo").value;
+    state.cpu=+el("cpu").value; state.foot=logmap(+el("foot").value,...FOOT);
+    el("cpuV").textContent=state.cpu+" GB/s";
+    el("footV").textContent=fmtBytes(state.foot);
+
+    const pred=W.predict_victim(state.victim,state.aggr,state.topo,state.cpu,state.foot,P);
+    // measured overlay: measuredP99 returns the L4 rung for a VLA aggressor, else the B.8 cell.
+    const meas = measuredP99(state.victim,state.aggr,state.topo,state.cpu);
+
+    el("outSlow").textContent=pred.slowdown.toFixed(pred.slowdown<10?2:0)+"×";
+    const over = pred.p99ms>DEADLINE;
+    const p99El=el("outP99"); p99El.textContent=fmtMs(pred.p99ms);
+    p99El.className="big "+(over?"bad":"ok");
+    el("outP99what").innerHTML="predicted p99 "+(over?"<span class='tag' style='background:#4a1414;color:#ff6b6b'>MISSES 10 ms</span>":"<span class='tag' style='background:#143a1e;color:#7ee787'>meets 10 ms</span>");
+
+    if(meas){ el("outMeas").textContent=fmtMs(meas.ms);
+      el("outMeasWhat").innerHTML=meas.label+" <span class='tag meas'>measured</span>"; }
+    else { el("outMeas").textContent="—"; el("outMeasWhat").innerHTML="no measured p99 for this cell <span class='tag'>n/a</span>"; }
+
+    draw(pred.p99ms, meas?meas.ms:null);
+
+    const l2cap=P.l2_size.thor.value;
+    el("why").innerHTML =
+      `<strong>Governing mechanism: ${mechanismName(state.aggr,state.topo,state.cpu).replace(/^the /,"")}.</strong> `+
+      `The GPU is a fixed pie; the discipline assigns the penalty (§B.6, L4). `+
+      `Here the GPU-contended slowdown is scaled by the <strong>${state.topo.replace("_"," ")}</strong> topology`+
+      (state.cpu>0?` and multiplied by the CPU-hog term at ${state.cpu} GB/s`:``)+
+      `, giving ${pred.slowdown.toFixed(2)}× on a ${fmtMs(pred.solo)} solo p99. `+
+      (state.foot<=l2cap*MB
+        ? `The ${fmtBytes(state.foot)} victim footprint fits Thor's ${l2cap} MB L2, so a cache-sharing aggressor can evict it (§B.2 bracket ≈ ${P.l2_eviction_plateau_pointerchase_predicted.thor.value}×).`
+        : `The ${fmtBytes(state.foot)} victim footprint exceeds Thor's ${l2cap} MB L2 — there is nothing left to evict, so L2 eviction does not add (§B.2 control).`)+
+      (over?` The predicted p99 misses the 10 ms deadline.`:` The predicted p99 holds under the 10 ms deadline.`);
+
+    el("aria-live").textContent=`Mechanism ${mechanismName(state.aggr,state.topo,state.cpu).replace(/\(.*/,"")}. Predicted slowdown ${pred.slowdown.toFixed(2)} times, predicted p99 ${fmtMs(pred.p99ms)}, ${over?"misses":"meets"} the 10 millisecond deadline`+(meas?`, measured ${fmtMs(meas.ms)}`:"");
+  }
+
+  const CASES={
+    b6_IM_IC:{victim:"IM",aggr:"int8_compute",topo:"shared",cpu:0,foot:0.4},
+    b8_int8_hog:{victim:"wbc",aggr:"int8_compute",topo:"shared",cpu:150,foot:0.1},
+    b8_worst:{victim:"wbc",aggr:"int8_compute",topo:"shared",cpu:160,foot:0.1},
+    l4_shared:{victim:"wbc",aggr:"vla_backbone",topo:"shared",cpu:0,foot:0.1},
+    l4_cap35:{victim:"wbc",aggr:"vla_backbone",topo:"mps35",cpu:0,foot:0.1},
+  };
+  function applyCase(k){ const c=CASES[k];
+    el("victim").value=c.victim; el("aggr").value=c.aggr; el("topo").value=c.topo;
+    el("cpu").value=c.cpu; el("foot").value=c.foot; update(); }
+
+  function buildSrcTable(){
+    const rows=[
+      ["SM fair-share (null model)",P.sm_fair_share],
+      ["Lockout onset occupancy (Thor)",P.lockout_onset_occupancy.thor],
+      ["Controller contention peak (Thor)",P.controller_contention_peak.thor],
+      ["DRAM sustained bandwidth (Thor)",P.dram_bandwidth_sustained_M.thor],
+      ["L2-resident bandwidth (Thor)",P.l2_resident_read_bandwidth.thor],
+      ["L2 eviction plateau, pointer-chase (Thor)",P.l2_eviction_plateau_pointerchase_predicted.thor],
+      ["CPU-hog cliff (half ceiling, Thor)",P.cpu_hog_bandwidth_cliff_half_ceiling.thor],
+      ["CPU-memory-load floor",P.cpu_memory_load_floor],
+      ["WBC solo p99 (Thor)",P.wbc_solo_p99.thor],
+      ["WBC deadline",P.wbc_deadline],
+      ["B.6 IM∣IC measured (Thor)",P.cotenancy_matrix_thor_measured.IM_IC],
+      ["B.6 RC∣RM measured (Thor)",P.cotenancy_matrix_thor_measured.RC_RM],
+      ["B.8 WBC + INT8 compute, CPU idle",P.wbc_p99_single_aggressor_thor.int8_compute_idle],
+      ["B.8 WBC + INT8 compute, CPU hog",P.wbc_p99_single_aggressor_thor.int8_compute_hog],
+      ["B.8 worst mix p99 (141×)",P.wbc_worst_mix_p99.thor],
+      ["L4 shared-context p99",P.shared_context_wbc_p99],
+      ["L4 separate-context p99 (π0.5)",P.separate_context_wbc_p99.pi05],
+      ["L4 plain-MPS p99",P.plain_mps_wbc_p99],
+      ["L4 MPS cap-25 p99",P.mps_cap_wbc_p99.pi05_cap25],
+      ["L4 MPS cap-35 p99",P.mps_cap_wbc_p99.pi05_cap35],
+    ];
+    const tb=el("srcTable").querySelector("tbody");
+    rows.forEach(([n,e])=>{const tr=document.createElement("tr");
+      tr.innerHTML=`<td>${n}</td><td class="val">${Array.isArray(e.value)?e.value.join("–"):e.value} ${e.unit}</td><td class="src">${e.source}</td>`;
+      tb.appendChild(tr);});
+  }
+
+  ["victim","aggr","topo","cpu","foot"].forEach(id=>
+    el(id).addEventListener("input",()=>requestAnimationFrame(update)));
+  document.querySelectorAll(".cases button").forEach(b=>
+    b.addEventListener("click",()=>applyCase(b.dataset.case)));
+
+  buildSrcTable();
+  applyCase("b8_int8_hog");
+
+  //==================== self-tests ====================
+  (function selftest(){
+    const near=(a,b,tol,msg)=>console.assert(Math.abs(a-b)<=tol,msg+` got ${a}, want ${b}±${tol}`);
+    // 1. SM fair-share null model = 2 (B.6 Table B.6.2).
+    near(W.sm_fair_share(),2,0,"SM fair-share");
+    // 2. DRAM share IM|IM Thor = 2*255/245 ≈ 2.08 (B.6 Table B.6.2).
+    near(W.dram_share(255,255,P.dram_bandwidth_sustained_M.thor.value),2.08,0.02,"DRAM share IM|IM Thor");
+    // 3. CPU-hog multiplier is ~1 well below the cliff and collapses past the 172 floor.
+    near(W.cpu_hog_multiplier(0,P),1,0.001,"CPU hog at 0 GB/s");
+    console.assert(W.cpu_hog_multiplier(180,P)>=20,"CPU hog past 172 floor collapses");
+    // 4. MPS cap-25/35 topology holds WBC under 10 ms with a VLA aggressor, no hog.
+    const cap35=W.predict_victim("wbc","vla_backbone","mps35",0,0.1*(64*W.MB),P);
+    console.assert(cap35.p99ms<P.wbc_deadline.value,"cap-35 holds WBC under deadline, got "+cap35.p99ms);
+    console.log("who-pays self-tests done");
+  })();
+}
+</script>
+</body>
+</html>

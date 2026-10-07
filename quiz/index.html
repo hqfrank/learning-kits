@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning Quiz — spaced review over the learning kits</title>
+<style>
+  :root{--bg:#0f1218;--panel:#171c25;--ink:#e7ebf2;--mute:#9aa4b5;--line:#2a3140;--acc:#58d6a0;--warn:#ffb454;--bad:#ff6b8a;--info:#5ab0ff;--focus:#ffd166}
+  @media (prefers-color-scheme: light){:root{--bg:#f6f7fa;--panel:#fff;--ink:#14181f;--mute:#5b6473;--line:#d9dee8;--acc:#1f8a5b;--warn:#b26a00;--bad:#c2284a;--info:#1f6fb8;--focus:#b8860b}}
+  *{box-sizing:border-box} html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 24px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+  header h1{margin:0;font-size:20px} header .sub{color:var(--mute);font-size:14px}
+  main{max-width:1000px;margin:0 auto;padding:20px 24px 60px}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:14px 0}
+  h2{font-size:18px;margin:0 0 10px} h3{font-size:16px;margin:16px 0 6px}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink);cursor:pointer}
+  button:hover{border-color:var(--info)} button:focus-visible,[tabindex]:focus-visible,a:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+  button.primary{background:var(--acc);color:#061a10;border-color:transparent;font-weight:600}
+  button[disabled]{opacity:.5;cursor:default}
+  .topic{display:block;width:100%;text-align:left;padding:14px 16px;margin:8px 0}
+  .topic .t{font-weight:600} .topic .m{color:var(--mute);font-size:14px}
+  table{width:100%;border-collapse:collapse;font-size:15px} th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);vertical-align:top}
+  .bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;min-width:120px} .bar>i{display:block;height:100%;background:var(--acc)}
+  .box{display:inline-block;min-width:22px;text-align:center;border-radius:6px;padding:0 6px;font-size:13px;font-weight:600}
+  .b0{background:var(--bad);color:#fff}.b1{background:var(--warn);color:#241600}.b2{background:#8b8f00;color:#fff}.b3{background:var(--info);color:#fff}.b4{background:var(--acc);color:#061a10}.bn{background:var(--line);color:var(--mute)}
+  .q{font-size:18px;margin:8px 0 14px} .choice{display:block;width:100%;text-align:left;margin:6px 0;padding:10px 14px}
+  .choice.correct{border-color:var(--acc);box-shadow:inset 0 0 0 2px var(--acc)} .choice.wrong{border-color:var(--bad);box-shadow:inset 0 0 0 2px var(--bad)}
+  .feedback{margin-top:12px;padding:12px 14px;border-radius:8px;border-left:4px solid var(--info);background:rgba(90,176,255,.08)}
+  .feedback.ok{border-left-color:var(--acc);background:rgba(88,214,160,.08)} .feedback.bad{border-left-color:var(--bad);background:rgba(255,107,138,.08)}
+  .src{color:var(--mute);font-size:13px} code{font-family:ui-monospace,Menlo,monospace;font-size:.92em;background:rgba(127,127,127,.12);padding:1px 5px;border-radius:4px}
+  input[type=number],input[type=text]{font:inherit;padding:8px 10px;border-radius:8px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:220px}
+  .kp{padding:8px 0;border-bottom:1px solid var(--line)} .kp:last-child{border-bottom:0}
+  .pill{font-size:12px;color:var(--mute);border:1px solid var(--line);border-radius:999px;padding:1px 8px;margin-left:6px}
+  .sr-only{position:absolute;left:-9999px}
+  .crumbs{color:var(--mute);font-size:14px;margin-bottom:8px} .crumbs a{color:var(--info);text-decoration:none}
+  .warnbox{border-left:4px solid var(--warn);padding:10px 14px;background:rgba(255,180,84,.08);border-radius:8px}
+  footer{color:var(--mute);font-size:13px;margin-top:30px}
+</style>
+</head>
+<body>
+<header>
+  <h1>Learning Quiz</h1>
+  <span class="sub">Questions generated from each kit's notes · wrong answers push a knowledge point into frequent review · progress stays in this browser (localStorage)</span>
+</header>
+<main id="app" aria-live="polite"></main>
+<script src="banks/manifest.js"></script>
+<script>
+(function(){
+"use strict";
+// ---------- bank loading (file:// friendly: banks are .js files that push into window.QUIZ_BANKS) ----------
+window.QUIZ_BANKS = window.QUIZ_BANKS || [];
+var FILES = window.QUIZ_BANK_FILES || [];
+var pending = FILES.length;
+function loadBanks(done){
+  if (!pending) return done();
+  FILES.forEach(function(f){
+    var s=document.createElement("script"); s.src="banks/"+f;
+    s.onload=s.onerror=function(){ if(--pending===0) done(); };
+    document.head.appendChild(s);
+  });
+}
+
+// ---------- persistence ----------
+var KEY="learning-quiz-v1";
+function load(){ try{ return JSON.parse(localStorage.getItem(KEY))||{kp:{},log:[]}; }catch(e){ return {kp:{},log:[]}; } }
+function save(st){ localStorage.setItem(KEY, JSON.stringify(st)); }
+var state = load();
+
+// Leitner boxes 0..4. Box 0 = just missed (ask every session). Interval in days per box.
+var INTERVAL=[0,1,3,7,21];
+function kpState(id){ return state.kp[id] || (state.kp[id]={box:null,due:0,seen:0,wrong:0,right:0,last:0}); }
+function record(kpId, ok){
+  var k=kpState(kpId), now=Date.now();
+  k.seen++; k.last=now;
+  if(ok){ k.right++; k.box = k.box===null ? 2 : Math.min(4,k.box+1); }
+  else  { k.wrong++; k.box = 0; }
+  k.due = now + INTERVAL[k.box]*86400000;
+  state.log.push({t:now,kp:kpId,ok:ok});
+  if(state.log.length>5000) state.log=state.log.slice(-5000);
+  save(state);
+}
+function isDue(id){ var k=state.kp[id]; return !k || k.box===null || k.due<=Date.now(); }
+function weight(id){ // higher = ask sooner
+  var k=state.kp[id]; if(!k||k.box===null) return 3;      // never seen: medium-high
+  var w = [8,5,3,1.5,0.6][k.box];
+  if(k.due<=Date.now()) w*=2;
+  return w;
+}
+
+// ---------- data model ----------
+var banks=[], topics={};
+function index(){
+  banks = window.QUIZ_BANKS.slice();
+  topics={};
+  banks.forEach(function(b){
+    var t = topics[b.topic] || (topics[b.topic]={id:b.topic,title:b.topicTitle||b.topic,sections:[]});
+    t.sections.push(b);
+    b.questions.forEach(function(q){ q._bank=b; q.kp = q.kp || ("kp:"+b.topic+"/"+b.section+"/"+q.id); });
+    Object.keys(b.knowledgePoints||{}).forEach(function(k){ b.knowledgePoints[k]._bank=b; });
+  });
+  Object.values(topics).forEach(function(t){ t.sections.sort(function(a,b){return a.section<b.section?-1:1;}); });
+}
+function kpTitle(id){
+  for(var i=0;i<banks.length;i++){ var k=(banks[i].knowledgePoints||{})[id]; if(k) return k; }
+  return {title:id, summary:"", source:""};
+}
+function kpsOf(bank){ var s={}; bank.questions.forEach(function(q){ s[q.kp]=1; }); return Object.keys(s); }
+function mastery(ids){ // 0..1
+  if(!ids.length) return 0;
+  var sum=0; ids.forEach(function(id){ var k=state.kp[id]; sum += (k&&k.box!==null)? k.box/4 : 0; }); return sum/ids.length;
+}
+
+// ---------- question selection ----------
+function pick(questions, n){
+  // weighted sample without replacement, biased to weak/due knowledge points; at most 2 questions per KP per session
+  var pool=questions.slice(), out=[], perKp={};
+  while(out.length<n && pool.length){
+    var tot=0, ws=pool.map(function(q){ var w=weight(q.kp)*((perKp[q.kp]||0)>=2?0.05:1); tot+=w; return w; });
+    var r=Math.random()*tot, i=0; for(;i<pool.length;i++){ r-=ws[i]; if(r<=0) break; }
+    i=Math.min(i,pool.length-1);
+    var q=pool.splice(i,1)[0]; out.push(q); perKp[q.kp]=(perKp[q.kp]||0)+1;
+  }
+  return out;
+}
+function shuffle(a){ for(var i=a.length-1;i>0;i--){ var j=Math.floor(Math.random()*(i+1)); var t=a[i];a[i]=a[j];a[j]=t; } return a; }
+
+// ---------- rendering helpers ----------
+var app=document.getElementById("app");
+function h(tag, attrs, children){
+  var el=document.createElement(tag);
+  if(attrs) Object.keys(attrs).forEach(function(k){
+    if(k==="class") el.className=attrs[k]; else if(k==="html") el.innerHTML=attrs[k];
+    else if(k.slice(0,2)==="on") el.addEventListener(k.slice(2), attrs[k]); else el.setAttribute(k, attrs[k]);
+  });
+  (children||[]).forEach(function(c){ if(c==null) return; el.appendChild(typeof c==="string"?document.createTextNode(c):c); });
+  return el;
+}
+function esc(s){ return String(s).replace(/[&<>]/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;"}[c];}); }
+function md(s){ // tiny inline markdown: `code`, **bold**
+  return esc(s).replace(/`([^`]+)`/g,"<code>$1</code>").replace(/\*\*([^*]+)\*\*/g,"<b>$1</b>");
+}
+function boxBadge(id){ var k=state.kp[id]; if(!k||k.box===null) return h("span",{class:"box bn",title:"not yet seen"},["–"]); return h("span",{class:"box b"+k.box,title:"Leitner box "+k.box+" (0 = review now, 4 = mastered)"},[String(k.box)]); }
+function clear(){ app.innerHTML=""; }
+function crumbs(parts){ var c=h("div",{class:"crumbs"}); parts.forEach(function(p,i){ if(i) c.appendChild(document.createTextNode(" › ")); c.appendChild(p.go? h("a",{href:"#",onclick:function(e){e.preventDefault();p.go();}},[p.label]) : document.createTextNode(p.label)); }); return c; }
+
+// ---------- views ----------
+function viewHome(){
+  clear();
+  var all=Object.values(topics);
+  if(!all.length){ app.appendChild(h("div",{class:"panel warnbox"},["No question banks loaded. Add bank files to banks/ and list them in banks/manifest.js (see README.md)."])); return; }
+  var due=0; Object.keys(state.kp).forEach(function(id){ if(state.kp[id].box===0 || (state.kp[id].due<=Date.now()&&state.kp[id].box!==null)) due++; });
+  app.appendChild(h("div",{class:"panel"},[
+    h("h2",{},["Topics"]),
+    h("p",{class:"src"},["Pick a topic, then a section. Each section's quiz draws on that section's note. Knowledge points you miss come back sooner."]),
+    h("div",{}, all.map(function(t){
+      var ids=[]; t.sections.forEach(function(b){ ids=ids.concat(kpsOf(b)); });
+      var m=mastery(ids);
+      return h("button",{class:"topic",onclick:function(){viewTopic(t);}},[
+        h("div",{class:"t"},[t.title]),
+        h("div",{class:"m"},[t.sections.length+" sections · "+ids.length+" knowledge points · mastery "+Math.round(m*100)+"%"]),
+        h("div",{class:"bar",style:"margin-top:6px"},[h("i",{style:"width:"+Math.round(m*100)+"%"})])
+      ]);
+    }))
+  ]));
+  app.appendChild(h("div",{class:"panel"},[
+    h("h2",{},["Review"]),
+    h("p",{class:"src"},[due? due+" knowledge point(s) are due or were missed recently." : "Nothing due. Missed points will appear here."]),
+    h("div",{class:"row"},[
+      h("button",{class:"primary",onclick:function(){ startSession(null, 12, "Review across all topics"); }},["Review session (12 questions, weakest first)"]),
+      h("button",{onclick:viewReviewList},["Show review list"]),
+      h("button",{onclick:function(){ if(confirm("Reset all progress in this browser?")){ state={kp:{},log:[]}; save(state); viewHome(); } }},["Reset progress"])
+    ])
+  ]));
+  app.appendChild(h("footer",{},["Boxes: 0 missed (ask now) · 1 ask in 1 day · 2 in 3 · 3 in 7 · 4 in 21. A right answer moves up one box; a wrong answer drops to 0. Progress is stored only in this browser."]));
+}
+
+function viewTopic(t){
+  clear();
+  app.appendChild(crumbs([{label:"Topics",go:viewHome},{label:t.title}]));
+  var p=h("div",{class:"panel"},[h("h2",{},[t.title])]);
+  var tbl=h("table",{},[h("thead",{},[h("tr",{},[h("th",{},["Section"]),h("th",{},["Questions"]),h("th",{},["Mastery"]),h("th",{},["Due"]),h("th",{},[""])])])]);
+  var tb=h("tbody");
+  t.sections.forEach(function(b){
+    var ids=kpsOf(b), m=mastery(ids), due=ids.filter(isDue).length;
+    tb.appendChild(h("tr",{},[
+      h("td",{},[h("div",{},[b.sectionTitle||b.section]), b.notePath? h("a",{class:"src",href:b.notePath,target:"_blank"},["open note"]):null]),
+      h("td",{},[String(b.questions.length)]),
+      h("td",{},[h("div",{class:"bar"},[h("i",{style:"width:"+Math.round(m*100)+"%"})]), h("span",{class:"src"},[Math.round(m*100)+"%"])]),
+      h("td",{},[String(due)+" / "+ids.length]),
+      h("td",{},[h("div",{class:"row"},[
+        h("button",{class:"primary",onclick:function(){ startSession([b], Math.min(10,b.questions.length), (b.sectionTitle||b.section)); }},["Quiz"]),
+        h("button",{onclick:function(){ viewKps(b,t); }},["Knowledge points"])
+      ])])
+    ]));
+  });
+  tbl.appendChild(tb); p.appendChild(tbl);
+  p.appendChild(h("div",{class:"row",style:"margin-top:12px"},[
+    h("button",{onclick:function(){ startSession(t.sections, 15, t.title+" — mixed"); }},["Mixed quiz over the whole topic (15)"]),
+    h("button",{onclick:function(){ startSession(t.sections, 12, t.title+" — weakest", true); }},["Weakest points in this topic (12)"])
+  ]));
+  app.appendChild(p);
+}
+
+function viewKps(b,t){
+  clear();
+  app.appendChild(crumbs([{label:"Topics",go:viewHome},{label:t.title,go:function(){viewTopic(t);}},{label:b.sectionTitle||b.section}]));
+  var p=h("div",{class:"panel"},[h("h2",{},["Knowledge points — "+(b.sectionTitle||b.section)])]);
+  kpsOf(b).forEach(function(id){
+    var k=kpTitle(id), s=state.kp[id];
+    p.appendChild(h("div",{class:"kp"},[
+      h("div",{},[boxBadge(id)," ",h("b",{},[k.title||id]), s? h("span",{class:"pill"},[s.right+" right / "+s.wrong+" wrong"]):null]),
+      k.summary? h("div",{class:"src",html:md(k.summary)}):null,
+      k.source? h("div",{class:"src"},["Source: "+k.source]):null
+    ]));
+  });
+  app.appendChild(p);
+}
+
+function viewReviewList(){
+  clear();
+  app.appendChild(crumbs([{label:"Topics",go:viewHome},{label:"Review list"}]));
+  var ids=Object.keys(state.kp).filter(function(id){ var k=state.kp[id]; return k.box!==null; });
+  ids.sort(function(a,b){ var ka=state.kp[a],kb=state.kp[b]; return (ka.box-kb.box)|| (kb.wrong-ka.wrong); });
+  var p=h("div",{class:"panel"},[h("h2",{},["Knowledge points, weakest first"])]);
+  if(!ids.length) p.appendChild(h("p",{class:"src"},["Nothing recorded yet. Take a quiz first."]));
+  ids.forEach(function(id){
+    var k=kpTitle(id), s=state.kp[id], b=k._bank;
+    p.appendChild(h("div",{class:"kp"},[
+      h("div",{},[boxBadge(id)," ",h("b",{},[k.title||id]), h("span",{class:"pill"},[s.right+" right / "+s.wrong+" wrong"]), b? h("span",{class:"pill"},[(b.topicTitle||b.topic)+" › "+(b.sectionTitle||b.section)]):null]),
+      k.summary? h("div",{class:"src",html:md(k.summary)}):null,
+      h("div",{class:"src"},[k.source? "Source: "+k.source+"  ":"", b&&b.notePath? h("a",{href:b.notePath,target:"_blank"},["open note"]):null])
+    ]));
+  });
+  app.appendChild(p);
+}
+
+// ---------- quiz session ----------
+function startSession(sectionBanks, n, title, weakestOnly){
+  var qs=[]; (sectionBanks||banks).forEach(function(b){ qs=qs.concat(b.questions); });
+  if(weakestOnly){ var seen=qs.filter(function(q){ var k=state.kp[q.kp]; return k&&k.box!==null&&k.box<=2; }); if(seen.length>=4) qs=seen; }
+  if(!sectionBanks){ // review across topics: prefer due/missed
+    var due=qs.filter(function(q){ var k=state.kp[q.kp]; return k&&k.box!==null&&(k.box===0||k.due<=Date.now()); });
+    if(due.length>=4) qs=due;
+  }
+  var session={title:title, qs:pick(qs,n), i:0, right:0, missed:[]};
+  if(!session.qs.length){ alert("No questions available."); return; }
+  renderQuestion(session);
+}
+
+function renderQuestion(S){
+  clear();
+  var q=S.qs[S.i], b=q._bank, kp=kpTitle(q.kp);
+  app.appendChild(crumbs([{label:"Topics",go:viewHome},{label:S.title}]));
+  var p=h("div",{class:"panel"},[
+    h("div",{class:"src"},["Question "+(S.i+1)+" of "+S.qs.length+" · ",boxBadge(q.kp)," ",kp.title||q.kp]),
+    h("div",{class:"q",html:md(q.prompt)})
+  ]);
+  var answered=false, feedback=h("div");
+  function finish(ok, detail){
+    if(answered) return; answered=true;
+    record(q.kp, ok); if(ok) S.right++; else S.missed.push(q);
+    feedback.appendChild(h("div",{class:"feedback "+(ok?"ok":"bad")},[
+      h("div",{},[h("b",{},[ok?"Correct.":"Not quite."])," ",detail||""]),
+      q.explanation? h("div",{style:"margin-top:6px",html:md(q.explanation)}):null,
+      h("div",{class:"src",style:"margin-top:6px"},[q.source? "Source: "+q.source:"", b.notePath? [" · ",h("a",{href:b.notePath,target:"_blank"},["open note"])] : null].flat())
+    ]));
+    nextBtn.disabled=false; nextBtn.focus();
+  }
+  if(q.type==="mcq"||q.type==="tf"){
+    var choices = q.type==="tf" ? ["True","False"] : q.choices;
+    var order = q.type==="tf" ? [0,1] : shuffle(choices.map(function(_,i){return i;}));
+    var ansIdx = q.type==="tf" ? (q.answer===true||q.answer==="true"?0:1) : q.answer;
+    var btns=[];
+    order.forEach(function(ci){
+      var btn=h("button",{class:"choice",onclick:function(){
+        if(answered) return;
+        var ok = ci===ansIdx;
+        btns.forEach(function(x){ if(x._ci===ansIdx) x.classList.add("correct"); });
+        if(!ok) btn.classList.add("wrong");
+        finish(ok, ok?"":"The answer is: "+choices[ansIdx]);
+      }},[]);
+      btn.innerHTML=md(choices[ci]); btn._ci=ci; btns.push(btn); p.appendChild(btn);
+    });
+  } else if(q.type==="multi"){
+    var sel={}; var boxes=[];
+    q.choices.forEach(function(c,ci){
+      var id="c"+ci; var cb=h("input",{type:"checkbox",id:id,onchange:function(){ sel[ci]=cb.checked; }});
+      boxes.push(cb);
+      p.appendChild(h("div",{style:"margin:6px 0"},[cb," ",h("label",{for:id,html:md(c)})]));
+    });
+    p.appendChild(h("button",{class:"primary",style:"margin-top:8px",onclick:function(){
+      if(answered) return;
+      var want=q.answer.slice().sort().join(","), got=Object.keys(sel).filter(function(k){return sel[k];}).map(Number).sort().join(",");
+      boxes.forEach(function(cb){cb.disabled=true;});
+      finish(want===got, want===got?"":"Correct set: "+q.answer.map(function(i){return q.choices[i];}).join("; "));
+    }},["Check"]));
+  } else if(q.type==="numeric"){
+    var inp=h("input",{type:"number",step:"any","aria-label":"your answer"}), unit=q.unit? h("span",{},[" "+q.unit]):null;
+    var check=function(){ if(answered) return; var v=parseFloat(inp.value); if(isNaN(v)) return;
+      var tol = q.tolerance!=null? q.tolerance : Math.abs(q.answer)*0.05;
+      var ok=Math.abs(v-q.answer)<=tol; inp.disabled=true;
+      finish(ok, ok?"":"Expected "+q.answer+(q.unit?" "+q.unit:"")+(q.tolerance!=null?" (±"+q.tolerance+")":" (±5%)")); };
+    inp.addEventListener("keydown",function(e){ if(e.key==="Enter") check(); });
+    p.appendChild(h("div",{class:"row"},[inp,unit,h("button",{class:"primary",onclick:check},["Check"])]));
+  } else {
+    p.appendChild(h("div",{class:"warnbox"},["Unknown question type: "+q.type]));
+  }
+  p.appendChild(feedback);
+  var nextBtn=h("button",{class:"primary",style:"margin-top:14px",disabled:"true",onclick:function(){ S.i++; if(S.i<S.qs.length) renderQuestion(S); else renderSummary(S); }},[S.i+1<S.qs.length?"Next":"Finish"]);
+  p.appendChild(h("div",{class:"row"},[nextBtn, h("button",{onclick:viewHome},["Quit"])]));
+  app.appendChild(p);
+}
+
+function renderSummary(S){
+  clear();
+  app.appendChild(crumbs([{label:"Topics",go:viewHome},{label:S.title+" — results"}]));
+  var p=h("div",{class:"panel"},[
+    h("h2",{},[S.right+" / "+S.qs.length+" correct"]),
+    S.missed.length? h("h3",{},["Marked for review"]) : h("p",{},["Nothing missed. These points move up a box."])
+  ]);
+  var seen={};
+  S.missed.forEach(function(q){ if(seen[q.kp]) return; seen[q.kp]=1; var k=kpTitle(q.kp);
+    p.appendChild(h("div",{class:"kp"},[h("div",{},[boxBadge(q.kp)," ",h("b",{},[k.title||q.kp])]), k.summary? h("div",{class:"src",html:md(k.summary)}):null, h("div",{class:"src"},[k.source?"Source: "+k.source+" ":"", q._bank.notePath? h("a",{href:q._bank.notePath,target:"_blank"},["open note"]):null])]));
+  });
+  p.appendChild(h("div",{class:"row",style:"margin-top:12px"},[
+    h("button",{class:"primary",onclick:function(){ startSession(S.qs.map(function(q){return q._bank;}).filter(function(b,i,a){return a.indexOf(b)===i;}), S.qs.length, S.title); }},["Again (same scope)"]),
+    h("button",{onclick:viewHome},["Back to topics"])
+  ]));
+  app.appendChild(p);
+}
+
+loadBanks(function(){ index(); viewHome(); });
+})();
+</script>
+</body>
+</html>

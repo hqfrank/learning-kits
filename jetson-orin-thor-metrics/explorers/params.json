@@ -1,0 +1,162 @@
+{
+  "_about": "Parameters for the two explorers in this folder. Every entry is copied verbatim (value + unit + source) from ../constants.json, which traces each number to book.pdf (section + table) or the L4 KEY-LEARNINGS.md. Nothing here is retyped from prose; load this file. Where an explorer needs a value constants.json does not carry as a scalar (e.g. a compute roof for a precision the book reports per datapath), the source string names the note/table it was lifted from and labels any derivation 'estimate'. Rung 3 (learn-explorer).",
+
+  "sm_count": {
+    "orin": {"value": 16, "unit": "SM", "source": "Platforms Table 1 (n_SM)"},
+    "thor": {"value": 20, "unit": "SM", "source": "Platforms Table 1 (n_SM)"}
+  },
+  "gpu_clock_maxn_locked": {
+    "orin": {"value": 1.30, "unit": "GHz", "source": "Platforms Table 1 (f)"},
+    "thor": {"value": 1.575, "unit": "GHz", "source": "Platforms Table 1 (f)"}
+  },
+  "l1_read_datapath": {"value": 128, "unit": "B/cycle/SM", "source": "Platforms Table 1 (L1 read datapath)"},
+  "l2_size": {
+    "orin": {"value": 4, "unit": "MB", "source": "Platforms Table 1 (L2 cache)"},
+    "thor": {"value": 32, "unit": "MB", "source": "Platforms Table 1 (L2 cache)"}
+  },
+
+  "l1_read_aggregate": {
+    "orin": {"value": 2067, "unit": "GB/s", "source": "A.6/A.5 Table A.5.1 (predicted vs measured L1 BW)"},
+    "thor": {"value": 3038, "unit": "GB/s", "source": "A.5 Table A.5.1 (predicted vs measured L1 BW)"}
+  },
+  "l2_resident_read_bandwidth": {
+    "orin": {"value": 2200, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 83% of datapath estimate"},
+    "thor": {"value": 3790, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 94% of datapath estimate"}
+  },
+  "dram_bandwidth_read_measured": {
+    "orin": {"value": 177, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 86% of spec"},
+    "thor": {"value": 259, "unit": "GB/s", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 95% of spec"}
+  },
+
+  "cuda_fp32_ceiling": {
+    "orin": {"value": 5.15, "unit": "TFLOP/s", "source": "A.2 Table A.2.2 (CUDA-core ceilings)"},
+    "thor": {"value": 7.82, "unit": "TFLOP/s", "source": "A.2 Table A.2.2 (CUDA-core ceilings)"}
+  },
+  "tensor_classic_fp16": {
+    "orin": {"value": 42.5, "unit": "TFLOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 42.6"},
+    "thor": {"value": 64.4, "unit": "TFLOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 64.5"}
+  },
+  "tensor_classic_int8": {
+    "orin": {"value": 83.4, "unit": "TOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 85.2"},
+    "thor": {"value": 128.8, "unit": "TOP/s", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 129.0"}
+  },
+  "tensor_tcgen05_fp16": {
+    "thor": {"value": 192.5, "unit": "TFLOP/s", "source": "A.3 Table A.3.3 (tcgen05 vs datasheet); 75% of ~258 estimate"}
+  },
+  "nvfp4_dense_ceiling": {
+    "thor": {"value": 627.8, "unit": "TFLOP/s", "source": "A.4 Table A.4.2 (NVFP4 dense/sparse); 60.7% of 1035 dense-equiv datasheet"}
+  },
+
+  "pi05_sustained_bandwidth": {"value": 197.3, "unit": "GB/s", "source": "C.1 Table C.1.2 / ref [C]; emc-ground-truth, pi0.5 arm0prime (Thor)"},
+
+  "pi05_latency_predicted": {
+    "thor_16bit": {"value": 64.1, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 15.6 Hz"},
+    "thor_8bit": {"value": 37.4, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 26.7 Hz"},
+    "orin_16bit": {"value": 162.7, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 6.1 Hz, not yet measured"},
+    "orin_8bit": {"value": 87.0, "unit": "ms", "source": "C.1 Table C.1.5 (all predicted); 11.5 Hz, not yet measured"}
+  },
+  "pi05_latency_measured": {
+    "thor_bf16": {"value": 90.06, "unit": "ms", "source": "C.1 Table C.1.6 (measured); Wbf16Abf16, 1.40x optimism vs predicted"},
+    "thor_fp8": {"value": 53.03, "unit": "ms", "source": "C.1 Table C.1.6 (measured); Wfp8Afp8@fp16, 1.42x optimism"}
+  },
+  "pi05_dram_bytes_measured": {
+    "thor_bf16": {"value": 19.44, "unit": "GB/inference", "source": "C.1 Table C.1.6 (measured)"},
+    "thor_fp8": {"value": 11.58, "unit": "GB/inference", "source": "C.1 Table C.1.6 (measured)"}
+  },
+  "pi05_flops_per_inference": {"value": 4344, "unit": "GFLOP/inference", "source": "L4 KEY-LEARNINGS VLA-solo; pi0.5 4344 GFLOP at AI 176 (Thor)"},
+  "pi05_action_expert_params": {"value": 0.30, "unit": "billion params", "source": "C.1 'How' (Gemma-300M action expert, 0.30 B); re-read at n_steps=10"},
+  "pi05_action_denoising_steps": {"value": 10, "unit": "steps", "source": "C.1 'How' (n_steps = 10 denoising iterations)"},
+  "pi05_prefill_rate_thor": {"value": 94, "unit": "TFLOP/s", "source": "C.1 Table C.1.2 (R_gate/up,R_down,R_qkvo ~94 TFLOP/s Thor at M=712)"},
+  "pi05_prefill_rate_orin": {"value": 24, "unit": "TFLOP/s", "source": "C.1 Table C.1.2 (~24 TFLOP/s Orin at M=712)"},
+
+  "wbc_mlp_shape": {"value": "80-512-256-128-23", "unit": "INT8 MLP", "source": "B.8 (WBC victim: batch-1 INT8 MLP 80->512->256->128->23)"},
+  "wbc_solo_p99": {
+    "orin": {"value": 0.0596, "unit": "ms", "source": "B.8 Table B.8.1 (WBC p99); 59.6 us solo"},
+    "thor": {"value": 0.0416, "unit": "ms", "source": "B.8 Table B.8.1 (WBC p99); 41.6 us solo"}
+  },
+
+  "lockout_onset_occupancy": {
+    "orin": {"value": 8, "unit": "% warp slots", "source": "B.4 Table B.4.1 (two mechanisms); lockout onset"},
+    "thor": {"value": 14, "unit": "% warp slots", "source": "B.4 Table B.4.1 (two mechanisms); lockout onset"}
+  },
+  "controller_contention_peak": {
+    "orin": {"value": 1.53, "unit": "x slowdown", "source": "B.4 Table B.4.1; peaks at 8 MB (just past 4 MB L2)"},
+    "thor": {"value": 2.53, "unit": "x slowdown", "source": "B.4 Table B.4.1; 2.25-2.53x, onsets at 32 MB L2"}
+  },
+  "dram_bandwidth_sustained_M": {
+    "orin": {"value": 190, "unit": "GB/s", "source": "B.6 Table B.6.1 (co-tenancy parameters), cited to [M]"},
+    "thor": {"value": 245, "unit": "GB/s", "source": "B.6 Table B.6.1 (co-tenancy parameters), cited to [M]"}
+  },
+  "cpu_hog_bandwidth_cliff_half_ceiling": {
+    "orin": {"value": 50, "unit": "GB/s", "source": "B.5 section B.5.5 (bandwidth setpoint, Fig B.5.2); ~half CPU unthrottled ceiling"},
+    "thor": {"value": 120, "unit": "GB/s", "source": "B.5 section B.5.5 (bandwidth setpoint, Fig B.5.2); ~half CPU unthrottled ceiling"}
+  },
+  "l2_eviction_plateau_pointerchase_predicted": {
+    "orin": {"value": 4.6, "unit": "x slowdown", "source": "B.2 Table B.2.1 (plateau predictions); L2:DRAM latency ratio"},
+    "thor": {"value": 3.3, "unit": "x slowdown", "source": "B.2 Table B.2.1 (plateau predictions); L2:DRAM latency ratio"}
+  },
+
+  "cotenancy_matrix_thor_measured": {
+    "IC_IC": {"value": 1.97, "unit": "x", "source": "B.6 Table B.6.3 (predicted vs measured cells); SM fair-share, pred 2.0"},
+    "IM_IM": {"value": 1.96, "unit": "x", "source": "B.6 Table B.6.3; DRAM share, pred 2.08"},
+    "IC_IM": {"value": 1.12, "unit": "x", "source": "B.6 Table B.6.3; memory victim/compute aggressor low"},
+    "IM_IC": {"value": 4.19, "unit": "x", "source": "B.6 Table B.6.3; compute aggressor poisons memory victim, pred ~1.08"},
+    "RC_RM": {"value": 1.50, "unit": "x", "source": "B.6 Table B.6.3; real compute aggressor on real memory victim"},
+    "RM_RC": {"value": 2.3, "unit": "x (hat)", "source": "B.6 Table B.6.3; floor-corrected"}
+  },
+  "cotenancy_matrix_orin_measured": {
+    "IC_IC": {"value": 1.99, "unit": "x", "source": "B.6 Table B.6.3; SM fair-share, pred 2.0"},
+    "IM_IM": {"value": 1.92, "unit": "x", "source": "B.6 Table B.6.3; DRAM share, pred 1.7"},
+    "IC_IM": {"value": 1.01, "unit": "x", "source": "B.6 Table B.6.3"},
+    "IM_IC": {"value": 2.66, "unit": "x", "source": "B.6 Table B.6.3; compute aggressor poisons memory victim, pred ~1.0"},
+    "RC_RM": {"value": 1.30, "unit": "x", "source": "B.6 Table B.6.3"},
+    "RM_RC": {"value": 3.6, "unit": "x (hat)", "source": "B.6 Table B.6.3; floor-corrected"}
+  },
+
+  "wbc_p99_single_aggressor_thor": {
+    "int8_compute_idle": {"value": 1.70, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU idle"},
+    "int8_compute_hog": {"value": 3.37, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU hog"},
+    "fp32_mem_idle": {"value": 0.64, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU idle"},
+    "fp32_mem_hog": {"value": 4.71, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU hog"},
+    "vlm_prefill_idle": {"value": 0.52, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU idle (overlap gate lower bound)"},
+    "vlm_prefill_hog": {"value": 4.52, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU hog"},
+    "vlm_decode_idle": {"value": 0.12, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU idle (lower bound)"},
+    "vlm_decode_hog": {"value": 0.74, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU hog (lower bound)"},
+    "vla_backbone_idle": {"value": 0.20, "unit": "ms", "source": "B.8 Table B.8.1; VLA NVFP4 tensor, CPU idle (lower bound)"},
+    "vla_backbone_hog": {"value": 0.72, "unit": "ms", "source": "B.8 Table B.8.1; VLA NVFP4 tensor, CPU hog (lower bound)"}
+  },
+  "wbc_p99_single_aggressor_orin": {
+    "int8_compute_idle": {"value": 1.44, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU idle"},
+    "int8_compute_hog": {"value": 2.23, "unit": "ms", "source": "B.8 Table B.8.1; INT8 SM-saturating, CPU hog"},
+    "fp32_mem_idle": {"value": 0.84, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU idle"},
+    "fp32_mem_hog": {"value": 1.17, "unit": "ms", "source": "B.8 Table B.8.1; fp32 memory-bandwidth, CPU hog"},
+    "vlm_prefill_idle": {"value": 0.51, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU idle"},
+    "vlm_prefill_hog": {"value": 1.29, "unit": "ms", "source": "B.8 Table B.8.1; VLM prefill, CPU hog"},
+    "vlm_decode_idle": {"value": 0.36, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU idle (lower bound)"},
+    "vlm_decode_hog": {"value": 0.50, "unit": "ms", "source": "B.8 Table B.8.1; VLM decode, CPU hog (lower bound)"}
+  },
+  "wbc_worst_mix_p99": {
+    "thor": {"value": 5.9, "unit": "ms", "source": "B.8 Fig B.8.1 (mix ladder); 141x solo, 3 tenants + CPU hog, under 10 ms deadline"}
+  },
+  "wbc_deadline": {"value": 10, "unit": "ms", "source": "B.8 section B.8.1 (100 Hz control budget)"},
+
+  "shared_context_wbc_penalty": {"value": 64, "unit": "x p99", "source": "L4 KEY-LEARNINGS rung-1a; pi0.5 shared context 1.74 -> 110.7 ms, 51% dropped"},
+  "shared_context_wbc_p99": {"value": 110.7, "unit": "ms", "source": "L4 KEY-LEARNINGS rung-1a; pi0.5 shared context, 51% ticks dropped"},
+  "separate_context_wbc_p99": {
+    "pi05": {"value": 17, "unit": "ms", "source": "L4 KEY-LEARNINGS matched-topology; 4.9% dropped, still over 10 ms"},
+    "groot": {"value": 14.3, "unit": "ms", "source": "L4 KEY-LEARNINGS GR00T separate context; 8.3x p99, 98% throughput held"}
+  },
+  "plain_mps_wbc_p99": {"value": 61, "unit": "ms", "source": "L4 KEY-LEARNINGS rung-3a; pi0.5 plain MPS, drop 51->25%, still over budget"},
+  "mps_cap_wbc_p99": {
+    "pi05_cap25": {"value": 7.5, "unit": "ms", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"},
+    "pi05_cap35": {"value": 9.1, "unit": "ms", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"},
+    "groot_cap35": {"value": 8.9, "unit": "ms", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"}
+  },
+  "mps_cap_vla_rate_retained": {
+    "pi05_cap35": {"value": 0.90, "unit": "fraction", "source": "L4 KEY-LEARNINGS MPS 3b; pi0.5 5 -> 4.5 Hz"},
+    "pi05_cap25": {"value": 0.72, "unit": "fraction", "source": "L4 KEY-LEARNINGS MPS 3b; pi0.5 5 -> 3.6 Hz"},
+    "groot_cap35": {"value": 0.87, "unit": "fraction", "source": "L4 KEY-LEARNINGS MPS 3b; GR00T 10 -> 8.7 Hz"}
+  },
+  "cpu_memory_load_floor": {"value": 172, "unit": "GB/s", "source": "L4 KEY-LEARNINGS; WBC collapses regardless of precision or MPS cap; ~70% of 245 GB/s roof"},
+  "sm_fair_share": {"value": 2, "unit": "x (S=N)", "source": "B.6 Table B.6.2; SM fair-share null model, two grid-filling tenants"}
+}

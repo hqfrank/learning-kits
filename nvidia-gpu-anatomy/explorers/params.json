@@ -1,0 +1,68 @@
+{
+  "_about": "Constants the rung-3 explorers load. Copied verbatim (values and source strings) from ../constants.json, which is itself a cited subset of ../../jetson-orin-thor-metrics/constants.json. Do not retype; load this file. 'board' is orin, thor, or both. Rates are at MAXN with GPU clocks locked unless the source string says otherwise.",
+  "_provenance": "Each entry's 'source' string is as given by the primer's constants.json (ultimately the metrics kit). 'Platforms Table 1' = ../../jetson-orin-thor-metrics/notes/00-platforms.md. 'A.n'/'B.n' = that section's note in the kit.",
+
+  "sm_count": {
+    "orin": {"value": 16, "unit": "SM", "board": "orin", "source": "Platforms Table 1 (n_SM)"},
+    "thor": {"value": 20, "unit": "SM", "board": "thor", "source": "Platforms Table 1 (n_SM)"}
+  },
+  "gpu_clock_maxn_locked": {
+    "orin": {"value": 1.30, "unit": "GHz", "board": "orin", "source": "Platforms Table 1 (f)"},
+    "thor": {"value": 1.575, "unit": "GHz", "board": "thor", "source": "Platforms Table 1 (f)"}
+  },
+  "smsp_per_sm": {"value": 4, "unit": "SMSP", "board": "both", "source": "Platforms Table 1 (sub-partitions per SM)"},
+  "dispatch_bound_per_smsp": {"value": 1, "unit": "inst/cycle", "board": "both", "source": "Platforms Table 1 (D)"},
+  "fp32_cores_per_sm": {"value": 128, "unit": "cores", "board": "both", "source": "Platforms Table 1"},
+  "max_warps_per_sm": {"value": 48, "unit": "warps", "board": "both", "source": "Platforms Table 1"},
+  "max_threads_per_sm": {"value": 1536, "unit": "threads", "board": "both", "source": "Platforms Table 1"},
+  "max_blocks_per_sm": {
+    "orin": {"value": 16, "unit": "blocks", "board": "orin", "source": "Platforms Table 1 (max blocks per SM)"},
+    "thor": {"value": 24, "unit": "blocks", "board": "thor", "source": "Platforms Table 1 (max blocks per SM)"}
+  },
+  "registers_per_sm": {"value": 65536, "unit": "registers", "board": "both", "source": "Platforms Table 1 (64K)"},
+
+  "l1_shared_per_sm": {
+    "orin": {"value": 164, "unit": "KB", "board": "orin", "source": "Platforms Table 1 (L1 + shared / SM)"},
+    "thor": {"value": 228, "unit": "KB", "board": "thor", "source": "Platforms Table 1 (L1 + shared / SM)"}
+  },
+  "l1_read_datapath": {"value": 128, "unit": "B/cycle/SM", "board": "both", "source": "Platforms Table 1 (L1 read datapath)"},
+  "l2_size": {
+    "orin": {"value": 4, "unit": "MB", "board": "orin", "source": "Platforms Table 1 (L2 cache)"},
+    "thor": {"value": 32, "unit": "MB", "board": "thor", "source": "Platforms Table 1 (L2 cache)"}
+  },
+  "l2_dram_capacity_ratio": {"value": 8, "unit": "x", "board": "both", "source": "Platforms Table 1 (32 MB / 4 MB)"},
+
+  "dram_bandwidth_spec": {
+    "orin": {"value": 204.8, "unit": "GB/s", "board": "orin", "source": "Platforms Table 1 (DRAM bandwidth spec, LPDDR5)"},
+    "thor": {"value": 273, "unit": "GB/s", "board": "thor", "source": "Platforms Table 1 (DRAM bandwidth spec ~273, LPDDR5X)"}
+  },
+  "dram_bandwidth_read_measured": {
+    "orin": {"value": 177, "unit": "GB/s", "board": "orin", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 86% of spec"},
+    "thor": {"value": 259, "unit": "GB/s", "board": "thor", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 95% of spec"}
+  },
+  "l2_resident_read_bandwidth": {
+    "orin": {"value": 2200, "unit": "GB/s", "board": "orin", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 83% of datapath estimate"},
+    "thor": {"value": 3790, "unit": "GB/s", "board": "thor", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 94% of datapath estimate"}
+  },
+  "l2_dram_bandwidth_ratio": {
+    "orin": {"value": 12.4, "unit": "x", "board": "orin", "source": "A.6 Table A.6.2 (L2:DRAM read ratio); predicted 13.0x"},
+    "thor": {"value": 14.6, "unit": "x", "board": "thor", "source": "A.6 Table A.6.2 (L2:DRAM read ratio); predicted 14.8x"}
+  },
+  "l1_read_plateau_per_sm": {
+    "orin": {"value": 129, "unit": "GB/s", "board": "orin", "source": "A.5 Table A.5.1 (predicted vs measured L1 BW); 78% of 128 B/cyc peak"},
+    "thor": {"value": 152, "unit": "GB/s", "board": "thor", "source": "A.5 Table A.5.1 (predicted vs measured L1 BW); 75% of 128 B/cyc peak"}
+  },
+
+  "latency_l1": {
+    "orin": {"value": 29.9, "unit": "ns", "board": "orin", "source": "A.7 Table A.7.2 (measured landmarks); 38.9 cycles"},
+    "thor": {"value": 25.3, "unit": "ns", "board": "thor", "source": "A.7 Table A.7.2 (measured landmarks); 39.8 cycles"}
+  },
+  "latency_l2": {
+    "orin": {"value": 146, "unit": "ns", "board": "orin", "source": "A.7 Table A.7.2 (measured landmarks); ~190 cycles"},
+    "thor": {"value": 156, "unit": "ns", "board": "thor", "source": "A.7 Table A.7.2 (measured landmarks); ~246 cycles"}
+  },
+  "latency_dram": {
+    "orin": {"value": 675, "unit": "ns", "board": "orin", "source": "A.7 Table A.7.2 (measured landmarks)"},
+    "thor": {"value": 510, "unit": "ns", "board": "thor", "source": "A.7 Table A.7.2 (measured landmarks)"}
+  }
+}

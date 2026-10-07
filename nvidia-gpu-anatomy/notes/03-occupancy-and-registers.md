@@ -1,0 +1,47 @@
+# 03 — Occupancy and registers
+
+**Sources:** CUDA Programming Guide §1.2.3.3, §3.2.2 (A-PM, A-HW); metrics-kit `A5`, `B3`, Table 1 (C-PLAT) and `constants.json`. See [[../SOURCES]].
+
+## In one sentence
+Occupancy is the fraction of an SM's maximum resident warps that are actually resident, and it is capped by whichever runs out first — warp slots, block slots, or the 64K-register file split across all a block's threads — but a higher occupancy does **not** mean a higher instruction-issue rate.
+
+## What it is
+Each SM has a fixed **register file** and a fixed ceiling of resident warps (48 on these boards). A thread's registers hold its local variables; the compiler decides how many each thread needs (A-PM §1.2.3.3). To place a block on an SM, (registers per thread) × (threads in the block) must fit in the register file alongside every other resident block (A-PM §1.2.3.3). **Occupancy** is the resulting ratio: resident warps ÷ 48 (the metrics kit's definition, C-KIT-NOTES A5 glossary).
+
+**What a register actually holds.** The arithmetic units read and write registers only: an FP32 lane cannot multiply two values that sit in L1 or DRAM. So a register holds whatever a thread is working on *right now* — an operand just loaded from memory (one element of a weight matrix, one input value), a partial sum or accumulator (the running dot product of a GEMM tile), a loop counter or array index, a pointer (64-bit, so two registers), and the thread's local scalar variables (A-PM §1.2.3.3; **my explanation** of the inventory). Weights therefore do pass through registers, one element at a time, on their way into the math units; what registers cannot do is *store* them. A 0.30 B-parameter action expert is 600 MB at 16 bit, while the whole Thor GPU has 20 × 256 KB ≈ 5 MB of registers, allocated per thread and released at every launch (C-KIT-NOTES C1; `registers_per_sm`, `sm_count`). The program counter is not a register in this sense; it is separate per-warp hardware. The kit's A1 probe is the pure case: `a = a*c + d` along four chains, every operand in a register, no memory traffic in the loop, so it measures issue rate alone (C-KIT-NOTES A1).
+
+A register-hungry kernel reaches the register limit before the warp limit, so fewer warps are resident and occupancy drops. A light kernel reaches the 48-warp or block limit first and can run at full occupancy.
+
+**Registers and the L1/shared array are two different stores with two different owners.** The register file (65536 × 4 B = 256 KB per SM, split into four SMSP slices) is per thread, numbered not addressed, and filled at launch. The L1/shared array (164 KB Orin / 228 KB Thor per SM) is addressed memory: the shared-memory slice is written by the block's own stores, the L1 slice fills on demand when a load misses (A-PM §1.2.3.3; [[05-memory-hierarchy]]). No byte moves between the two directly. Their relationship is through **residency**: a block needs (registers per thread × threads) from the register file *and* its declared shared memory from the L1/shared array, and whichever runs out first caps how many warps the SM holds. A kernel that asks for a lot of shared memory also shrinks the L1 slice via the carveout (A-PM §1.2.3.3). When a thread needs more registers than the compiler can give it, the extra values **spill** to *local memory*, which is ordinary addressed memory backed by L1 → L2 → DRAM — spills are the one path by which register pressure turns into memory traffic (A-PM §1.2.3.3; **my explanation** of the link).
+
+## How it works
+Occupancy exists to hide latency. When a warp stalls waiting on memory, the scheduler issues from another resident warp instead; more resident warps means more chances to find a ready one ([[01-sm-and-smsp]]). So occupancy supplies the *opportunity* to issue.
+
+But opportunity is not issue. The dispatch bound is still one instruction per cycle per sub-partition no matter how many warps are resident ([[01-sm-and-smsp]]). If the resident warps are all stalled on the same long-latency DRAM load, high occupancy issues nothing. The metrics kit tests this directly: three matrix-multiply kernels held at 62–74% occupancy differ in runtime by up to **4.24×** (Orin) because their dominant stall class differs, not their occupancy (C-KIT-NOTES B3, Table B.3.1). Occupancy and issue efficiency even moved in opposite directions for the register-tiled kernel across boards (C-KIT-NOTES B3). This is why the kit's rule is: read the stall breakdown, not the occupancy number.
+
+## On Orin and Thor (numbers from constants.json)
+From `constants.json` (C-PLAT Table 1):
+
+- **Register file per SM:** 65536 registers on both — `registers_per_sm`.
+- **Max resident warps per SM:** 48 on both — `max_warps_per_sm`.
+- **Max resident threads per SM:** 1536 on both — `max_threads_per_sm`.
+
+A worked limit **(my explanation, from these constants):** at full 1536 threads, the register budget is 65536 / 1536 ≈ 42 registers per thread. A kernel needing more than ~42 registers per thread cannot run all 48 warps; at 64 registers per thread only 1024 threads (32 warps, 67% occupancy) fit. The metrics kit's L1 sweep deliberately runs at 32 of 48 warps = **67%** for this reason (C-KIT-NOTES A5 glossary, "occupancy"), and its "register wall" term names the tile size at which accumulators exhaust the 64K file and collapse occupancy (C-KIT-NOTES B5 glossary).
+
+## Common confusions
+- **Occupancy is not utilisation and not issue rate.** It counts resident warps, not instructions issued or FLOPs retired. The B3 result (4.24× runtime spread at flat occupancy) is the whole point (C-KIT-NOTES B3).
+- **Higher occupancy is not always better.** A register-tiled kernel trades occupancy for data reuse and can be faster at *lower* occupancy because each warp stalls less (C-KIT-NOTES B3). "Maximise occupancy" is a heuristic, not a law.
+- **Registers are per thread, shared memory is per block.** Register pressure scales with threads per block; shared memory is allocated once per block (A-PM §1.2.3.3). Both can limit residency; see [[05-memory-hierarchy]].
+- **64K is registers, not bytes.** The file holds 65536 32-bit registers per SM (C-PLAT).
+- **A register, the register file, and a cache line are three different sizes.** One register is one 32-bit slot: 4 B, one thread's scalar. The register file is all 65536 of them in one SM: 65536 × 4 B = 256 KB, already the whole SM (carved into four SMSP slices; do not multiply by 4 again). A cache line is 128 B, the unit L1 and L2 move; the L1 read datapath is also 128 B/cycle. A warp reading one register across its 32 threads moves 32 × 4 B = 128 B, which is why 128 B feels register-sized, but it is one register for a warp, not the file (C-PLAT; A-PM §1.2.3.3.1; reader question 2026-10-02).
+
+## Why it matters for robotics workloads
+A batch-1 control kernel is tiny: few threads, low occupancy, and that is fine because it is launch- and latency-bound, not occupancy-bound (C-KIT-NOTES L4, B4). Chasing occupancy on it wastes effort. Conversely, a perception kernel bottlenecked on DRAM stalls will not improve from more resident warps if they all wait on the same controller ([[06-caches-and-working-sets]], C-KIT-NOTES B3). The register file also sets a hard launch limit: a kernel whose block needs more registers than the SM has will fail to launch and must shrink its block (A-PM §1.2.3.3) — a real constraint when fusing large robot-inference kernels.
+
+## Terms introduced
+- **occupancy** — resident warps ÷ the SM maximum (48); the fraction of warp slots filled. Reused from `../jetson-orin-thor-metrics/glossary.md` (C-KIT-NOTES A5).
+- **register file** — the per-SM store of 32-bit registers (65536 on these boards) holding threads' local variables (A-PM §1.2.3.3; C-PLAT).
+- **register wall** — the tile size at which accumulator registers exhaust the 64K file and collapse occupancy. Reused from the metrics-kit glossary (C-KIT-NOTES B5).
+- **achieved occupancy** — the resident-warp fraction the profiler observes, vs the theoretical maximum. Reused from the metrics-kit glossary (C-KIT-NOTES B3).
+- **issue rate** — warp instructions issued per cycle per sub-partition; bounded by the dispatch port, not by occupancy. Related to the metrics-kit **issue rate (θ)** (C-KIT-NOTES A1).
+- **register spill / local memory** — values that do not fit a thread's register allocation are stored in local memory, a per-thread region of ordinary addressed memory backed by L1 → L2 → DRAM; the one path from register pressure to memory traffic (A-PM §1.2.3.3).

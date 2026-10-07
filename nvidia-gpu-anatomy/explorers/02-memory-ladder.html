@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The memory ladder: where your working set sits decides its speed</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#191c23; --ink:#eef1f6; --muted:#aab3c2;
+    --line:#2b303a; --accent:#5ab0ff; --hot:#58d6a0; --cold:#ff7b9d; --cliff:#ffb648;
+    --reg:#9d7bff; --l1:#5ab0ff; --l2:#58d6a0; --dram:#ff7b9d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:20px 24px 8px}
+  h1{font-size:20px;margin:0 0 6px}
+  .sub{color:var(--muted);max-width:72ch;margin:0}
+  .wrap{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:16px 24px 40px}
+  @media(max-width:860px){.wrap{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:0 0 12px}
+  label{display:block;margin:12px 0 4px;font-weight:600}
+  input[type=range]{width:100%;accent-color:var(--accent)}
+  select{width:100%;background:#11141a;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:7px}
+  .val{font-variant-numeric:tabular-nums;color:var(--accent)}
+  .cases{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+  button.case{background:#11141a;color:var(--ink);border:1px solid var(--line);
+    border-radius:999px;padding:6px 11px;cursor:pointer;font-size:13px}
+  button.case:hover,button.case:focus{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:1px}
+  .headline{display:flex;flex-wrap:wrap;gap:20px;margin:0 0 10px}
+  .big{font-size:30px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.1}
+  .big small{display:block;font-size:12px;font-weight:500;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+  svg{width:100%;height:auto;display:block;background:#11141a;border:1px solid var(--line);border-radius:8px}
+  .why{margin-top:12px}
+  .why b{color:var(--cliff)}
+  .legend{display:flex;flex-wrap:wrap;gap:14px;margin:8px 0 0;color:var(--muted);font-size:13px}
+  .legend span{display:flex;align-items:center}
+  .chip{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px}
+  .srctbl{width:100%;border-collapse:collapse;font-size:12.5px}
+  .srctbl th,.srctbl td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  .srctbl th{color:var(--muted)}
+  .srctbl code{color:var(--accent)}
+  footer{color:var(--muted);font-size:12px;padding:0 24px 32px;max-width:90ch}
+  a{color:var(--accent)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>The same working set runs 12–15× faster on the board whose L2 holds it</h1>
+  <p class="sub">A GPU's memory is a ladder: per-SM <b>registers</b> and <b>L1/shared</b>, then one
+  device-wide <b>L2</b> cache, then <b>DRAM</b> behind a single controller. Latency rises and
+  bandwidth falls as you descend, but capacity rises. Slide a kernel's <b>footprint</b> and watch
+  which level holds it, the bandwidth and latency it then sees, and the time to touch it once. The
+  <b>cliffs sit exactly at 4 MB (Orin) and 32 MB (Thor)</b> — that is where capacity, not datasheet
+  TOPS, decides speed (notes 05, 06; metrics-kit A.6/A.7).</p>
+</header>
+
+<div class="wrap">
+  <section class="panel" aria-label="controls">
+    <h2>Kernel &amp; board</h2>
+
+    <label for="board">Board</label>
+    <select id="board" aria-label="Board">
+      <option value="thor">Thor T5000 — 32 MB L2</option>
+      <option value="orin">AGX Orin — 4 MB L2</option>
+    </select>
+
+    <label for="foot">Working-set footprint <span class="val" id="footv"></span></label>
+    <input id="foot" type="range" min="0" max="1000" step="1" value="520"
+      aria-describedby="footv" aria-valuetext="footprint">
+
+    <label for="pattern">Access pattern</label>
+    <select id="pattern" aria-label="Access pattern">
+      <option value="stream">Streaming (coalesced, bandwidth-bound)</option>
+      <option value="chase">Dependent pointer-chase (latency-bound)</option>
+    </select>
+
+    <h2 style="margin-top:18px">Preloaded cases</h2>
+    <div class="cases" role="group" aria-label="Preloaded cases">
+      <button class="case" data-case="wbc">WBC weights ≈ 0.5 MB</button>
+      <button class="case" data-case="pi05kv">π0.5 KV cache ≈ 13 MB</button>
+      <button class="case" data-case="groot">GR00T-scale ≈ 27.5 MB</button>
+      <button class="case" data-case="stream64">64 MB stream</button>
+    </div>
+  </section>
+
+  <section class="panel" aria-label="results">
+    <div class="headline">
+      <div class="big" aria-live="polite" id="hLevel">—<small>level that holds it</small></div>
+      <div class="big" id="hBW">—<small>bandwidth seen</small></div>
+      <div class="big" id="hTime">—<small>time to touch it once</small></div>
+    </div>
+
+    <div class="legend" aria-hidden="true">
+      <span><i class="chip" style="background:var(--l1)"></i>L1 / shared</span>
+      <span><i class="chip" style="background:var(--l2)"></i>L2</span>
+      <span><i class="chip" style="background:var(--dram)"></i>DRAM</span>
+      <span><i class="chip" style="background:var(--cliff)"></i>capacity cliff</span>
+      <span>◆ measured plateau (A.6/A.7)</span>
+    </div>
+    <svg id="svg" viewBox="0 0 680 320" role="img"
+      aria-label="Memory ladder: the resident level is lit; the 4 MB and 32 MB L2 cliffs are marked; measured bandwidth/latency plateaus are overlaid as diamonds."></svg>
+
+    <div class="why" id="why" aria-live="polite"></div>
+  </section>
+</div>
+
+<section class="panel" style="margin:0 24px 24px">
+  <h2>Sources (every number on this page)</h2>
+  <table class="srctbl" id="srctbl"><thead><tr><th>Parameter</th><th>Value</th><th>Source</th></tr></thead><tbody></tbody></table>
+</section>
+
+<footer>
+  <p><b>Why capacity beats bandwidth.</b> L2-resident streaming is <b>12.4×</b> (Orin) / <b>14.6×</b>
+  (Thor) faster than DRAM, and the cliff is sharp — a footprint just past L2 capacity pays the full
+  DRAM penalty. So a model whose hot set fits Thor's 32 MB L2 but spills Orin's 4 MB runs an order of
+  magnitude faster on Thor at identical advertised TOPS. Note too that Thor's L2 is 8× larger yet
+  about the same latency (146 vs 156 ns) — the win is "more data stays resident", not "resident data
+  is reached faster" (notes 05/06; metrics-kit A.6/A.7).</p>
+  <p>Generated 2026-10-02 for <code>learning/nvidia-gpu-anatomy</code>. Level thresholds use the
+  per-SM L1/shared capacity and the device-wide L2 size from <code>params.json</code> (copied from the
+  metrics kit's <code>constants.json</code>); bandwidths/latencies are the measured plateaus/landmarks
+  from A.6/A.7. Registers (64K × 4 B = 256 KB per SM) are deliberately not a rung: they are allocated per
+  thread at launch, not addressed by footprint (note 03). GR00T-scale uses the kit's RM fp16 decode-GEMM weight footprint
+  (27.5 MB, B.6 Table B.6.1) as a concrete GR00T-scale proxy; GR00T itself streams ≈24 GB/inference
+  across six engines (L4). This is a study aid; numbers are from the listed sources or labelled
+  estimates.</p>
+</footer>
+
+<script type="application/json" id="params">
+{
+  "l1_shared_per_sm": {"orin": 164, "thor": 228},
+  "l2_size_mb": {"orin": 4, "thor": 32},
+  "l1_read_plateau_per_sm": {"orin": 129, "thor": 152},
+  "l2_resident_read_bandwidth": {"orin": 2200, "thor": 3790},
+  "dram_bandwidth_read_measured": {"orin": 177, "thor": 259},
+  "l2_dram_bandwidth_ratio": {"orin": 12.4, "thor": 14.6},
+  "latency_l1": {"orin": 29.9, "thor": 25.3},
+  "latency_l2": {"orin": 146, "thor": 156},
+  "latency_dram": {"orin": 675, "thor": 510},
+  "cache_line_bytes": 128,
+  "register_file_kb": 256
+}
+</script>
+
+<script>
+(function(global){
+  "use strict";
+  // Footprint (bytes) → which cache level holds it, by capacity (notes 05/06).
+  //   L1/shared : <= l1_shared_per_sm (KB) per SM
+  //   L2        : <= l2_size (MB), device-wide
+  //   else      : DRAM
+  // Registers are NOT a level on this ladder: they are allocated per thread at
+  // launch and never addressed by footprint (note 03). A 2026-10-02 reader found
+  // that listing them with a 256 KB "capacity" (larger than L1) made every
+  // footprint up to 256 KB skip L1 entirely; removed.
+  function levelFor(p, board, bytes){
+    if (bytes <= p.l1_shared_per_sm[board] * 1024) return "l1";
+    if (bytes <= p.l2_size_mb[board] * 1024 * 1024) return "l2";
+    return "dram";
+  }
+
+  // Streaming bandwidth seen at the resident level (GB/s), measured plateaus (A.6/A.5).
+  function bandwidthGBs(p, board, level){
+    if (level === "l1") return p.l1_read_plateau_per_sm[board];
+    if (level === "l2") return p.l2_resident_read_bandwidth[board];
+    return p.dram_bandwidth_read_measured[board];
+  }
+
+  // Dependent-load latency landmark at the resident level (ns), A.7.
+  function latencyNs(p, board, level){
+    if (level === "l1") return p.latency_l1[board];
+    if (level === "l2") return p.latency_l2[board];
+    return p.latency_dram[board];
+  }
+
+  // Time to touch the whole footprint once (seconds).
+  //   streaming: bytes / bandwidth.
+  //   pointer-chase: every cache line is a dependent load → (bytes/line) * latency.
+  function timeToTouchSec(p, board, bytes, level, pattern){
+    if (pattern === "chase"){
+      var lines = bytes / p.cache_line_bytes;
+      return lines * latencyNs(p, board, level) * 1e-9;
+    }
+    var bw = bandwidthGBs(p, board, level) * 1e9; // bytes/s
+    return bytes / bw;
+  }
+
+  global.MEM = {levelFor:levelFor, bandwidthGBs:bandwidthGBs, latencyNs:latencyNs,
+                timeToTouchSec:timeToTouchSec};
+  if (typeof module !== "undefined" && module.exports) module.exports = global.MEM;
+})(typeof window !== "undefined" ? window : globalThis);
+
+if (typeof window !== "undefined") (function(){
+  "use strict";
+  var P = JSON.parse(document.getElementById("params").textContent);
+  var M = window.MEM;
+  var $ = function(id){ return document.getElementById(id); };
+  var els = {
+    board:$("board"), foot:$("foot"), footv:$("footv"), pattern:$("pattern"),
+    hLevel:$("hLevel"), hBW:$("hBW"), hTime:$("hTime"), svg:$("svg"), why:$("why")
+  };
+
+  // log slider: 1 KB .. 1 GB mapped over 0..1000
+  var LO = 1024, HI = 1024*1024*1024;
+  function sliderToBytes(s){ return LO * Math.pow(HI/LO, s/1000); }
+  function bytesToSlider(b){ return 1000 * Math.log(b/LO)/Math.log(HI/LO); }
+  function fmtBytes(b){
+    if (b >= 1024*1024*1024) return (b/1024/1024/1024).toFixed(2)+" GB";
+    if (b >= 1024*1024) return (b/1024/1024).toFixed(2)+" MB";
+    if (b >= 1024) return (b/1024).toFixed(1)+" KB";
+    return b.toFixed(0)+" B";
+  }
+  function fmtTime(s){
+    if (s >= 1) return s.toFixed(2)+" s";
+    if (s >= 1e-3) return (s*1e3).toFixed(2)+" ms";
+    if (s >= 1e-6) return (s*1e6).toFixed(2)+" µs";
+    return (s*1e9).toFixed(1)+" ns";
+  }
+  var LEVELNAME = {l1:"L1 / shared", l2:"L2 cache", dram:"DRAM"};
+  var LEVELCOLOR = {l1:"var(--l1)", l2:"var(--l2)", dram:"var(--dram)"};
+
+  var raf=null;
+  function schedule(){ if(raf) cancelAnimationFrame(raf); raf=requestAnimationFrame(update); }
+
+  function update(){
+    var board = els.board.value;
+    var bytes = sliderToBytes(+els.foot.value);
+    var pattern = els.pattern.value;
+    els.footv.textContent = fmtBytes(bytes) + (pattern==="chase" ? " · pointer-chase" : " · streaming");
+
+    var level = M.levelFor(P, board, bytes);
+    var bw = M.bandwidthGBs(P, board, level);
+    var lat = M.latencyNs(P, board, level);
+    var t = M.timeToTouchSec(P, board, bytes, level, pattern);
+
+    els.hLevel.innerHTML = '<span style="color:'+LEVELCOLOR[level]+'">'+LEVELNAME[level]+
+      '</span><small>level that holds it</small>';
+    els.hBW.innerHTML = (pattern==="chase"
+      ? lat.toFixed(0)+' ns<small>dependent-load latency</small>'
+      : bw.toFixed(0)+' GB/s<small>streaming bandwidth seen</small>');
+    els.hTime.innerHTML = fmtTime(t) + '<small>time to touch it once ('+(pattern==="chase"?"chase":"stream")+')</small>';
+
+    drawLadder(board, level, bytes);
+    writeWhy(board, level, bytes, bw, lat, t, pattern);
+  }
+
+  function drawLadder(board, level, bytes){
+    var W=680, H=320, padL=160, padR=150, padT=16, padB=28;
+    var rows = [
+      {k:"l1",   name:"L1 / shared ("+P.l1_shared_per_sm[board]+" KB/SM)", cap:P.l1_shared_per_sm[board]*1024, bw:P.l1_read_plateau_per_sm[board], lat:P.latency_l1[board]},
+      {k:"l2",   name:"L2 ("+P.l2_size_mb[board]+" MB)", cap:P.l2_size_mb[board]*1024*1024,  bw:P.l2_resident_read_bandwidth[board], lat:P.latency_l2[board]},
+      {k:"dram", name:"DRAM",                    cap:Infinity,                                bw:P.dram_bandwidth_read_measured[board], lat:P.latency_dram[board]}
+    ];
+    var n=rows.length, rh=(H-padT-padB)/n;
+    var s='<rect width="'+W+'" height="'+H+'" fill="#11141a"/>';
+    for (var i=0;i<n;i++){
+      var r=rows[i], y=padT+i*rh, lit=(r.k===level);
+      s+='<rect x="'+padL+'" y="'+(y+4)+'" width="'+(W-padL-padR)+'" height="'+(rh-8)+'" rx="5" '+
+         'fill="'+(lit?LEVELCOLOR[r.k]:"#1b1f27")+'" opacity="'+(lit?0.9:1)+'" stroke="var(--line)"/>';
+      s+='<text x="'+(padL-8)+'" y="'+(y+rh/2+4)+'" text-anchor="end" font-size="12" '+
+         'fill="'+(lit?LEVELCOLOR[r.k]:"var(--muted)")+'" font-weight="'+(lit?700:500)+'">'+r.name+'</text>';
+      // bandwidth label (streaming plateau) + measured diamond
+      var bwTxt = r.bw+" GB/s";
+      s+='<text x="'+(W-padR+10)+'" y="'+(y+rh/2-2)+'" font-size="11.5" fill="'+(lit?"#0f1115":"var(--ink)")+'">'+
+         (lit? bwTxt : '<tspan fill="var(--muted)">'+bwTxt+'</tspan>')+'</text>';
+      s+='<text x="'+(W-padR+10)+'" y="'+(y+rh/2+13)+'" font-size="11" fill="var(--muted)">'+r.lat+' ns lat</text>';
+      // measured plateau diamond (A.6/A.7)
+      var dx=W-padR-14, dy=y+rh/2;
+      s+='<path d="M'+dx+' '+(dy-6)+' L'+(dx+6)+' '+dy+' L'+dx+' '+(dy+6)+' L'+(dx-6)+' '+dy+' Z" '+
+         'fill="#eef1f6" stroke="#11141a"/>';
+    }
+    // capacity cliffs: mark the L2 boundary prominently
+    var l2y = padT + 2*rh + rh - 4;
+    s+='<line x1="'+padL+'" y1="'+l2y+'" x2="'+(W-padR)+'" y2="'+l2y+'" stroke="var(--cliff)" stroke-width="2" stroke-dasharray="6 4"/>';
+    s+='<text x="'+((padL+W-padR)/2)+'" y="'+(l2y+15)+'" text-anchor="middle" font-size="11" fill="var(--cliff)" font-weight="700">'+
+       'L2 cliff at '+P.l2_size_mb[board]+' MB — below: '+P.l2_dram_bandwidth_ratio[board]+'× the DRAM rate</text>';
+    // current footprint marker
+    s+='<text x="'+padL+'" y="'+(H-6)+'" font-size="11" fill="var(--accent)">footprint = '+fmtBytes(bytes)+
+       ' → resident in '+LEVELNAME[level]+'</text>';
+    els.svg.innerHTML=s;
+  }
+
+  function writeWhy(board, level, bytes, bw, lat, t, pattern){
+    var other = board==="thor" ? "orin" : "thor";
+    var w='';
+    w += 'A '+fmtBytes(bytes)+' footprint is held in <b>'+LEVELNAME[level]+'</b> on '+
+         (board==="thor"?"Thor":"Orin")+'. ';
+    if (pattern==="chase")
+      w += 'As a dependent pointer-chase every cache line is a serial '+lat.toFixed(0)+
+           ' ns load, so touching it once takes '+fmtTime(t)+'. ';
+    else
+      w += 'Streaming it at the '+bw.toFixed(0)+' GB/s plateau for that level takes '+fmtTime(t)+'. ';
+    // cross-board comparison when the level flips across the L2 cliff
+    var lvlOther = M.levelFor(P, other, bytes);
+    if (level==="l2" && lvlOther==="dram"){
+      var ratio = P.l2_dram_bandwidth_ratio[board];
+      w += 'The same footprint spills '+(other==="thor"?"Thor":"Orin")+'\'s smaller L2 to DRAM, so it '+
+           'streams about <b>'+ratio+'× slower there</b> — this is the L2 cliff: capacity, not TOPS, decides it.';
+    } else if (level==="dram" && lvlOther==="l2"){
+      var ratioO = P.l2_dram_bandwidth_ratio[other];
+      w += 'On '+(other==="thor"?"Thor":"Orin")+' this very footprint fits L2 and streams about <b>'+
+           ratioO+'× faster</b> — the board whose L2 holds the hot set wins by an order of magnitude.';
+    } else if (level==="dram"){
+      w += 'It exceeds both boards\' L2, so both pay the DRAM roof; here capacity cannot help.';
+    } else {
+      w += 'It fits on-chip on both boards, so both see cache bandwidth.';
+    }
+    els.why.innerHTML=w;
+  }
+
+  var CASES = {
+    // WBC weights ~0.5 MB (roofline INDEX; WBC INT8 MLP 80-512-256-128-23)
+    wbc:      {board:"thor", bytes:0.5*1024*1024,  pattern:"stream"},
+    // pi0.5 KV cache ~13 MB (C.1 note: "~13 MB of KV at S~712")
+    pi05kv:   {board:"thor", bytes:13*1024*1024,   pattern:"stream"},
+    // GR00T-scale: RM fp16 decode-GEMM weight footprint 27.5 MB (B.6 Table B.6.1) as a GR00T-scale proxy
+    groot:    {board:"thor", bytes:27.5*1024*1024, pattern:"stream"},
+    // 64 MB stream (chosen demo; spills both boards' L2 → DRAM roof)
+    stream64: {board:"thor", bytes:64*1024*1024,   pattern:"stream"}
+  };
+  function applyCase(c){
+    var v=CASES[c]; if(!v) return;
+    els.board.value=v.board; els.pattern.value=v.pattern;
+    els.foot.value=Math.round(bytesToSlider(v.bytes));
+    update();
+  }
+
+  els.board.addEventListener("change", schedule);
+  els.pattern.addEventListener("change", schedule);
+  els.foot.addEventListener("input", schedule);
+  Array.prototype.forEach.call(document.querySelectorAll("button.case"), function(b){
+    b.addEventListener("click", function(){ applyCase(b.getAttribute("data-case")); });
+  });
+
+  // sources table
+  (function(){
+    var rows = [
+      ["l1_shared_per_sm", "Orin 164 / Thor 228 KB", "Platforms Table 1 (L1 + shared / SM)"],
+      ["l2_size", "Orin 4 / Thor 32 MB", "Platforms Table 1 (L2 cache)"],
+      ["l1_read_plateau_per_sm", "Orin 129 / Thor 152 GB/s", "A.5 Table A.5.1 (measured L1 BW)"],
+      ["l2_resident_read_bandwidth", "Orin 2200 / Thor 3790 GB/s", "A.6 Table A.6.2 (measured plateau)"],
+      ["dram_bandwidth_read_measured", "Orin 177 / Thor 259 GB/s", "A.6 Table A.6.2 (measured plateau)"],
+      ["l2_dram_bandwidth_ratio", "Orin 12.4 / Thor 14.6 ×", "A.6 Table A.6.2 (L2:DRAM read ratio)"],
+      ["latency_l1", "Orin 29.9 / Thor 25.3 ns", "A.7 Table A.7.2 (measured landmarks)"],
+      ["latency_l2", "Orin 146 / Thor 156 ns", "A.7 Table A.7.2 (measured landmarks)"],
+      ["latency_dram", "Orin 675 / Thor 510 ns", "A.7 Table A.7.2 (measured landmarks)"],
+      ["cache_line_bytes", "≈128 B", "note 06 (A.7 probes aligned 64–128 B)"],
+      ["WBC weights", "≈0.5 MB", "roofline INDEX / B.8 (WBC INT8 MLP)"],
+      ["π0.5 KV cache", "≈13 MB", "C.1 note (KV at S≈712)"],
+      ["GR00T-scale proxy", "27.5 MB (RM fp16 weights)", "B.6 Table B.6.1 (W_RM = 8960×1536×2)"]
+    ];
+    document.querySelector("#srctbl tbody").innerHTML = rows.map(function(r){
+      return "<tr><td><code>"+r[0]+"</code></td><td>"+r[1]+"</td><td>"+r[2]+"</td></tr>";
+    }).join("");
+  })();
+
+  // ---- self-tests: reproduce the source's own numbers ----
+  (function(){
+    var p=P, M=window.MEM;
+    // 1. L2:DRAM bandwidth ratio reproduced from the two measured plateaus: 2200/177 ≈ 12.4 (Orin)
+    var rOrin = p.l2_resident_read_bandwidth.orin / p.dram_bandwidth_read_measured.orin;
+    console.assert(Math.abs(rOrin - 12.4) < 0.15, "Orin L2:DRAM ratio should be ~12.4, got "+rOrin.toFixed(2));
+    // 2. Thor: 3790/259 ≈ 14.6
+    var rThor = p.l2_resident_read_bandwidth.thor / p.dram_bandwidth_read_measured.thor;
+    console.assert(Math.abs(rThor - 14.6) < 0.15, "Thor L2:DRAM ratio should be ~14.6, got "+rThor.toFixed(2));
+    // 3. 27.5 MB (GR00T-scale) is L2-resident on Thor but spills to DRAM on Orin — the cliff
+    var b = 27.5*1024*1024;
+    console.assert(M.levelFor(p,"thor",b)==="l2", "27.5 MB should fit Thor L2");
+    console.assert(M.levelFor(p,"orin",b)==="dram", "27.5 MB should spill Orin L2 to DRAM");
+    // and the streaming speedup from fitting Thor's L2 vs Orin's DRAM is ~14.6× (Thor L2 : Orin DRAM path)
+    var tThorL2 = M.timeToTouchSec(p,"thor",b,"l2","stream");
+    var tOrinDram = M.timeToTouchSec(p,"orin",b,"dram","stream");
+    console.assert(tOrinDram > tThorL2*10, "DRAM-on-Orin should be >10x slower than L2-on-Thor for 27.5 MB");
+    // 4. a 64 MB stream spills both boards' L2 → DRAM on each
+    console.assert(M.levelFor(p,"thor",64*1024*1024)==="dram", "64 MB should spill Thor L2");
+    console.assert(M.levelFor(p,"orin",64*1024*1024)==="dram", "64 MB should spill Orin L2");
+    console.log("02-memory-ladder self-tests done");
+  })();
+
+  applyCase("groot");
+})();
+</script>
+</body>
+</html>

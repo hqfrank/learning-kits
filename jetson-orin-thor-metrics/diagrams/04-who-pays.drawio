@@ -1,0 +1,73 @@
+<mxfile host="app.diagrams.net"><diagram id="hois3ffb-wjnd" name="04-who-pays"><mxGraphModel dx="1200" dy="800" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="960" pageHeight="620" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+    <mxCell id="t" value="Who pays under co-tenancy: the memory-bound and latency-critical victims absorb the slowdown; the compute-bound victim is nearly immune" style="text;html=0;fontSize=13;fontStyle=1;align=center;" vertex="1" parent="1"><mxGeometry x="20" y="6" width="920" height="22" as="geometry" /></mxCell>
+    <mxCell id="s" value="Cells = measured victim slowdown S (co-run / solo) + the mechanism. Thor values shown; Orin in parentheses where it differs. All streams, CPU idle unless noted." style="text;html=0;fontSize=9;align=center;fontColor=#555555;" vertex="1" parent="1"><mxGeometry x="20" y="28" width="920" height="14" as="geometry" /></mxCell>
+
+    <!-- Column headers -->
+    <mxCell id="h0" value="VICTIM   vs   AGGRESSOR" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#f0f0f0;strokeColor=#666666;fontSize=10;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="40" y="56" width="200" height="60" as="geometry" /></mxCell>
+    <mxCell id="hc1" value="Copy engine
+(H2D/D2H/D2D
++ memset blit)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=9;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="240" y="56" width="170" height="60" as="geometry" /></mxCell>
+    <mxCell id="hc2" value="CPU memory hog
+(bandwidth,
+no SMs)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="410" y="56" width="170" height="60" as="geometry" /></mxCell>
+    <mxCell id="hc3" value="GPU compute co-tenant
+(same context,
+SM-saturating)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=9;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="580" y="56" width="170" height="60" as="geometry" /></mxCell>
+    <mxCell id="hc4" value="L2-evicting co-tenant
+(shares the cache)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=9;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="750" y="56" width="170" height="60" as="geometry" /></mxCell>
+
+    <!-- Row 1: compute-bound / L2-resident -->
+    <mxCell id="r1" value="Compute-bound
+L2-resident
+(cache-resident GEMM)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#f0f0f0;strokeColor=#666666;fontSize=9;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="40" y="116" width="200" height="110" as="geometry" /></mxCell>
+    <mxCell id="c11" value="1.00–1.02
+IMMUNE
+copy traffic hits DRAM, kernel stays on-chip [B.1]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#d9ead3;strokeColor=#82b366;fontSize=8;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="240" y="116" width="170" height="110" as="geometry" /></mxCell>
+    <mxCell id="c12" value="~1.0 while L2-resident;
+onsets only on L2 spill, then 2.25–2.53× (Orin 1.53×) [B.4]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=8;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="410" y="116" width="170" height="110" as="geometry" /></mxCell>
+    <mxCell id="c13" value="1.97–1.99
+(IC||IC fair-share = 2)
+SM time-multiplex [B.6]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#fde9d9;strokeColor=#d79b00;fontSize=8;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="580" y="116" width="170" height="110" as="geometry" /></mxCell>
+    <mxCell id="c14" value="n/a
+(compute-bound work is not bandwidth-limited by eviction) [B.6]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#f5f5f5;strokeColor=#999999;fontSize=8;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="750" y="116" width="170" height="110" as="geometry" /></mxCell>
+
+    <!-- Row 2: memory-bound streaming -->
+    <mxCell id="r2" value="Memory-bound
+streaming
+(GEMV / stream read)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#f0f0f0;strokeColor=#666666;fontSize=9;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="40" y="226" width="200" height="120" as="geometry" /></mxCell>
+    <mxCell id="c21" value="1.58–1.69 same-dir copy (Orin 1.07–1.14);
+opposed ~1.03;
+memset blit 2.33->4.01× [B.1]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#f4cccc;strokeColor=#b85450;fontSize=8;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="240" y="226" width="170" height="120" as="geometry" /></mxCell>
+    <mxCell id="c22" value="1.11–1.18 (1 thread; Orin ~1.0);
+cliff past ~half CPU ceiling (~120 GB/s Thor) [B.1/B.5]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#fde3e1;strokeColor=#b85450;fontSize=8;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="410" y="226" width="170" height="120" as="geometry" /></mxCell>
+    <mxCell id="c23" value="4.19   (Orin 2.66)
+IM|IC — far past DRAM-share ≈1
+COMPUTE STARVES MEMORY via SM co-scheduling [B.6]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#ea9999;strokeColor=#b85450;fontSize=8;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="580" y="226" width="170" height="120" as="geometry" /></mxCell>
+    <mxCell id="c24" value="up to B_L2/B_DRAM
+= 15.5× full-eviction upper bound; measured RM||RM 1.8 [B.6]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=8;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="750" y="226" width="170" height="120" as="geometry" /></mxCell>
+
+    <!-- Row 3: tiny latency-critical -->
+    <mxCell id="r3" value="Tiny latency-critical
+(WBC 100 Hz MLP,
+p99 metric)" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#f0f0f0;strokeColor=#666666;fontSize=9;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="40" y="346" width="200" height="130" as="geometry" /></mxCell>
+    <mxCell id="c31" value="n/a as isolated aggressor;
+fp32-memory kernel inflates p99 to 0.64 ms (×15 solo) [B.8]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#fde3e1;strokeColor=#b85450;fontSize=8;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="240" y="346" width="170" height="130" as="geometry" /></mxCell>
+    <mxCell id="c32" value="CPU hog is the MULTIPLIER: ×2–9 on every cell; worst mix 5.9 ms = 141× solo (under 10 ms) [B.8]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#ea9999;strokeColor=#b85450;fontSize=8;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="410" y="346" width="170" height="130" as="geometry" /></mxCell>
+    <mxCell id="c33" value="INT8-compute co-tenant p99 1.70 ms (×41 solo);
+lockout onset at ~14% warp slots (Orin ~8%), bistable [B.8/B.4]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#ea9999;strokeColor=#b85450;fontSize=8;fontStyle=1;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="580" y="346" width="170" height="130" as="geometry" /></mxCell>
+    <mxCell id="c34" value="‡ VLA/VLM-decode tensor co-tenant lowest tail (0.12–0.20 ms) but below 0.90 overlap gate — LOWER BOUND [B.8]" style="rounded=0;whiteSpace=wrap;html=0;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=8;verticalAlign=middle;" vertex="1" parent="1"><mxGeometry x="750" y="346" width="170" height="130" as="geometry" /></mxCell>
+
+    <!-- Legend -->
+    <mxCell id="lg" value="Legend" style="rounded=1;whiteSpace=wrap;html=0;fillColor=#f5f5f5;strokeColor=#999999;verticalAlign=top;fontSize=9;fontStyle=1;align=left;spacingLeft=6;spacingTop=4;" vertex="1" parent="1"><mxGeometry x="40" y="492" width="440" height="112" as="geometry" /></mxCell>
+    <mxCell id="lg1" value="Cell fill = severity:  green ≈1 (immune) · orange ~2× · red ≥2.5× or tail blow-up · yellow = capacity/bound-dependent" style="text;html=0;fontSize=8;align=left;" vertex="1" parent="1"><mxGeometry x="50" y="512" width="425" height="12" as="geometry" /></mxCell>
+    <mxCell id="lg2" value="‡ = measured below the 0.90 co-execution overlap gate -> a LOWER BOUND; sustained co-tenancy is at least this bad [B.8]" style="text;html=0;fontSize=8;align=left;" vertex="1" parent="1"><mxGeometry x="50" y="528" width="425" height="12" as="geometry" /></mxCell>
+    <mxCell id="lg3" value="All numbers measured this campaign; Orin in parentheses where it differs from Thor." style="text;html=0;fontSize=8;align=left;" vertex="1" parent="1"><mxGeometry x="50" y="544" width="425" height="12" as="geometry" /></mxCell>
+    <mxCell id="lg4" value="Takeaway: the one-sided asymmetry — compute starves memory (4.19×), memory barely touches compute (1.12×) — means a tiny control net cannot safely share an unmanaged context [B.6]." style="text;html=0;fontSize=8;fontStyle=2;align=left;" vertex="1" parent="1"><mxGeometry x="50" y="560" width="425" height="40" as="geometry" /></mxCell>
+
+    <!-- Sources -->
+    <mxCell id="src" value="Sources (from constants.json / notes, not retyped): [B.1] copy-engine/DRAM-direction Table B.1.1 (same-dir 1.58–1.69, opposed 1.03, memset 2.33->4.01) · [B.4] controller_contention_peak, lockout_onset_occupancy · [B.6] interference matrix S cells (IM|IC 4.19/2.66, IC||IC 1.97, L2-eviction bound 15.5) · [B.5] bandwidth cliff ~120/50 GB/s · [B.8] WBC p99 Table B.8.1 (1.70, 0.64, 5.9 ms = 141×), overlap gate." style="text;html=0;fontSize=8;align=left;verticalAlign=top;fontColor=#555555;spacingLeft=4;" vertex="1" parent="1"><mxGeometry x="490" y="492" width="430" height="112" as="geometry" /></mxCell>
+  </root>
+</mxGraphModel></diagram></mxfile>

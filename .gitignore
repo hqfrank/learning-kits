@@ -1,0 +1,7 @@
+.DS_Store
+__pycache__/
+# Manim render caches (the finished videos under */videos/*/out/ are kept)
+**/videos/**/media/
+**/videos/**/out/parts/
+*.aiff
+**/videos/**/work/

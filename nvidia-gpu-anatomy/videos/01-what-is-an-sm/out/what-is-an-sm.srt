@@ -1,0 +1,23 @@
+1
+00:00:04,200 --> 00:00:27,320
+You program a GPU by writing a kernel: one function, run by thousands of threads. Launching it creates a grid of blocks, and each block is a group of threads. Thirty-two of those threads are bundled by the hardware into a warp, the unit it actually schedules. So the software ladder you write runs from a single thread, up through a warp of thirty-two, to a block, to the whole grid.
+
+2
+00:00:27,900 --> 00:00:55,380
+Beside that software ladder sits the hardware that runs it. A thread occupies one lane. A warp is issued by one sub-partition. A block lands whole on one streaming multiprocessor, an SM. And the grid spreads across every SM on the chip. On Orin that is sixteen SMs; on Thor, twenty, all sitting behind one shared L2 cache and one memory controller to DRAM. That shared L2 is where, later, everything will contend.
+
+3
+00:00:55,966 --> 00:01:29,046
+Zoom into one SM. It is not one core, it is four sub-partitions. Each has a warp scheduler and a single dispatch port, so each issues at most one instruction per cycle. Behind that port sit thirty-two FP32 lanes, the CUDA cores, plus an integer pipe, load-store, and one tensor core, the matrix unit. Four sub-partitions, four instructions per cycle: that is the issue ceiling. Now watch work land. A block of five hundred twelve threads is sixteen warps; the hardware spreads them four warps to each sub-partition.
+
+4
+00:01:29,633 --> 00:02:09,553
+How many warps can one SM hold? Forty-eight slots, backed by a sixty-four thousand register file. Fill them and occupancy is high, but there is a catch. Registers are shared across every thread resident. At sixty-four registers per thread, only thirty-two warps fit: occupancy caps at sixty-seven percent, and the register file, not the slots, is what bit. And here is the twist that trips people up. Occupancy is not issue rate. The metrics kit ran three kernels at the same occupancy; their runtimes differed by more than four times. More resident warps gives the scheduler more to choose from; it does not force an instruction out every cycle.
+
+5
+00:02:10,133 --> 00:02:50,833
+Finally, where a kernel's data lives decides its speed. The memory ladder descends from registers, to per-SM L1 and shared memory, to the one shared L2, to DRAM. Watch the numbers animate in for Orin and Thor. L1 is tens of kilobytes at about twenty-five nanoseconds. L2 on Orin is four megabytes; on Thor it grew eight times, to thirty-two, yet its latency barely moved, around a hundred fifty nanoseconds. More data stays resident; it is not reached faster. And L2-resident streaming runs over twelve times the bandwidth of DRAM. That gap is the cliff: a working set that fits L2 flies; one that spills to DRAM crawls.
+
+6
+00:02:51,400 --> 00:03:18,780
+So, two things to carry away for robotics. A tiny control kernel, one small block, cannot fill the schedulers; those four dispatch ports sit mostly idle, and the loop is bound by latency, not by cores. And a big model lives or dies by whether its working set fits L2: under thirty-two megabytes on Thor it stays resident; over it, every access pays the DRAM tax. Occupancy and TOPS do not tell you this; the memory ladder does.

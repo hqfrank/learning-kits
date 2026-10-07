@@ -1,0 +1,98 @@
+<mxfile host="app.diagrams.net">
+  <diagram id="p04" name="04-sharing-mechanisms">
+<mxGraphModel dx="800" dy="600" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="980" pageHeight="620" math="0" shadow="0">
+  <root>
+    <mxCell id="0"/>
+    <mxCell id="1" parent="0"/>
+
+    <mxCell id="title" value="What isolates what: streams give concurrency but no isolation; only MPS+SM cap protects compute share; only MIG isolates all three (and it is deferred on Thor)" style="text;html=0;align=center;verticalAlign=middle;fontSize=13;fontStyle=1;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="20" y="10" width="940" height="40" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="corner" value="resource  \  mechanism (less -&gt; more isolating)" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+      <mxGeometry x="40" y="58" width="180" height="56" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="c1" value="shared context&#10;+ streams" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="224" y="58" width="140" height="56" as="geometry"/>
+    </mxCell>
+    <mxCell id="c2" value="separate processes&#10;(time-slice)" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="368" y="58" width="140" height="56" as="geometry"/>
+    </mxCell>
+    <mxCell id="c3" value="MPS&#10;(plain)" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="512" y="58" width="140" height="56" as="geometry"/>
+    </mxCell>
+    <mxCell id="c4" value="MPS + SM cap&#10;(25-35%)" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="656" y="58" width="140" height="56" as="geometry"/>
+    </mxCell>
+    <mxCell id="c5" value="MIG&#10;(spatial partition)" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="800" y="58" width="150" height="56" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="r1" value="SM slots&#10;(block scheduler&#10;co-residence)" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+      <mxGeometry x="40" y="118" width="180" height="110" as="geometry"/>
+    </mxCell>
+    <mxCell id="r1c1" value="NO&#10;block scheduler locks victim out above ~8% (Orin) / ~14% (Thor) warp slots" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="224" y="118" width="140" height="110" as="geometry"/>
+    </mxCell>
+    <mxCell id="r1c2" value="PARTIAL&#10;no co-execution, but time-slice tail still costs latency" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="368" y="118" width="140" height="110" as="geometry"/>
+    </mxCell>
+    <mxCell id="r1c3" value="NO&#10;kernels co-execute; aggressor oversubscribes in its own favour" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="512" y="118" width="140" height="110" as="geometry"/>
+    </mxCell>
+    <mxCell id="r1c4" value="YES (share)&#10;cap reserves SMs for the real-time tenant: cap 35% returns a 100 Hz loop to 0 drops" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="656" y="118" width="140" height="110" as="geometry"/>
+    </mxCell>
+    <mxCell id="r1c5" value="YES&#10;dedicated compute slice per instance" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="800" y="118" width="150" height="110" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="r2" value="L2 cache" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+      <mxGeometry x="40" y="232" width="180" height="92" as="geometry"/>
+    </mxCell>
+    <mxCell id="r2c1" value="NO&#10;one shared L2; co-tenant evicts your lines" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="224" y="232" width="140" height="92" as="geometry"/>
+    </mxCell>
+    <mxCell id="r2c2" value="NO&#10;same shared L2 across the time-slice" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="368" y="232" width="140" height="92" as="geometry"/>
+    </mxCell>
+    <mxCell id="r2c3" value="NO&#10;one shared L2" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="512" y="232" width="140" height="92" as="geometry"/>
+    </mxCell>
+    <mxCell id="r2c4" value="NO&#10;SM cap limits compute share, not cache lines" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="656" y="232" width="140" height="92" as="geometry"/>
+    </mxCell>
+    <mxCell id="r2c5" value="YES&#10;dedicated cache path per instance" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="800" y="232" width="150" height="92" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="r3" value="memory controller&#10;(shared with CPU&#10;on the SoC)" style="text;html=0;align=center;verticalAlign=middle;fontSize=10;fontStyle=1;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+      <mxGeometry x="40" y="328" width="180" height="100" as="geometry"/>
+    </mxCell>
+    <mxCell id="r3c1" value="NO&#10;peak 1.53x (Orin) / 2.53x (Thor) slowdown once victim spills L2" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="224" y="328" width="140" height="100" as="geometry"/>
+    </mxCell>
+    <mxCell id="r3c2" value="NO&#10;one controller regardless of process split" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="368" y="328" width="140" height="100" as="geometry"/>
+    </mxCell>
+    <mxCell id="r3c3" value="NO&#10;one controller" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="512" y="328" width="140" height="100" as="geometry"/>
+    </mxCell>
+    <mxCell id="r3c4" value="NO&#10;a CPU memory hog (~172 GB/s) collapses the loop regardless of cap" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="656" y="328" width="140" height="100" as="geometry"/>
+    </mxCell>
+    <mxCell id="r3c5" value="YES&#10;dedicated memory path per instance (but deferred/tech-preview on Thor)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="800" y="328" width="150" height="100" as="geometry"/>
+    </mxCell>
+
+    <mxCell id="legend" value="Legend:  green = isolated (YES)   yellow = partial   red = not isolated (NO).   Two independent conflicts: SM lockout (fix with occupancy/partition control) and controller contention (fix with footprint control). Streams give concurrency, never protection. The ~172 GB/s CPU-memory floor no scheduler moves." style="text;html=0;align=left;verticalAlign=top;fontSize=10;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+      <mxGeometry x="40" y="436" width="910" height="52" as="geometry"/>
+    </mxCell>
+    <mxCell id="src" value="Sources (constants.json + notes): lockout_onset_occupancy 8/14% [B.4]; controller_contention_peak 1.53/2.53x [B.4]; mps_cap_vla_rate_retained cap-35 0.87-0.90, cap-25 0.72 [L4]; cpu_memory_load_floor 172 GB/s [L4]; MIG none/tech-preview [Platforms Table 1].  Mechanism definitions + &quot;streams are not isolation&quot;: note 07-sharing-the-gpu (B7, L4); CUDA Prog. Guide 1.2.2.1 (A-PM); MIG: Ampere blog (B-AMPERE)." style="text;html=0;align=left;verticalAlign=top;fontSize=9;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="494" width="910" height="64" as="geometry"/>
+    </mxCell>
+  </root>
+</mxGraphModel>
+  </diagram>
+</mxfile>

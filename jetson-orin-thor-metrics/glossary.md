@@ -1,0 +1,139 @@
+# Glossary
+
+One line per term, alphabetical. Each term is defined once. Where a term first appears in a
+note, the note is named in parentheses. Where the book uses an alternative name, it is noted with
+"Also called". Numbers in definitions carry their board; the full value with source is in
+`constants.json`.
+
+- **2:4 structured sparsity** — every group of four weights has at most two non-zeros, so the tensor core skips the zeros (first used in A4).
+- **172 GB/s floor** — the CPU memory-bandwidth load at which the WBC loop collapses regardless of precision (fp16, int8) or MPS cap; about 70% of Thor's 245 GB/s sustained roof (first used in L4-scheduling-ladder).
+- **achieved occupancy** — the active-warp fraction the profiler observes, as opposed to the theoretical maximum (first used in B3).
+- **action chunk / horizon (H)** — the H = 10 future timesteps one π0.5 inference emits, executed open-loop until replaced (first used in C1).
+- **aggregate throughput (T_agg)** — total work of co-resident tenants over their co-residence span (first used in B7).
+- **architectural roof (R_arch)** — the whitepaper per-tensor-core operations per clock, times cores, clock and SM count (first used in A3).
+- **arithmetic intensity** — operations per byte moved (FLOPs per element in a roofline sweep); the x-axis of a roofline (first used in A2).
+- **asymmetry (ρ_ij)** — S_i|j / S_j|i; how one-sided the interference between two kernel classes is (first used in B6).
+- **β_k** — solo DRAM bandwidth demand of kernel class k, in GB/s (first used in B6).
+- **bandwidth hog** — a CPU program that streams memory as fast as it can, to saturate the shared controller. Also called: CPU memory-bandwidth hog, CPU write-hog (first used in B1).
+- **bimodal latency** — a distribution with two modes (served immediately / queued behind co-tenants), for which the median is uninformative (first used in C2).
+- **bistable** — having two stable regimes (co-running / locked out) with a sharp transition and no graded middle (first used in B4).
+- **blit path** — the engine `memset` route, which bypasses the controller's queue arbitration (first used in B1).
+- **capacity cliff** — the footprint at which bandwidth collapses from one plateau to the next; at L2 capacity for reads (first used in A6).
+- **classic mma** — the warp-level matrix-multiply-accumulate instruction (`mma.sync`), the portable tensor-core path; the floor tier (first used in A3).
+- **co-execution overlap gate** — a minimum fraction (0.90) of the victim's active time during which the aggressor is also active, required for a cell to count as sustained co-tenancy (first used in B2).
+- **co-residence span** — first tenant start to last tenant finish, from on-device timestamps (first used in B7).
+- **commensurable** — measured in the same unit, so two tenants' work can be summed (first used in B7).
+- **completion rate** — the fraction of a control loop's 100 Hz ticks that finish in time (first used in C2).
+- **controller contention** — slowdown from two tenants sharing the memory controller's bandwidth; onsets when the victim spills L2 (first used in B4).
+- **copy engine (CE)** — the GPU's dedicated DMA unit, separate from the SMs; moves H2D, D2H and D2D transfers (first used in B1).
+- **count ratio** — GEMMs completed solo over GEMMs completed co-run in a fixed window; robust to per-launch batching (first used in B4).
+- **datasheet dense rate** — the vendor's published dense throughput per precision, assuming the tcgen05 datapath (first used in A3).
+- **denoising steps (n_steps)** — the 10 iterations of the flow-matching action expert, each re-reading its weights (first used in C1).
+- **dense-equivalent rate** — a sparse rate counted as if the structural zeros were computed, so it compares to a dense rate (first used in A4).
+- **dependent load** — a load whose address comes from the previous load, so the two cannot overlap (first used in A7).
+- **dispatch bound (D)** — the number of warp instructions one SMSP can issue per cycle; 1 on both boards (first used in 00-platforms).
+- **DiT** — diffusion transformer, GR00T's action head; four denoising steps re-stream its weights (first used in L4-scheduling-ladder).
+- **dp4a** — the 4-way INT8 dot-product instruction (`__dp4a`, SASS `IDP.4A`); four multiply-adds into INT32, counted as eight operations (first used in A2).
+- **DRAM bandwidth (B_DRAM)** — the streaming read plateau when the footprint far exceeds L2 (first used in A6).
+- **DRAM-fed / L2-resident GEMM** — a GEMM whose operands stream from DRAM / fit in L2 (on Thor, N ≥ 2048 / N ≤ 1024) (first used in B5).
+- **dropped ticks** — the fraction of the control loop's 100 Hz ticks that do not complete in time (first used in L4-scheduling-ladder).
+- **duty check** — (Σ ℓ_i) / span ≈ N; confirms the tenants genuinely overlapped (first used in B7).
+- **engine (TensorRT)** — a compiled, serialized inference graph; named W*A*@*base* by the precisions of its quantized layers and its base (first used in C1).
+- **ERT** — Empirical Roofline Toolkit, an independent throughput probe that sweeps arithmetic intensity and working-set size to find compute and memory ceilings (first used in A2).
+- **eviction knee** — the aggressor footprint at which the victim slowdown departs 1.0; equals L2 capacity − victim footprint (first used in B2).
+- **FFMA / IMAD / ALU** — the three CUDA-core instruction classes probed: float fused multiply-add, integer multiply-add, and logic/shift (LOP3 + IADD3) (first used in A1).
+- **fidelity (cosine)** — median cosine similarity of an engine's action chunk against the PyTorch reference over 30 input draws (first used in C1).
+- **floor-corrected slowdown (Ŝ)** — S_streams / S_serial, isolating concurrent execution from the fixed cost of being in a two-kernel run; used when the solo latency is at the measurement floor (first used in B6).
+- **FMA** — fused multiply-add, counted as two operations (a multiply and an add) (first used in A3).
+- **GEMV** — general matrix-vector multiply; the M = 1 case of a GEMM, memory-bound (first used in B6).
+- **GR00T-N1.7** — NVIDIA Isaac's dual-system VLA (System-2 VLM backbone + System-1 diffusion action head), bf16, six discrete engines (first used in L4-scheduling-ladder).
+- **grid-filling** — a launch sized to SM count × max blocks per SM, so one tenant occupies every SM alone (first used in B6).
+- **grid-stride loop** — a kernel pattern where each thread strides through a buffer by the grid size, so block count sets occupancy independent of footprint (first used in B4).
+- **grouped-query attention** — several query heads share one key/value head (8:1 in π0.5), shrinking the KV cache (first used in C1).
+- **H2D / D2H / D2D** — host-to-device, device-to-host, device-to-device transfer directions (first used in B1).
+- **half-duplex (LPDDR)** — the memory bus carries reads or writes at a time, not both; opposed streams use separate controller queues (first used in B1).
+- **half2 / HFMA2** — packed FP16: two FP16 values per 32-bit lane, one fused multiply-add instruction per pair (first used in A2).
+- **IC / IM / RC / RM** — the four co-tenancy kernel classes: synthetic compute (int8 GEMM), synthetic memory (fp32 GEMV), real compute (Qwen2-VL-2B MLP GEMM at M = 512), real memory (same GEMM at M = 1) (first used in B6).
+- **ILP** — instruction-level parallelism; the number of independent dependency chains a thread advances at once (first used in A1).
+- **integrated SoC** — a system on chip where CPU and GPU share one physical memory and one memory controller (first used in 00-platforms).
+- **interference matrix** — the table of slowdowns S_v|a over all ordered (victim, aggressor) pairs (first used in B6).
+- **issue rate (θ)** — sustained warp instructions issued per cycle per SMSP for one instruction class (first used in A1).
+- **L1 carveout** — the portion of the per-SM L1/shared-memory array configured as L1 cache; max 164 KiB on Orin, 228 KiB on Thor (first used in A5).
+- **L2:DRAM ratio** — B_L2 / B_DRAM; 12.4× on Orin, 14.6× on Thor (first used in A6).
+- **L2-resident bandwidth (B_L2)** — the streaming read plateau when the footprint fits L2 (first used in A6).
+- **L4T / JetPack** — NVIDIA's Linux for Tegra and the Jetson software stack version (first used in 00-platforms).
+- **latency-bound / throughput-bound** — a kernel whose time is set by serialized access latency / by sustained bandwidth (first used in B2).
+- **`__ldcg` / `.cg`** — the cache-global load operator; caches only at L2, bypassing L1 (first used in A7).
+- **leaky bucket** — a rate limiter that releases work at a fixed requested rate; used to set the CPU hog's bandwidth (first used in B5).
+- **lg_throttle** — stall because the load/store unit's queue for global memory is full (first used in B3).
+- **like-kernel ratio** — a ratio of two kernels within the same library at a matched shape, so library tuning cancels (first used in A4).
+- **liveness gate** — a check that the aggressor outlived the victim in a trial; trials failing it are discarded (first used in B5).
+- **lockout onset** — the co-tenant warp-slot occupancy above which the victim completes no work until the co-tenant drains; about 8% Orin, 14% Thor (first used in B4).
+- **long_scoreboard** — stall waiting on a long-latency (global/DRAM) memory dependency; the one stall that crosses the memory controller (first used in B3).
+- **lower bound (cell)** — a slowdown from a cell that failed the overlap gate; sustained co-tenancy would be at least this bad (first used in B8).
+- **LSU** — load/store unit, the SM's memory-instruction pipeline; its depth sets the L1 hit latency (first used in A7).
+- **M mod 16 effect** — the GEMM library's kernel choice depends on how the row count M divides, so delivered rate is discontinuous in M (first used in C1).
+- **MAXN** — NVIDIA's maximum-clock power regime on Jetson; the standing configuration for every measurement in the book (first used in 00-platforms).
+- **MIG** — multi-instance GPU, NVIDIA's spatial partitioning of a GPU; tech-preview on Thor, absent on Orin (first used in 00-platforms).
+- **mio_throttle** — stall because the on-chip memory-I/O queue (shared memory, special ops) is full (first used in B3).
+- **mix ladder** — a sequence of cells that adds co-tenants cumulatively (solo; + VLM-decode; + VLM-decode + VLA) (first used in B8).
+- **MPS** — NVIDIA Multi-Process Service, which lets several processes share one GPU context with optional per-client SM limits (first used in B4).
+- **ncu** — NVIDIA Nsight Compute, the kernel profiler that reports the stall counters (first used in B3).
+- **NVFP4** — block-scaled 4-bit floating format: E2M1 element (2 exponent bits, 1 mantissa bit) with a shared per-block scale; Thor only (first used in A4).
+- **observation→action latency** — time from a new observation entering the model to a new action chunk leaving it; the deployable VLA latency (first used in C1).
+- **observation→torque latency** — the control loop's end-to-end time from sensor observation to torque command; p99 reported (first used in C2).
+- **occupancy** — the fraction of an SM's maximum resident warps that are active; 32 of 48 warps = 67% in the L1 sweep (first used in A5).
+- **operand-byte demand (D_solo)** — bytes of operand traffic a victim places on the controller per unit time when solo; b_fmt × R_solo (first used in B5).
+- **overlap fraction (o)** — share of the victim's GPU-active time during which some co-tenant is also active; gate at 0.90 (first used in B8).
+- **p99** — the 99th-percentile latency; the tail metric used for deadline-bound work (first used in B8).
+- **perception roster** — the nine throughput networks (detection, segmentation, pose, scene) that share the GPU with the control loop (first used in C2).
+- **phase attribution by launch count** — assigning kernels to vision / prefill / action by how many times they launch per inference (27 / 18 / multiples of 10) (first used in C1).
+- **pipe** — an execution datapath inside an SMSP; FFMA and IMAD share the FP32 datapath, ALU has its own (first used in A1).
+- **plateau** — the flat maximum of a rate over the small-footprint part of a sweep; for a slowdown, the value it reaches once the victim is fully evicted from L2 (first used in A5).
+- **pointer chase** — a kernel that follows dependent loads around a cycle of pointers; the standard latency probe (first used in A7).
+- **prefill / decode** — the compute-bound (many tokens, M = 512) and memory-bound (one token, M = 1) operating modes of a transformer (first used in B8).
+- **prefix (S)** — the backbone's input tokens: 256 per camera view × 2 + language + state ≈ 712 (first used in C1).
+- **programmability cost** — the gap between the tuned-library tier and the portable classic tier (first used in A3).
+- **QoS retention (η)** — a side's co-run bandwidth over its solo bandwidth under joint saturation (first used in B1).
+- **re-planning rate** — the inverse of observation→action latency, in Hz (first used in C1).
+- **register tiling** — holding a small output micro-tile in registers so operands are reused without re-loading (first used in B3).
+- **register wall** — the tile size at which accumulator registers exhaust the 64K-register file, collapsing occupancy (first used in B5).
+- **requested occupancy** — the warp-slot fraction set by a co-tenant's block count; the reproducible knob (first used in B4).
+- **ridge** — the arithmetic intensity at which the compute roof and the bandwidth roof cross; 268–558 FLOP/byte for the π0.5 shapes (first used in C1).
+- **roll-off** — the footprint at which a plateau begins to fall; brackets a capacity boundary (first used in A5).
+- **roofline** — a plot of achievable rate against arithmetic intensity, bounded by horizontal compute roofs and sloped memory roofs (first used in A5).
+- **ρ_fmt** — a format's operand density in MACs per operand byte (TF32 114, FP16 228, INT8 410, FP8 456) (first used in B5).
+- **SASS** — NVIDIA's native GPU assembly, the instructions the hardware issues; below the PTX intermediate (first used in A1).
+- **Sattolo cycle** — a random permutation that is one full-length cycle; prevents the chase from falling into a short loop (first used in A7).
+- **saturation cliff** — a slowdown curve that is flat until the controller saturates, then steep (first used in B5).
+- **saturation tax** — the slowdown a co-tenant pays when its inference overlaps a VLA inference that holds the GPU at about 98% occupancy; about 7–11× on Thor (first used in L4-scheduling-ladder).
+- **separate context** — the VLA in its own process; the GPU time-slices between contexts (first used in L4-scheduling-ladder).
+- **serial / streams / MPS (mechanisms)** — the three ways two kernels are driven: back-to-back, concurrent CUDA streams in one context, or concurrent processes under Multi-Process Service (first used in B7).
+- **serialize / overlap** — two co-issued classes serialize when the mixed runtime equals the sum of solo runtimes (speedup 1), and overlap when it is less (speedup up to 2) (first used in A1).
+- **sharing discipline** — how tenants are placed on the GPU: shared context, separate process (time-slice), MPS, MPS + SM cap, or MIG (first used in L4-scheduling-ladder).
+- **shared context** — all tenants in one CUDA context (in-process Triton), each on its own stream; streams do not isolate them. Also called: unmanaged shared context (first used in C2 / L4-scheduling-ladder).
+- **shelf** — the flat latency level a hierarchy level shows across a footprint range (first used in A7).
+- **short_scoreboard** — stall waiting on a short-latency dependency (shared memory, dependent math) (first used in B3).
+- **slowdown (S_v|a)** — victim wall time with aggressor a co-running over its solo wall time; S = 1 means the aggressor is free (first used in B1).
+- **SM** — streaming multiprocessor, the GPU's compute unit; 16 on Orin, 20 on Thor (first used in 00-platforms).
+- **SM co-scheduling** — the hardware block scheduler placing two kernels' blocks on the same SMs (first used in B4).
+- **SM fair-share** — the null model in which N grid-filling tenants each get 1/N of the SMs, S = N (first used in B6).
+- **SM reservation / cap** — `CUDA_MPS_ACTIVE_THREAD_PERCENTAGE`, limiting an MPS client to a fraction of the SMs (first used in L4-scheduling-ladder).
+- **SMSP** — SM sub-partition; each SM has four, each with one warp scheduler and one dispatch port (first used in 00-platforms).
+- **sparsity multiplier** — sparse rate over dense rate; advertised 2×, like-kernel 1.86×, delivered 1.40× (first used in A4).
+- **spin-livelock** — a CPU-side busy-wait that never completes; the cause of π0.5's hang at MPS caps 40 and 75 (first used in L4-scheduling-ladder).
+- **STREAM** — the standard memory-bandwidth benchmark family (copy, scale, add, triad) (first used in A6).
+- **tcgen05** — Thor's 5th-generation tensor-core datapath with tensor memory; the datapath the datasheet peaks assume (first used in 00-platforms).
+- **TFLOP/s, TOP/s** — 10¹² floating-point operations per second; 10¹² integer operations per second (first used in A2).
+- **tRCD + tCL** — the DRAM device's row-to-column and column-access delays; the device-read floor of 30–40 ns (first used in A7).
+- **triad** — the STREAM benchmark pattern a_i = b_i + q·c_i (two reads, one write) (first used in A6).
+- **Triton (inference server)** — the serving framework hosting the roster in one process in the shared-context rung (first used in L4-scheduling-ladder).
+- **vehicle** — the library or kernel path through which a rate is reached (cuBLASLt, cuSPARSELt, CUTLASS); the book's word for it (first used in A4).
+- **victim / aggressor** — the kernel whose slowdown is measured / the co-runner that may cause it (first used in B1).
+- **VLM / VLA** — vision-language model / vision-language-action model; here Qwen2-VL-2B and a Gemma-2B backbone, proxied by single GEMMs (first used in B8).
+- **warp-issue stall** — a cycle in which a resident warp is not selected to issue, attributed to a reason; measured as cycles per issued instruction (first used in B3).
+- **warp slots** — the resident-warp capacity of an SM (48 per SM); a co-tenant occupies a fraction of them (first used in B2).
+- **WBC** — whole-body-control policy; here a batch-1 INT8 MLP (80 → 512 → 256 → 128 → 23) that must run at 100 Hz (first used in B8).
+- **working set / footprint** — the bytes a kernel touches per pass; swept from 1 MB to 256 MB in A6 (first used in A6).
+- **φ_sat** — saturated FMAs per clock per SM, read at the plateau of the ILP × warp sweep (first used in A3).
+- **π0.5** — a vision-language-action model: Gemma-2B backbone + Gemma-300M flow-matching action expert + SigLIP-So400m vision encoder (first used in C1).

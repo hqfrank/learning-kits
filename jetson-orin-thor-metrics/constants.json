@@ -1,0 +1,206 @@
+{
+  "_about": "Machine-readable constants cited by the notes. Every value traces to book.pdf (section + table + caption subject) or to the supplementary KEY-LEARNINGS.md (L4). 'board' is orin, thor, or both. Rates are at MAXN with GPU clocks locked unless noted. Do not retype these into prose; load this file. Table ordinals were inferred from the LaTeX source order (see SOURCES.md); the caption subject in each 'source' string is the reliable locator.",
+
+  "sm_count": {
+    "orin": {"value": 16, "unit": "SM", "board": "orin", "source": "Platforms Table 1 (n_SM)"},
+    "thor": {"value": 20, "unit": "SM", "board": "thor", "source": "Platforms Table 1 (n_SM)"}
+  },
+  "gpu_clock_maxn_locked": {
+    "orin": {"value": 1.30, "unit": "GHz", "board": "orin", "source": "Platforms Table 1 (f)"},
+    "thor": {"value": 1.575, "unit": "GHz", "board": "thor", "source": "Platforms Table 1 (f)"}
+  },
+  "smsp_per_sm": {"value": 4, "unit": "SMSP", "board": "both", "source": "Platforms Table 1 (sub-partitions per SM)"},
+  "dispatch_bound_per_smsp": {"value": 1, "unit": "inst/cycle", "board": "both", "source": "Platforms Table 1 (D)"},
+  "fp32_cores_per_sm": {"value": 128, "unit": "cores", "board": "both", "source": "Platforms Table 1"},
+  "max_warps_per_sm": {"value": 48, "unit": "warps", "board": "both", "source": "Platforms Table 1"},
+  "registers_per_sm": {"value": 65536, "unit": "registers", "board": "both", "source": "Platforms Table 1 (64K)"},
+  "tensor_cores_per_sm": {"value": 4, "unit": "tensor cores", "board": "both", "source": "Platforms Table 1 (n_TC); Orin 3rd-gen, Thor 5th-gen tcgen05"},
+
+  "l1_shared_per_sm": {
+    "orin": {"value": 164, "unit": "KB", "board": "orin", "source": "Platforms Table 1 (L1 + shared / SM)"},
+    "thor": {"value": 228, "unit": "KB", "board": "thor", "source": "Platforms Table 1 (L1 + shared / SM)"}
+  },
+  "l1_read_datapath": {"value": 128, "unit": "B/cycle/SM", "board": "both", "source": "Platforms Table 1 (L1 read datapath)"},
+  "l2_size": {
+    "orin": {"value": 4, "unit": "MB", "board": "orin", "source": "Platforms Table 1 (L2 cache)"},
+    "thor": {"value": 32, "unit": "MB", "board": "thor", "source": "Platforms Table 1 (L2 cache)"}
+  },
+  "l2_dram_capacity_ratio": {"value": 8, "unit": "x", "board": "both", "source": "Platforms Table 1 (32 MB / 4 MB)"},
+
+  "dram_bandwidth_spec": {
+    "orin": {"value": 204.8, "unit": "GB/s", "board": "orin", "source": "Platforms Table 1 (DRAM bandwidth spec, LPDDR5)"},
+    "thor": {"value": 273, "unit": "GB/s", "board": "thor", "source": "Platforms Table 1 (DRAM bandwidth spec ~273, LPDDR5X)"}
+  },
+  "dram_bandwidth_read_measured": {
+    "orin": {"value": 177, "unit": "GB/s", "board": "orin", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 86% of spec"},
+    "thor": {"value": 259, "unit": "GB/s", "board": "thor", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 95% of spec"}
+  },
+  "dram_bandwidth_sustained_M": {
+    "orin": {"value": 190, "unit": "GB/s", "board": "orin", "source": "B.6 Table B.6.1 (co-tenancy parameters), cited to [M] measured_constants"},
+    "thor": {"value": 245, "unit": "GB/s", "board": "thor", "source": "B.6 Table B.6.1 (co-tenancy parameters), cited to [M] measured_constants"}
+  },
+  "l2_resident_read_bandwidth": {
+    "orin": {"value": 2200, "unit": "GB/s", "board": "orin", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 83% of datapath estimate"},
+    "thor": {"value": 3790, "unit": "GB/s", "board": "thor", "source": "A.6 Table A.6.2 (predicted vs measured plateaus); 94% of datapath estimate"}
+  },
+  "l2_dram_bandwidth_ratio": {
+    "orin": {"value": 12.4, "unit": "x", "board": "orin", "source": "A.6 Table A.6.2 (L2:DRAM read ratio); predicted 13.0x"},
+    "thor": {"value": 14.6, "unit": "x", "board": "thor", "source": "A.6 Table A.6.2 (L2:DRAM read ratio); predicted 14.8x"}
+  },
+  "l1_read_plateau_per_sm": {
+    "orin": {"value": 129, "unit": "GB/s", "board": "orin", "source": "A.5 Table A.5.1 (predicted vs measured L1 BW); 78% of 128 B/cyc peak"},
+    "thor": {"value": 152, "unit": "GB/s", "board": "thor", "source": "A.5 Table A.5.1 (predicted vs measured L1 BW); 75% of 128 B/cyc peak"}
+  },
+  "l1_read_aggregate": {
+    "orin": {"value": 2067, "unit": "GB/s", "board": "orin", "source": "A.5 Table A.5.1 (predicted vs measured L1 BW)"},
+    "thor": {"value": 3038, "unit": "GB/s", "board": "thor", "source": "A.5 Table A.5.1 (predicted vs measured L1 BW)"}
+  },
+
+  "latency_l1": {
+    "orin": {"value": 29.9, "unit": "ns", "board": "orin", "source": "A.7 Table A.7.2 (measured landmarks); 38.9 cycles"},
+    "thor": {"value": 25.3, "unit": "ns", "board": "thor", "source": "A.7 Table A.7.2 (measured landmarks); 39.8 cycles"}
+  },
+  "latency_l2": {
+    "orin": {"value": 146, "unit": "ns", "board": "orin", "source": "A.7 Table A.7.2 (measured landmarks); ~190 cycles"},
+    "thor": {"value": 156, "unit": "ns", "board": "thor", "source": "A.7 Table A.7.2 (measured landmarks); ~246 cycles"}
+  },
+  "latency_dram": {
+    "orin": {"value": 675, "unit": "ns", "board": "orin", "source": "A.7 Table A.7.2 (measured landmarks)"},
+    "thor": {"value": 510, "unit": "ns", "board": "thor", "source": "A.7 Table A.7.2 (measured landmarks)"}
+  },
+
+  "cuda_fp32_ceiling": {
+    "orin": {"value": 5.15, "unit": "TFLOP/s", "board": "orin", "source": "A.2 Table A.2.2 (CUDA-core ceilings); -3.2% vs prediction"},
+    "thor": {"value": 7.82, "unit": "TFLOP/s", "board": "thor", "source": "A.2 Table A.2.2 (CUDA-core ceilings); -3.0% vs prediction"}
+  },
+  "cuda_fp16_ceiling": {
+    "orin": {"value": 9.64, "unit": "TFLOP/s", "board": "orin", "source": "A.2 Table A.2.2 (CUDA-core ceilings); 1.87x FP32, packed half2"},
+    "thor": {"value": 7.86, "unit": "TFLOP/s", "board": "thor", "source": "A.2 Table A.2.2 (CUDA-core ceilings); 1.01x FP32, no double-rate FP16"}
+  },
+  "cuda_int8_ceiling": {
+    "orin": {"value": 10.63, "unit": "TOP/s", "board": "orin", "source": "A.2 Table A.2.2 (CUDA-core ceilings); dp4a, theta=0.499"},
+    "thor": {"value": 16.10, "unit": "TOP/s", "board": "thor", "source": "A.2 Table A.2.2 (CUDA-core ceilings); dp4a, theta=0.499"}
+  },
+
+  "tensor_classic_fp16": {
+    "orin": {"value": 42.5, "unit": "TFLOP/s", "board": "orin", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 42.6"},
+    "thor": {"value": 64.4, "unit": "TFLOP/s", "board": "thor", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 64.5"}
+  },
+  "tensor_classic_tf32": {
+    "orin": {"value": 20.7, "unit": "TFLOP/s", "board": "orin", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 21.3"},
+    "thor": {"value": 32.0, "unit": "TFLOP/s", "board": "thor", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 32.3"}
+  },
+  "tensor_classic_int8": {
+    "orin": {"value": 83.4, "unit": "TOP/s", "board": "orin", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 85.2"},
+    "thor": {"value": 128.8, "unit": "TOP/s", "board": "thor", "source": "A.3 Table A.3.2 (classic mma vs arch roof); roof 129.0"}
+  },
+  "tensor_classic_fp8": {
+    "thor": {"value": 132.1, "unit": "TFLOP/s", "board": "thor", "source": "A.3 Table A.3.2 (classic mma); Thor only, 26% of 517 datasheet"}
+  },
+  "tensor_tcgen05_fp16": {
+    "thor": {"value": 192.5, "unit": "TFLOP/s", "board": "thor", "source": "A.3 Table A.3.3 (tcgen05 vs datasheet); 75% of ~258 estimate"}
+  },
+  "tensor_tcgen05_tf32": {
+    "thor": {"value": 71.0, "unit": "TFLOP/s", "board": "thor", "source": "A.3 Table A.3.3 (tcgen05 vs datasheet); 55% of ~129 estimate"}
+  },
+  "tensor_tcgen05_int8": {
+    "thor": {"value": 324.5, "unit": "TOP/s", "board": "thor", "source": "A.3 Table A.3.3 (tcgen05 vs datasheet); 63% of 517 datasheet"}
+  },
+  "tensor_tcgen05_fp8": {
+    "thor": {"value": 345.4, "unit": "TFLOP/s", "board": "thor", "source": "A.3 Table A.3.3 (tcgen05 vs datasheet); 67% of 517 datasheet"}
+  },
+
+  "nvfp4_dense_ceiling": {
+    "thor": {"value": 627.8, "unit": "TFLOP/s", "board": "thor", "source": "A.4 Table A.4.2 (NVFP4 dense/sparse); 60.7% of 1035 dense-equiv datasheet, N=8192"}
+  },
+  "nvfp4_sparse_ceiling": {
+    "thor": {"value": 878.3, "unit": "TFLOP/s", "board": "thor", "source": "A.4 Table A.4.2 (NVFP4 dense/sparse); 42.4% of 2070 2:4-sparse datasheet, N=16384"}
+  },
+  "nvfp4_sparsity_multiplier_delivered": {
+    "thor": {"value": 1.40, "unit": "x", "board": "thor", "source": "A.4 Table A.4.2 (NVFP4); cross-vehicle cuSPARSELt/cuBLASLt, advertised 2x"}
+  },
+  "nvfp4_sparsity_multiplier_likekernel": {
+    "thor": {"value": 1.86, "unit": "x", "board": "thor", "source": "A.4 section A.4.4 (NVFP4 measurement); CUTLASS matched shape"}
+  },
+
+  "lockout_onset_occupancy": {
+    "orin": {"value": 8, "unit": "% warp slots", "board": "orin", "source": "B.4 Table B.4.1 (two mechanisms); SM co-scheduling lockout onset"},
+    "thor": {"value": 14, "unit": "% warp slots", "board": "thor", "source": "B.4 Table B.4.1 (two mechanisms); SM co-scheduling lockout onset"}
+  },
+  "controller_contention_peak": {
+    "orin": {"value": 1.53, "unit": "x slowdown", "board": "orin", "source": "B.4 Table B.4.1 (two mechanisms); peaks at 8 MB (just past 4 MB L2)"},
+    "thor": {"value": 2.53, "unit": "x slowdown", "board": "thor", "source": "B.4 Table B.4.1 (two mechanisms); 2.25-2.53x, onsets at 32 MB L2"}
+  },
+
+  "cpu_hog_gpu_bandwidth_retention": {
+    "orin": {"value": [0.76, 0.81], "unit": "fraction", "board": "orin", "source": "B.6 Table B.6.1 (co-tenancy parameters), eta_cpu, cited to [M]"},
+    "thor": {"value": [0.45, 0.58], "unit": "fraction", "board": "thor", "source": "B.6 Table B.6.1 (co-tenancy parameters), eta_cpu, cited to [M]"}
+  },
+  "cpu_hog_bandwidth_cliff_half_ceiling": {
+    "orin": {"value": 50, "unit": "GB/s", "board": "orin", "source": "B.5 section B.5.5 (bandwidth setpoint, Fig B.5.2); ~half CPU unthrottled ceiling"},
+    "thor": {"value": 120, "unit": "GB/s", "board": "thor", "source": "B.5 section B.5.5 (bandwidth setpoint, Fig B.5.2); ~half CPU unthrottled ceiling"}
+  },
+
+  "l2_eviction_plateau_pointerchase_predicted": {
+    "orin": {"value": 4.6, "unit": "x slowdown", "board": "orin", "source": "B.2 Table B.2.1 (plateau predictions); L2:DRAM latency ratio, measured brackets it"},
+    "thor": {"value": 3.3, "unit": "x slowdown", "board": "thor", "source": "B.2 Table B.2.1 (plateau predictions); L2:DRAM latency ratio, measured brackets it"}
+  },
+  "l2_eviction_plateau_streaming_predicted": {
+    "orin": {"value": 12.4, "unit": "x slowdown", "board": "orin", "source": "B.2 Table B.2.1 (plateau predictions); bandwidth ratio, measured stays 1.3-1.8x"},
+    "thor": {"value": 14.6, "unit": "x slowdown", "board": "thor", "source": "B.2 Table B.2.1 (plateau predictions); bandwidth ratio, measured stays 1.3-1.8x"}
+  },
+
+  "wbc_solo_p99": {
+    "orin": {"value": 0.0596, "unit": "ms", "board": "orin", "source": "B.8 Table B.8.1 (WBC p99 under co-tenants); 59.6 us solo"},
+    "thor": {"value": 0.0416, "unit": "ms", "board": "thor", "source": "B.8 Table B.8.1 (WBC p99 under co-tenants); 41.6 us solo"}
+  },
+  "wbc_worst_mix_p99": {
+    "thor": {"value": 5.9, "unit": "ms", "board": "thor", "source": "B.8 Fig B.8.1 (mix ladder); 141x solo, 3 tenants + CPU hog, under 10 ms deadline"}
+  },
+  "wbc_deadline": {"value": 10, "unit": "ms", "board": "both", "source": "B.8 section B.8.1 (100 Hz control budget)"},
+
+  "pi05_latency_predicted": {
+    "thor_16bit": {"value": 64.1, "unit": "ms", "board": "thor", "source": "C.1 Table C.1.5 (all predicted); 15.6 Hz"},
+    "thor_8bit": {"value": 37.4, "unit": "ms", "board": "thor", "source": "C.1 Table C.1.5 (all predicted); 26.7 Hz"},
+    "thor_nvfp4": {"value": 16.6, "unit": "ms", "board": "thor", "source": "C.1 Table C.1.5 (all predicted); 60.1 Hz"},
+    "orin_16bit": {"value": 162.7, "unit": "ms", "board": "orin", "source": "C.1 Table C.1.5 (all predicted); 6.1 Hz, not yet measured"},
+    "orin_8bit": {"value": 87.0, "unit": "ms", "board": "orin", "source": "C.1 Table C.1.5 (all predicted); 11.5 Hz, not yet measured"}
+  },
+  "pi05_latency_measured": {
+    "thor_bf16": {"value": 90.06, "unit": "ms", "board": "thor", "source": "C.1 Table C.1.6 (measured); Wbf16Abf16, 1.40x optimism vs predicted"},
+    "thor_fp8_attn16": {"value": 56.13, "unit": "ms", "board": "thor", "source": "C.1 Table C.1.6 (measured); Wfp8Afp8@fp16.attn16, 1.50x optimism"},
+    "thor_fp8": {"value": 53.03, "unit": "ms", "board": "thor", "source": "C.1 Table C.1.6 (measured); Wfp8Afp8@fp16, 1.42x optimism"},
+    "thor_nvfp4": {"value": 45.65, "unit": "ms", "board": "thor", "source": "C.1 Table C.1.6 (measured); Wnvfp4Afp8@fp16.llm, fidelity 0.2757 too low to deploy"}
+  },
+  "pi05_dram_bytes_measured": {
+    "thor_bf16": {"value": 19.44, "unit": "GB/inference", "board": "thor", "source": "C.1 Table C.1.6 (measured); above 16.66 GB unfused upper bound"},
+    "thor_fp8": {"value": 11.58, "unit": "GB/inference", "board": "thor", "source": "C.1 Table C.1.6 (measured); Wfp8Afp8@fp16"},
+    "thor_nvfp4": {"value": 9.43, "unit": "GB/inference", "board": "thor", "source": "C.1 Table C.1.6 (measured); Wnvfp4Afp8@fp16.llm"}
+  },
+  "pi05_dram_bytes_predicted_16bit": {
+    "value": [11.14, 16.66], "unit": "GB/inference", "board": "both", "source": "C.1 Table C.1.5 and Eqs C.1.4-C.1.5; lower bound weights+KV, upper adds unfused activations"
+  },
+  "pi05_byte_ratio_16to8": {"value": 1.68, "unit": "x", "board": "thor", "source": "C.1 section C.1.5 (discussion); latency ratio 1.70x tracks it, not nominal 2x"},
+  "pi05_sustained_bandwidth": {"value": 197.3, "unit": "GB/s", "board": "thor", "source": "C.1 Table C.1.2 / ref [C]; emc-ground-truth, pi0.5 arm0prime"},
+
+  "mps_cap_wbc_p99": {
+    "pi05_cap25": {"value": 7.5, "unit": "ms", "board": "thor", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"},
+    "pi05_cap35": {"value": 9.1, "unit": "ms", "board": "thor", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"},
+    "groot_cap35": {"value": 8.9, "unit": "ms", "board": "thor", "source": "L4 KEY-LEARNINGS MPS 3b; 0% drop under 10 ms, no hog"}
+  },
+  "mps_cap_vla_rate_retained": {
+    "pi05_cap35": {"value": 0.90, "unit": "fraction", "board": "thor", "source": "L4 KEY-LEARNINGS MPS 3b; pi0.5 5 -> 4.5 Hz"},
+    "pi05_cap25": {"value": 0.72, "unit": "fraction", "board": "thor", "source": "L4 KEY-LEARNINGS MPS 3b; pi0.5 5 -> 3.6 Hz"},
+    "groot_cap35": {"value": 0.87, "unit": "fraction", "board": "thor", "source": "L4 KEY-LEARNINGS MPS 3b; GR00T 10 -> 8.7 Hz"}
+  },
+  "shared_context_wbc_penalty": {
+    "value": 64, "unit": "x p99", "board": "thor", "source": "L4 KEY-LEARNINGS rung-1a; pi0.5 shared context 1.74 -> 110.7 ms, 51% dropped (~90% topology)"
+  },
+  "separate_context_wbc_p99": {
+    "pi05": {"value": 17, "unit": "ms", "board": "thor", "source": "L4 KEY-LEARNINGS matched-topology; 4.9% dropped, still over 10 ms deadline"},
+    "groot": {"value": 14.3, "unit": "ms", "board": "thor", "source": "L4 KEY-LEARNINGS GR00T separate context; 8.3x p99, 98% throughput held"}
+  },
+  "cpu_memory_load_floor": {
+    "value": 172, "unit": "GB/s", "board": "thor", "source": "L4 KEY-LEARNINGS; WBC collapses regardless of precision (fp16/int8) or MPS cap; ~70% of 245 GB/s roof"
+  }
+}

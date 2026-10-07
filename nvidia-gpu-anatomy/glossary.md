@@ -1,0 +1,85 @@
+# Glossary — Anatomy of an NVIDIA GPU
+
+One line per term, alphabetical, each defined once. Note names in parentheses point to where a
+term is introduced in this primer. Where a definition is reused from the sibling kit, the line
+says "Reused from `../jetson-orin-thor-metrics/glossary.md`". Board-specific numbers carry their
+board; the full value and source live in `constants.json`.
+
+- **achieved occupancy** — the resident-warp fraction the profiler observes, vs the theoretical maximum. Reused from `../jetson-orin-thor-metrics/glossary.md` (03-occupancy-and-registers).
+- **arithmetic intensity** — operations per byte moved; the x-axis of a roofline. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
+- **barrier / `__syncthreads()`** — block-wide sync point; the only ordering guarantee between warps, and it exists only at block scope (02-threads-warps-blocks-grids).
+- **block (thread block)** — a group of threads that run together on one SM and can share memory and synchronise (00-the-big-picture).
+- **block scheduler** — the hardware unit that assigns blocks to SMs in no guaranteed order; bistable under contention (02-threads-warps-blocks-grids, 07-sharing-the-gpu).
+- **branch prediction** — CPU technique of guessing a branch and executing speculatively; GPUs do not speculate (01-sm-and-smsp).
+- **cache line** — the fixed-size block (≈128 B here) a cache fetches and evicts as a unit (06-caches-and-working-sets).
+- **capacity cliff** — the footprint at which bandwidth drops from one plateau to the next; at L2 capacity for reads. Reused from `../jetson-orin-thor-metrics/glossary.md` (06-caches-and-working-sets). Also called: L2 cliff.
+- **classic mma** — the portable warp-level matrix-multiply-accumulate instruction; the floor tensor tier. Reused from `../jetson-orin-thor-metrics/glossary.md` (04-cuda-cores-vs-tensor-cores).
+- **controller contention** — slowdown from two tenants sharing the memory controller; onsets when the victim spills L2. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
+- **CUDA context** — a process's GPU state; the GPU time-slices between contexts (07-sharing-the-gpu).
+- **CUDA core** — one scalar FP32/INT arithmetic lane in a sub-partition; 32 per sub-partition, 128 per SM (01-sm-and-smsp, 04-cuda-cores-vs-tensor-cores).
+- **dependent pointer chase** — an access pattern where each load returns the address of the next, so one load is in flight at a time; it measures latency, not bandwidth (06-caches-and-working-sets).
+- **dispatch bound (D)** — warp instructions one sub-partition can issue per cycle; 1 on both boards. Reused from `../jetson-orin-thor-metrics/glossary.md` (01-sm-and-smsp).
+- **dispatch port** — the per-sub-partition issue slot; one warp instruction per cycle (01-sm-and-smsp).
+- **dp4a** — the 4-way INT8 dot-product CUDA-core instruction. Reused from `../jetson-orin-thor-metrics/glossary.md` (04-cuda-cores-vs-tensor-cores).
+- **eviction** — replacing a cached line to make room; a co-tenant can force it (06-caches-and-working-sets).
+- **eviction knee** — the aggressor footprint at which a victim's slowdown departs 1.0; = L2 capacity − victim footprint. Reused from `../jetson-orin-thor-metrics/glossary.md` (06-caches-and-working-sets).
+- **execution configuration** — the grid and block dimensions (and optional settings) given at kernel launch (02-threads-warps-blocks-grids).
+- **FP32 CUDA core** — see CUDA core (01-sm-and-smsp).
+- **fragment** — the per-thread slice of a matrix tile held in registers for a warp-level `mma`; 32 fragments make the tile (04-cuda-cores-vs-tensor-cores).
+- **global memory / DRAM** — the GPU's main memory, reachable by all SMs through the controller (05-memory-hierarchy).
+- **grid** — all blocks produced by one kernel launch; every block has the same shape (00-the-big-picture).
+- **half2 / HFMA2** — packed FP16: two FP16 values per 32-bit lane, one instruction per pair. Reused from `../jetson-orin-thor-metrics/glossary.md` (04-cuda-cores-vs-tensor-cores).
+- **hit / miss** — a requested cache line present in / absent from a cache level (06-caches-and-working-sets).
+- **ILP (instruction-level parallelism)** — independent instructions from one thread in flight together; the A1 probe's four chains (01-sm-and-smsp).
+- **integrated SoC** — CPU and GPU on one chip sharing one physical memory and one controller. Reused from `../jetson-orin-thor-metrics/glossary.md` (00-the-big-picture, 05-memory-hierarchy).
+- **INT pipe** — the integer arithmetic pipeline in a sub-partition, separate from FP32 on Ampere and later (01-sm-and-smsp).
+- **issue rate** — warp instructions issued per cycle per sub-partition; bounded by the dispatch port, not occupancy. Related to the metrics-kit **issue rate (θ)** (03-occupancy-and-registers).
+- **kernel** — a function launched to run on the GPU; launching it starts a grid of threads (00-the-big-picture).
+- **L1 cache / shared memory** — the per-SM unified on-chip array, split by a runtime carveout into hardware L1 and programmer-managed shared memory (05-memory-hierarchy).
+- **L1 carveout** — the share of the L1/shared array configured as L1 cache. Reused from `../jetson-orin-thor-metrics/glossary.md` (05-memory-hierarchy).
+- **L2 cache** — the one cache shared by all SMs on the GPU (00-the-big-picture, 05-memory-hierarchy).
+- **L2:DRAM ratio** — L2-resident bandwidth over DRAM bandwidth; 12.4× Orin, 14.6× Thor. Reused from `../jetson-orin-thor-metrics/glossary.md` (06-caches-and-working-sets).
+- **lane** — one of the 32 thread slots in a warp, numbered 0–31 (00-the-big-picture).
+- **LD/ST unit (LSU)** — the load/store pipeline that issues memory instructions. See **LSU** in `../jetson-orin-thor-metrics/glossary.md` (01-sm-and-smsp).
+- **lockout onset** — the co-tenant warp-slot occupancy above which the victim completes nothing; ≈8% Orin, ≈14% Thor. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
+- **MAXN / locked clocks** — the maximum-clock regime with GPU frequency fixed. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
+- **memory controller** — the single path from the GPU (and, on an integrated SoC, the CPU) to DRAM (00-the-big-picture, 05-memory-hierarchy).
+- **MIG (Multi-Instance GPU)** — spatial partitioning of a GPU into isolated instances with dedicated compute, cache and memory. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
+- **MPS (Multi-Process Service)** — lets several processes share one GPU context, with an optional per-client SM cap. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
+- **ncu (Nsight Compute)** — the kernel profiler reporting stall counters and occupancy. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
+- **NVFP4** — block-scaled 4-bit float (E2M1 + per-block scale); Thor only. Reused from `../jetson-orin-thor-metrics/glossary.md` (04-cuda-cores-vs-tensor-cores).
+- **occupancy** — resident warps ÷ the SM maximum (48); the fraction of warp slots filled. Reused from `../jetson-orin-thor-metrics/glossary.md` (03-occupancy-and-registers).
+- **out-of-order execution** — CPU technique of executing independent later instructions while an earlier one waits; GPUs instead switch warps (01-sm-and-smsp).
+- **p99** — the 99th-percentile latency; the tail metric for deadline-bound work. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
+- **pipelining** — stages in a lane so a new instruction enters each cycle while earlier ones are in flight; throughput per cycle despite multi-cycle latency (01-sm-and-smsp).
+- **PTX** — the virtual instruction set CUDA compiles to, above the native SASS (08-measuring-a-gpu).
+- **register file** — the per-SM store of 32-bit registers (65536 on these boards, = 256 KB; the whole SM, split into four SMSP slices) holding threads' local variables (03-occupancy-and-registers).
+- **register spill / local memory** — values beyond a thread's register allocation live in local memory, per-thread addressed memory backed by L1 → L2 → DRAM; the one path from register pressure to memory traffic (03-occupancy-and-registers).
+- **register wall** — the tile size at which accumulator registers exhaust the 64K file and collapse occupancy. Reused from `../jetson-orin-thor-metrics/glossary.md` (03-occupancy-and-registers).
+- **registers** — per-thread fastest storage in the SM register file; one register is one 32-bit (4 B) slot. Not to be confused with a 128 B cache line (03-occupancy-and-registers, 05-memory-hierarchy).
+- **resident warps / blocks** — the warps and blocks an SM holds at once; capped at 48 warps and 16 (Orin) / 24 (Thor) blocks per SM (02-threads-warps-blocks-grids).
+- **ridge** — the arithmetic intensity where the compute and bandwidth roofs cross. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
+- **roofline** — a plot of achievable rate vs arithmetic intensity, bounded by compute and bandwidth roofs. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
+- **SASS** — NVIDIA's native GPU assembly, the instructions the hardware runs. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
+- **SFU (special-function unit)** — the sub-partition pipeline for transcendentals (sin, exp, reciprocal) (01-sm-and-smsp).
+- **shared context** — all tenants in one CUDA context, each on its own stream; streams do not isolate them. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
+- **shared memory (per block)** — the block's private allocation of its SM's L1/shared array, the fast channel between a block's threads (02-threads-warps-blocks-grids).
+- **SIMT** — Single-Instruction Multiple-Threads: a warp runs one instruction across 32 threads that may still branch independently (00-the-big-picture, 02-threads-warps-blocks-grids).
+- **SM (streaming multiprocessor)** — the GPU's compute unit; holds blocks and runs their warps. Reused from `../jetson-orin-thor-metrics/glossary.md` (00-the-big-picture, 01-sm-and-smsp).
+- **SM co-scheduling** — the block scheduler placing two kernels' blocks on the same SMs. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
+- **SM reservation / cap** — `CUDA_MPS_ACTIVE_THREAD_PERCENTAGE`, an MPS SM-fraction limit. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
+- **SMSP (sub-partition)** — one of four scheduling units in an SM; one warp scheduler, one dispatch port, a register file, and arithmetic pipelines. Reused from `../jetson-orin-thor-metrics/glossary.md` (00-the-big-picture, 01-sm-and-smsp).
+- **solo baseline** — a kernel's alone-time reference for any co-tenancy slowdown (08-measuring-a-gpu).
+- **stream** — an ordered work queue within a CUDA context; concurrent but not isolating (07-sharing-the-gpu).
+- **streaming access** — reading consecutive addresses with many loads in flight; it measures bandwidth, not latency (06-caches-and-working-sets).
+- **tcgen05** — Blackwell's 5th-generation tensor datapath with tensor memory; the datasheet-peak path. Reused from `../jetson-orin-thor-metrics/glossary.md` (04-cuda-cores-vs-tensor-cores).
+- **tensor core** — a matrix-multiply-accumulate unit, one per sub-partition; retires a tile per instruction (04-cuda-cores-vs-tensor-cores).
+- **tensor memory (TMEM)** — Blackwell on-chip memory that stages tcgen05 operands and holds the accumulator (04-cuda-cores-vs-tensor-cores).
+- **TF32 / FP8 / FP16 / INT8** — tensor-core precisions; Orin has FP16/TF32/INT8, Thor adds FP8 and NVFP4 (04-cuda-cores-vs-tensor-cores).
+- **thread** — one instance of the kernel's code, with its own registers and program counter (00-the-big-picture).
+- **TOPS / TFLOP/s** — trillion integer / floating-point operations per second; the datasheet peaks. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
+- **unified memory** — CUDA allocations reachable from CPU or GPU; physically shared on an integrated SoC (05-memory-hierarchy).
+- **warp** — a group of 32 threads the hardware schedules and issues together (00-the-big-picture).
+- **warp divergence** — threads of one warp taking different branches, serialising the paths (00-the-big-picture, 02-threads-warps-blocks-grids).
+- **warp scheduler** — the per-sub-partition unit that selects a ready warp to issue each cycle (01-sm-and-smsp).
+- **working set / footprint** — the bytes a kernel touches per pass. Reused from `../jetson-orin-thor-metrics/glossary.md` (06-caches-and-working-sets).

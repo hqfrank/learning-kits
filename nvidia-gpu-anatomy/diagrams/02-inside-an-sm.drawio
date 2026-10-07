@@ -1,0 +1,128 @@
+<mxfile host="app.diagrams.net"><diagram id="p02" name="02-inside-an-sm"><mxGraphModel dx="800" dy="600" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="900" pageHeight="660" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <mxCell id="title" value="Inside one SM: four sub-partitions, each issuing at most 1 instruction per cycle; L1/shared and the register file are shared across them" style="text;html=0;align=center;verticalAlign=middle;fontSize=13;fontStyle=1;whiteSpace=wrap;" vertex="1" parent="1">
+      <mxGeometry x="20" y="10" width="860" height="40" as="geometry" />
+    </mxCell>
+
+    <mxCell id="smbox" value="SM (streaming multiprocessor)  -  identical layout on Orin and Thor" style="rounded=1;whiteSpace=wrap;html=0;verticalAlign=top;fontSize=12;fontStyle=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+      <mxGeometry x="40" y="60" width="820" height="400" as="geometry" />
+    </mxCell>
+
+    <mxCell id="smsp1" value="SMSP 0" style="rounded=1;whiteSpace=wrap;html=0;verticalAlign=top;fontSize=11;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="56" y="92" width="192" height="252" as="geometry" />
+    </mxCell>
+    <mxCell id="smsp2" value="SMSP 1" style="rounded=1;whiteSpace=wrap;html=0;verticalAlign=top;fontSize=11;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="256" y="92" width="192" height="252" as="geometry" />
+    </mxCell>
+    <mxCell id="smsp3" value="SMSP 2" style="rounded=1;whiteSpace=wrap;html=0;verticalAlign=top;fontSize=11;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="456" y="92" width="192" height="252" as="geometry" />
+    </mxCell>
+    <mxCell id="smsp4" value="SMSP 3" style="rounded=1;whiteSpace=wrap;html=0;verticalAlign=top;fontSize=11;fontStyle=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+      <mxGeometry x="656" y="92" width="192" height="252" as="geometry" />
+    </mxCell>
+
+    <mxCell id="s1a" value="warp scheduler + dispatch port
+1 instruction / cycle  (bound D=1)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="66" y="116" width="172" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="s1b" value="32 FP32 lanes (CUDA cores)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="66" y="162" width="172" height="34" as="geometry" />
+    </mxCell>
+    <mxCell id="s1c" value="INT / ALU pipe" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="66" y="202" width="172" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="s1d" value="LD/ST + SFU" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="66" y="236" width="172" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="s1e" value="1 tensor core (MMA unit)
+Orin 3rd-gen | Thor 5th-gen tcgen05" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="66" y="270" width="172" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="s1f" value="register file (slice of 64K)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="66" y="314" width="172" height="24" as="geometry" />
+    </mxCell>
+
+    <mxCell id="s2a" value="warp scheduler + dispatch port
+1 instruction / cycle" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="266" y="116" width="172" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="s2b" value="32 FP32 lanes (CUDA cores)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="266" y="162" width="172" height="34" as="geometry" />
+    </mxCell>
+    <mxCell id="s2c" value="INT / ALU pipe" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="266" y="202" width="172" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="s2d" value="LD/ST + SFU" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="266" y="236" width="172" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="s2e" value="1 tensor core (MMA unit)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="266" y="270" width="172" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="s2f" value="register file (slice of 64K)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="266" y="314" width="172" height="24" as="geometry" />
+    </mxCell>
+
+    <mxCell id="s3a" value="warp scheduler + dispatch port
+1 instruction / cycle" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="466" y="116" width="172" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="s3b" value="32 FP32 lanes (CUDA cores)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="466" y="162" width="172" height="34" as="geometry" />
+    </mxCell>
+    <mxCell id="s3c" value="INT / ALU pipe" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="466" y="202" width="172" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="s3d" value="LD/ST + SFU" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="466" y="236" width="172" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="s3e" value="1 tensor core (MMA unit)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="466" y="270" width="172" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="s3f" value="register file (slice of 64K)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="466" y="314" width="172" height="24" as="geometry" />
+    </mxCell>
+
+    <mxCell id="s4a" value="warp scheduler + dispatch port
+1 instruction / cycle" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="666" y="116" width="172" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="s4b" value="32 FP32 lanes (CUDA cores)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="666" y="162" width="172" height="34" as="geometry" />
+    </mxCell>
+    <mxCell id="s4c" value="INT / ALU pipe" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="666" y="202" width="172" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="s4d" value="LD/ST + SFU" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+      <mxGeometry x="666" y="236" width="172" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="s4e" value="1 tensor core (MMA unit)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=10;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+      <mxGeometry x="666" y="270" width="172" height="40" as="geometry" />
+    </mxCell>
+    <mxCell id="s4f" value="register file (slice of 64K)" style="rounded=0;whiteSpace=wrap;html=0;fontSize=9;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="666" y="314" width="172" height="24" as="geometry" />
+    </mxCell>
+
+    <mxCell id="shared1" value="L1 cache / shared memory  -  ONE unified array per SM, runtime carveout splits L1 vs shared
+Orin 164 KB   |   Thor 228 KB      (L1 read datapath 128 B/cycle/SM, both)" style="rounded=1;whiteSpace=wrap;html=0;fontSize=11;fontStyle=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="56" y="352" width="500" height="52" as="geometry" />
+    </mxCell>
+    <mxCell id="shared2" value="Register file:  65536 registers (64K) per SM, split per SMSP
+Totals per SM: 128 FP32 cores (4 x 32) | 4 tensor cores | up to 48 warps = 1536 threads" style="rounded=1;whiteSpace=wrap;html=0;fontSize=11;fontStyle=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+      <mxGeometry x="568" y="352" width="280" height="52" as="geometry" />
+    </mxCell>
+
+    <mxCell id="bound" value="SM issue bound: 4 SMSP x 1 inst/cycle = at most 4 warp instructions per cycle. More FP32 cores do NOT raise issue rate - the dispatch port does." style="text;html=0;align=center;verticalAlign=middle;fontSize=11;fontStyle=1;whiteSpace=wrap;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+      <mxGeometry x="56" y="414" width="792" height="36" as="geometry" />
+    </mxCell>
+
+    <mxCell id="legend" value="Legend:  orange = scheduler/issue (the bound)   blue = CUDA-core / scalar pipes   purple = tensor core   red = register file   yellow = L1/shared" style="text;html=0;align=left;verticalAlign=top;fontSize=10;whiteSpace=wrap;fillColor=#f5f5f5;strokeColor=#999999;" vertex="1" parent="1">
+      <mxGeometry x="40" y="466" width="820" height="30" as="geometry" />
+    </mxCell>
+    <mxCell id="src" value="Sources (constants.json): smsp_per_sm=4; dispatch_bound_per_smsp=1 inst/cycle; fp32_cores_per_sm=128; tensor_cores_per_sm=4; registers_per_sm=65536; max_warps_per_sm=48; max_threads_per_sm=1536; l1_shared_per_sm 164/228 KB; l1_read_datapath=128 B/cycle/SM  [all Platforms Table 1].  Pipe inventory: SM-internals forums (B-FORUMS); SIMT in-order issue: CUDA Prog. Guide 3.2.2 (A-HW)." style="text;html=0;align=left;verticalAlign=top;fontSize=9;whiteSpace=wrap;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+      <mxGeometry x="40" y="500" width="820" height="54" as="geometry" />
+    </mxCell>
+  </root>
+</mxGraphModel></diagram></mxfile>
