@@ -172,7 +172,7 @@ window.QUIZ_BANKS.push({
       prompt: "A warp reads one register across its 32 threads. How many bytes is that?",
       choices: ["4 B", "32 B", "128 B", "256 KB"],
       answer: 2,
-      explanation: "32 threads × 4 B = 128 B — one register for a warp, not the whole file.", source: "01-sm-and-smsp §What it is; C-PLAT" },
+      explanation: "32 threads × 4 B = 128 B — 32 per-thread registers of one name, not one register and not the whole file.", source: "01-sm-and-smsp §What it is; C-PLAT" },
     { id: "q35", type: "mcq", kp: "cores-not-issue",
       prompt: "A kernel is launch-bound with few warps per sub-partition. Would doubling the FP32 cores help?",
       choices: ["Yes, it doubles issue rate", "No — issue is bounded by dispatch ports, and stalled ports idle regardless of core count", "Yes, if occupancy is 100%", "Only on Thor"],

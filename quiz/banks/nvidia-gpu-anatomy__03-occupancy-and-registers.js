@@ -15,7 +15,7 @@ window.QUIZ_BANKS.push({
     "registers-vs-l1-shared": { title: "Registers and L1/shared are two different stores", summary: "The register file is per-thread, numbered not addressed, filled at launch; the L1/shared array is addressed memory. No byte moves directly between them; their only link is residency — a block needs both, and whichever runs out first caps warps.", source: "03-occupancy-and-registers §What it is (two different stores)" },
     "register-spill": { title: "Register spills become memory traffic", summary: "When a thread needs more registers than the compiler can give, the extra values spill to local memory — ordinary addressed memory backed by L1 → L2 → DRAM — the one path by which register pressure turns into memory traffic.", source: "03-occupancy-and-registers §What it is; §Terms introduced" },
     "register-budget": { title: "~42 registers/thread fills all 48 warps", summary: "At full 1536 threads the budget is 65536/1536 ≈ 42 registers/thread; a kernel needing more than ~42 can't run all 48 warps. At 64 registers/thread only 1024 threads (32 warps, 67% occupancy) fit — why the kit's L1 sweep runs at 67%.", source: "03-occupancy-and-registers §On Orin and Thor" },
-    "three-sizes": { title: "A register, the file, and a cache line are three sizes", summary: "One register = 4 B (one thread's 32-bit scalar); the register file = 65536 × 4 B = 256 KB (whole SM, four SMSP slices, do not multiply by 4 again); a cache line = 128 B. A warp reading one register across 32 threads moves 128 B, which is one register for a warp, not the file.", source: "03-occupancy-and-registers §Common confusions" }
+    "three-sizes": { title: "A register, the file, and a cache line are three sizes", summary: "One register = 4 B (one thread's 32-bit scalar); the register file = 65536 × 4 B = 256 KB (whole SM, four SMSP slices, do not multiply by 4 again); a cache line = 128 B. When a warp instruction names one register, each thread supplies its own 4 B slot of that name, so the warp moves 32 x 4 B = 128 B: 32 per-thread registers, not one register and not the file.", source: "03-occupancy-and-registers §Common confusions" }
   },
   questions: [
     { id: "q39", type: "mcq", kp: "spill-vs-admission",
@@ -163,7 +163,7 @@ window.QUIZ_BANKS.push({
     { id: "q22", type: "numeric", kp: "three-sizes",
       prompt: "How many bytes does a warp move when it reads one register across its 32 threads?",
       answer: 128, tolerance: 0, unit: "B",
-      explanation: "32 × 4 B = 128 B — register-sized for a warp, but it is one register, not the whole file.", source: "03-occupancy-and-registers §Common confusions" },
+      explanation: "32 × 4 B = 128 B — each of the 32 threads supplies its own 4 B slot of that register name; it is 32 per-thread registers, not one register and not the whole file.", source: "03-occupancy-and-registers §Common confusions" },
     { id: "q23", type: "tf", kp: "three-sizes",
       prompt: "The 256 KB register file figure should be multiplied by 4 (one per sub-partition) to get the SM total.",
       answer: false,
