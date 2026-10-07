@@ -80,12 +80,37 @@ function record(kpId, ok){
   if(state.log.length>5000) state.log=state.log.slice(-5000);
   save(state);
 }
+var RECENT_KEEP=3; // sessions
+function noteShown(qids){ state.recent=(state.recent||[]); state.recent.push(qids); if(state.recent.length>RECENT_KEEP) state.recent=state.recent.slice(-RECENT_KEEP); save(state); }
+function recentlyShown(qid){ return (state.recent||[]).some(function(s){ return s.indexOf(qid)>=0; }); }
 function isDue(id){ var k=state.kp[id]; return !k || k.box===null || k.due<=Date.now(); }
 function weight(id){ // higher = ask sooner
   var k=state.kp[id]; if(!k||k.box===null) return 3;      // never seen: medium-high
   var w = [8,5,3,1.5,0.6][k.box];
   if(k.due<=Date.now()) w*=2;
   return w;
+}
+
+// ---------- templates ----------
+// A question may carry `template: {vars:{board:["orin","thor"]}, values:{<name>:{orin:..,thor:..}}}`.
+// Prompt/explanation use {board}, {Board} and {name}; `answerFrom` names the value used as the numeric answer.
+// One variant per board is generated at load so the same point is asked on both boards with the sourced numbers.
+var BOARD_NAME={orin:"Orin", thor:"Thor"};
+function expandTemplates(qs, b){
+  var out=[];
+  qs.forEach(function(q){
+    if(!q.template){ out.push(q); return; }
+    var boards=(q.template.vars&&q.template.vars.board)||["orin","thor"];
+    boards.forEach(function(bd){
+      var v=Object.assign({}, q); v.id=q.id+"@"+bd; delete v.template;
+      var subst=function(t){ if(typeof t!=="string") return t; return t.replace(/\{Board\}/g,BOARD_NAME[bd]).replace(/\{board\}/g,bd).replace(/\{(\w+)\}/g,function(m,n){ var val=q.template.values&&q.template.values[n]; if(val==null) return m; return String(typeof val==="object"? val[bd] : val); }); };
+      v.prompt=subst(q.prompt); v.explanation=subst(q.explanation); if(q.choices) v.choices=q.choices.map(subst);
+      if(q.template.answerFrom){ var av=q.template.values[q.template.answerFrom]; v.answer = typeof av==="object"? av[bd] : av; }
+      if(q.template.answerByBoard){ v.answer=q.template.answerByBoard[bd]; }
+      out.push(v);
+    });
+  });
+  return out;
 }
 
 // ---------- data model ----------
@@ -96,7 +121,8 @@ function index(){
   banks.forEach(function(b){
     var t = topics[b.topic] || (topics[b.topic]={id:b.topic,title:b.topicTitle||b.topic,sections:[]});
     t.sections.push(b);
-    b.questions.forEach(function(q){ q._bank=b; q.kp = q.kp || ("kp:"+b.topic+"/"+b.section+"/"+q.id); });
+    b.questions = expandTemplates(b.questions, b);
+    b.questions.forEach(function(q){ q._bank=b; q._uid=b.topic+"/"+b.section+"/"+q.id; q.kp = q.kp || ("kp:"+b.topic+"/"+b.section+"/"+q.id); });
     Object.keys(b.knowledgePoints||{}).forEach(function(k){ b.knowledgePoints[k]._bank=b; });
   });
   Object.values(topics).forEach(function(t){ t.sections.sort(function(a,b){return a.section<b.section?-1:1;}); });
@@ -116,7 +142,10 @@ function pick(questions, n){
   // weighted sample without replacement, biased to weak/due knowledge points; at most 2 questions per KP per session
   var pool=questions.slice(), out=[], perKp={};
   while(out.length<n && pool.length){
-    var tot=0, ws=pool.map(function(q){ var w=weight(q.kp)*((perKp[q.kp]||0)>=2?0.05:1); tot+=w; return w; });
+    var tot=0, ws=pool.map(function(q){
+      var w=weight(q.kp)*((perKp[q.kp]||0)>=2?0.05:1);
+      var k=state.kp[q.kp]; if(recentlyShown(q._uid) && !(k&&k.box===0)) w*=0.15; // seen in the last sessions: avoid unless the point was just missed
+      tot+=w; return w; });
     var r=Math.random()*tot, i=0; for(;i<pool.length;i++){ r-=ws[i]; if(r<=0) break; }
     i=Math.min(i,pool.length-1);
     var q=pool.splice(i,1)[0]; out.push(q); perKp[q.kp]=(perKp[q.kp]||0)+1;
@@ -245,6 +274,7 @@ function startSession(sectionBanks, n, title, weakestOnly){
   }
   var session={title:title, qs:pick(qs,n), i:0, right:0, missed:[]};
   if(!session.qs.length){ alert("No questions available."); return; }
+  noteShown(session.qs.map(function(q){return q._uid;}));
   renderQuestion(session);
 }
 
@@ -307,8 +337,8 @@ function renderQuestion(S){
     p.appendChild(h("div",{class:"warnbox"},["Unknown question type: "+q.type]));
   }
   p.appendChild(feedback);
-  var nextBtn=h("button",{class:"primary",style:"margin-top:14px",disabled:"true",onclick:function(){ S.i++; if(S.i<S.qs.length) renderQuestion(S); else renderSummary(S); }},[S.i+1<S.qs.length?"Next":"Finish"]);
-  p.appendChild(h("div",{class:"row"},[nextBtn, h("button",{onclick:viewHome},["Quit"])]));
+  var nextBtn=h("button",{class:"primary",disabled:"true",onclick:function(){ S.i++; if(S.i<S.qs.length) renderQuestion(S); else renderSummary(S); }},[S.i+1<S.qs.length?"Next":"Finish"]);
+  p.appendChild(h("div",{class:"row",style:"margin-top:14px"},[nextBtn, h("button",{onclick:viewHome},["Quit"])]));
   app.appendChild(p);
 }
 
