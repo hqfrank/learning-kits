@@ -49,6 +49,7 @@ Where a kernel's working set sits in this ladder decides its speed far more than
 ## Terms introduced
 - **registers** — per-thread fastest storage in the SM register file; allocated at launch, not addressed, so not a cache level (A-PM §1.2.3.3). See [[03-occupancy-and-registers]].
 - **L1 cache / shared memory** — the per-SM unified on-chip array, split by a runtime carveout into hardware L1 and programmer-managed shared memory (A-PM §1.2.3.3).
+- **scratchpad memory** — the generic architecture term for what CUDA calls shared memory: an on-chip buffer the program fills and reads by explicit loads/stores in its own address space, so it never misses and nothing is evicted; a cache, by contrast, is filled by hardware according to recent use. "Programmer-managed" names that difference. NVIDIA's own documents say only "shared memory" (general architecture usage; A-PM §1.2.3.3).
 - **L1 carveout** — the share of the L1/shared array configured as L1 cache. Reused from `../jetson-orin-thor-metrics/glossary.md` (C-KIT-NOTES A5).
 - **L2 cache** — the device-wide cache shared by all SMs (A-PM §1.2.3.3.1). See [[00-the-big-picture]].
 - **global memory / DRAM** — the GPU's main memory behind the controller (A-PM §1.2.3.1).

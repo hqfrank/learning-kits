@@ -61,6 +61,7 @@ board; the full value and source live in `constants.json`.
 - **ridge** — the arithmetic intensity where the compute and bandwidth roofs cross. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
 - **roofline** — a plot of achievable rate vs arithmetic intensity, bounded by compute and bandwidth roofs. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
 - **SASS** — NVIDIA's native GPU assembly, the instructions the hardware runs. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
+- **scratchpad memory** — the computer-architecture class CUDA shared memory belongs to: an on-chip buffer whose contents the *program* chooses by explicit loads and stores, with its own address space, no misses and no eviction — as opposed to a cache, whose contents the hardware chooses by recent use. Not an NVIDIA term; NVIDIA says "shared memory" (05-memory-hierarchy).
 - **SFU (special-function unit)** — the sub-partition pipeline for transcendentals (sin, exp, reciprocal) (01-sm-and-smsp).
 - **shared context** — all tenants in one CUDA context, each on its own stream; streams do not isolate them. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
 - **shared memory (per block)** — the block's private allocation of its SM's L1/shared array, the fast channel between a block's threads (02-threads-warps-blocks-grids).
