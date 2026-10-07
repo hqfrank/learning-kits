@@ -14,6 +14,7 @@ board; the full value and source live in `constants.json`.
 - **cache line** — the fixed-size block (≈128 B here) a cache fetches and evicts as a unit (06-caches-and-working-sets).
 - **capacity cliff** — the footprint at which bandwidth drops from one plateau to the next; at L2 capacity for reads. Reused from `../jetson-orin-thor-metrics/glossary.md` (06-caches-and-working-sets). Also called: L2 cliff.
 - **classic mma** — the portable warp-level matrix-multiply-accumulate instruction; the floor tensor tier. Reused from `../jetson-orin-thor-metrics/glossary.md` (04-cuda-cores-vs-tensor-cores).
+- **coalescing** — the LD/ST unit merging a warp's 32 per-thread addresses into as few 128 B cache-line requests as possible; consecutive 4 B addresses become one request (02-threads-warps-blocks-grids).
 - **controller contention** — slowdown from two tenants sharing the memory controller; onsets when the victim spills L2. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
 - **CUDA context** — a process's GPU state; the GPU time-slices between contexts (07-sharing-the-gpu).
 - **CUDA core** — one scalar FP32/INT arithmetic lane in a sub-partition; 32 per sub-partition, 128 per SM (01-sm-and-smsp, 04-cuda-cores-vs-tensor-cores).

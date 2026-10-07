@@ -13,7 +13,8 @@ window.QUIZ_BANKS.push({
     "shared-mem-reuse": { title: "Shared memory turns N DRAM crossings into 1", summary: "In the tiled GEMM each thread loads one tile element into shared memory, then every thread reads the whole tile from there, so each element crosses from DRAM once instead of 32 times.", source: "02-threads-warps-blocks-grids §How it works (point 1); C-KIT-NOTES B3" },
     "scope-ordering": { title: "Ordering guarantees by scope", summary: "Warp threads are lockstep by construction; warps of a block have no ordering except at __syncthreads(); blocks (same or different SM) communicate only via L2/DRAM with no ordering; kernels in one stream run N before N+1.", source: "02-threads-warps-blocks-grids §How it works (scope table)" },
     "no-block-barrier": { title: "There is no cross-block barrier", summary: "Blocks aren't guaranteed co-resident (a 4096-block grid on 20 SMs runs in waves), so a cross-block barrier could wait forever; coordination happens at the kernel boundary or via global atomics. The same independence lets the scheduler interleave two kernels.", source: "02-threads-warps-blocks-grids §How it works; A-PM §1.2.2.3" },
-    "residency-numbers": { title: "48 warps / 1536 threads per SM; blocks differ", summary: "Both boards cap at 48 warps = 1536 threads per SM; the only residency difference is max blocks per SM (16 Orin / 24 Thor). 48 warps over four sub-partitions is 12 warps each.", source: "02-threads-warps-blocks-grids §On Orin and Thor, §Common confusions" }
+    "residency-numbers": { title: "48 warps / 1536 threads per SM; blocks differ", summary: "Both boards cap at 48 warps = 1536 threads per SM; the only residency difference is max blocks per SM (16 Orin / 24 Thor). 48 warps over four sub-partitions is 12 warps each.", source: "02-threads-warps-blocks-grids §On Orin and Thor, §Common confusions" },
+    "thread-vs-warp-load": { title: "Per thread a scalar load; per warp a coalesced line", summary: "In the tiled GEMM each thread loads one 4 B element, but a warp's 32 consecutive addresses coalesce into a single 128 B cache-line request, so one warp instruction fetches one tile row; 32 warps fetch the 32x32 tile. float4 loads widen this to 512 B per warp instruction.", source: "02-threads-warps-blocks-grids §How it works (point 1); C-KIT-NOTES A5, B3" },
   },
   questions: [
     { id: "q1", type: "mcq", kp: "software-ladder",
@@ -189,5 +190,24 @@ window.QUIZ_BANKS.push({
       choices: ["L2 cannot hold data written by a kernel", "The per-SM array is ~5x lower latency and the program controls what is in it", "Shared memory is larger than L2", "L2 is only reachable from the CPU"],
       answer: 1,
       explanation: "A round trip to L2 costs ~150 ns on both boards against ~25-30 ns for the per-SM array, and the block decides exactly what the scratchpad holds, whereas L2 keeps whatever was touched recently.", source: "02-threads-warps-blocks-grids §How it works; constants latency_l1, latency_l2" }
+    ,
+    { id: "q37", type: "mcq", kp: "thread-vs-warp-load",
+      prompt: "In the scalar tiled GEMM, one warp executes its load instruction. How much does it fetch from memory?",
+      choices: ["One 4 B element", "One 128 B cache line (32 consecutive floats = one tile row)", "The whole 32x32 tile (4 KB)", "512 B"],
+      answer: 1,
+      explanation: "Each thread asks for 4 B, but the 32 consecutive addresses coalesce into a single 128 B line request. The block's 32 warps fetch the 32 rows.", source: "02-threads-warps-blocks-grids §How it works (point 1)" },
+    { id: "q38", type: "tf", kp: "thread-vs-warp-load",
+      prompt: "A single warp load instruction can fetch an entire 32x32 fp32 tile in the scalar tiled GEMM.",
+      answer: false,
+      explanation: "One warp instruction fetches one 128 B row; the tile is 4 KB, so it takes the block's 32 warps (or 8 warp-loads with float4 vectorisation).", source: "02-threads-warps-blocks-grids §How it works (point 1)" },
+    { id: "q39", type: "numeric", kp: "thread-vs-warp-load",
+      prompt: "A warp issues a `float4` (16 B per thread) load with consecutive addresses. How many bytes does the one instruction fetch?",
+      answer: 512, unit: "B", tolerance: 0,
+      explanation: "32 threads x 16 B = 512 B = four 128 B cache lines in one instruction; the kit's A5 L1 probe uses float4 loads for this reason.", source: "02-threads-warps-blocks-grids §How it works; C-KIT-NOTES A5" },
+    { id: "q40", type: "mcq", kp: "thread-vs-warp-load",
+      prompt: "Which statement about the tiled GEMM's loads is correct at the **instruction** level?",
+      choices: ["Each thread issues a vector load of a whole row", "Each thread issues one scalar load; the warp's addresses coalesce into one line", "Only lane 0 issues the load for the warp", "The tensor core performs the load"],
+      answer: 1,
+      explanation: "The instruction is scalar per thread (SIMT); coalescing happens in the LD/ST unit, not in the program. Vector loads (float4) and cp.async are optimisations production kernels add.", source: "02-threads-warps-blocks-grids §How it works (point 1); 01-sm-and-smsp" }
   ]
 });
