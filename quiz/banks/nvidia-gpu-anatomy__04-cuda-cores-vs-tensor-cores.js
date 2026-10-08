@@ -6,6 +6,7 @@ window.QUIZ_BANKS.push({
   sectionTitle: "04 — CUDA cores vs tensor cores",
   notePath: "../nvidia-gpu-anatomy/notes/04-cuda-cores-vs-tensor-cores.md",
   knowledgePoints: {
+    "portable-vs-specific": { title: "Portable mma.sync vs architecture-specific tcgen05", summary: "Portable means the programming model travels: mma.sync has stable PTX semantics since Volta, so one kernel source runs on Orin, Thor and other GPUs without rewrite (not at equal speed). It reaches only the floor every generation supports. tcgen05 needs sm_110a compilation, tensor memory and single-thread async issue, does not compile for Orin, and is reached via cuBLAS/CUTLASS; the gap is the programmability cost.", source: "04-cuda-cores-vs-tensor-cores §How it works (portable); C-KIT-NOTES A3.6" },
     "mma-tile-shape": { title: "The mma tile is 16x8 output, k set by precision", summary: "Classic warp-level mma shapes are fixed in the instruction: FP16 m16n8k16, INT8/FP8 m16n8k32, TF32 m16n8k8. Output is always 16x8 (128 values, 4 per thread); k grows as elements narrow so operand bytes per instruction stay constant. The B3 32x32 tile is a block-level shared-memory unit carved into many mma instructions.", source: "04-cuda-cores-vs-tensor-cores §How it works (how small is small); C-KIT-NOTES A3" },
     "issue-vs-width": { title: "One instruction per cycle, but each can do more work", summary: "The dispatch bound caps instructions issued, not arithmetic done. A 32-bit lane runs one FP32 FMA (w=2), or two packed FP16 FMAs in one HFMA2 (w=4, half2), or four INT8 products in one dp4a (w=8). Rate = theta x 32 x w x 4 x f x n_SM. On Thor w is still 4 but the measured 1.01x implies theta_HFMA2 ~ 0.5: half the instruction rate times double the width nets the FP32 rate.", source: "04-cuda-cores-vs-tensor-cores §How it works; C-KIT-NOTES A2" },
     "two-math-units": { title: "Two kinds of math unit per sub-partition", summary: "CUDA cores are scalar FP32/INT lanes doing one multiply-add per lane per instruction (FP32, packed FP16 half2, INT8 dp4a); tensor cores are matrix units, one per sub-partition (4/SM), that multiply-accumulate a whole tile per instruction.", source: "04-cuda-cores-vs-tensor-cores §In one sentence, §What it is" },
@@ -18,6 +19,20 @@ window.QUIZ_BANKS.push({
     "tensor-vs-cuda-ratio": { title: "Tensor path is ~8× (Orin) to ~25× (Thor) the CUDA path", summary: "FP16 tensor is ~8× the CUDA-core path on Orin (42.5 vs 5.15), and through tcgen05 ~25× on Thor (192.5 vs 7.82); but for the co-tenancy that governs a robot the tensor peak is almost irrelevant.", source: "04-cuda-cores-vs-tensor-cores §On Orin and Thor, §Why it matters" }
   },
   questions: [
+    { id: "q69", type: "mcq", kp: "portable-vs-specific",
+      prompt: "In 'the portable path is the warp-level mma instruction', what does portable mean?",
+      choices: ["It runs at the same TFLOP/s on every GPU", "The same kernel source compiles and runs correctly on every tensor-core GPU since Volta, without a per-architecture rewrite", "It can be moved between CPU and GPU", "It uses no registers"],
+      answer: 1,
+      explanation: "Portability is about the programming model (stable PTX semantics), not performance: the identical mma.sync kernel gets 42.5 TFLOP/s on Orin and 64.4 on Thor.", source: "04-cuda-cores-vs-tensor-cores §How it works (portable)" },
+    { id: "q70", type: "tf", kp: "portable-vs-specific",
+      prompt: "A hand-written tcgen05 kernel compiled for sm_110a also runs on Orin.",
+      answer: false,
+      explanation: "The 'a' suffix marks architecture-specific features; tcgen05 needs Blackwell tensor memory and does not exist on Orin's sm_87. That is why it is normally reached through cuBLAS/CUTLASS.", source: "04-cuda-cores-vs-tensor-cores §How it works (portable)" },
+    { id: "q71", type: "mcq", kp: "portable-vs-specific",
+      prompt: "Why is the datasheet tensor peak unreachable from a portable hand-written kernel on Thor?",
+      choices: ["The datasheet is wrong", "Portable mma.sync reaches only what every generation can do; the peak assumes the architecture-specific tcgen05 datapath", "Hand-written kernels cannot use tensor cores", "The clock is lower for portable code"],
+      answer: 1,
+      explanation: "mma.sync FP16 tops out at 64.4 TFLOP/s on Thor; tcgen05 via the tuned library reaches 192.5. The gap is the programmability cost.", source: "04-cuda-cores-vs-tensor-cores §How it works; C-KIT-NOTES A3.6" },
     { id: "q68", type: "mcq", kp: "issue-vs-width",
       prompt: "Thor runs packed FP16 at 1.01x its FP32 rate although each HFMA2 still does two FMAs per lane (w = 4). In rate = theta x 32 x w x 4 x f x n_SM, what must be true?",
       choices: ["w is actually 2 on Thor", "theta for HFMA2 is about 0.5: the sub-partition accepts an HFMA2 warp only every two cycles", "The clock halves for FP16", "Thor has half as many SMs for FP16"],

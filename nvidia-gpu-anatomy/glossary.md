@@ -56,6 +56,7 @@ board; the full value and source live in `constants.json`.
 - **out-of-order execution** — CPU technique of executing independent later instructions while an earlier one waits; GPUs instead switch warps (01-sm-and-smsp).
 - **p99** — the 99th-percentile latency; the tail metric for deadline-bound work. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).
 - **pipelining** — stages in a lane so a new instruction enters each cycle while earlier ones are in flight; throughput per cycle despite multi-cycle latency (01-sm-and-smsp).
+- **portable path** — the classic `mma.sync` route: stable PTX semantics since Volta, so one kernel source compiles and runs on every tensor-core GPU; same code, not same speed; reaches the floor not the peak (04-cuda-cores-vs-tensor-cores).
 - **PTX** — the virtual instruction set CUDA compiles to, above the native SASS (08-measuring-a-gpu).
 - **register file** — the per-SM store of 32-bit registers (65536 on these boards, = 256 KB), built as four SMSP banks, shared by all warps resident on the SM from any block. Registers in it are assigned to threads at launch and indexed by name, not address (03-occupancy-and-registers).
 - **register spill / local memory** — values beyond a thread's register allocation live in local memory, per-thread addressed memory backed by L1 → L2 → DRAM; the one path from register pressure to memory traffic (03-occupancy-and-registers).
