@@ -19,6 +19,15 @@ window.QUIZ_BANKS.push({
     "tensor-vs-cuda-ratio": { title: "Tensor path is ~8× (Orin) to ~25× (Thor) the CUDA path", summary: "FP16 tensor is ~8× the CUDA-core path on Orin (42.5 vs 5.15), and through tcgen05 ~25× on Thor (192.5 vs 7.82); but for the co-tenancy that governs a robot the tensor peak is almost irrelevant.", source: "04-cuda-cores-vs-tensor-cores §On Orin and Thor, §Why it matters" }
   },
   questions: [
+    { id: "q72", type: "numeric", kp: "mma-tile-shape",
+      prompt: "How many MACs does one `m16n8k32` (INT8) mma instruction perform? (m x n x k)",
+      answer: 4096, unit: "MACs", tolerance: 0,
+      explanation: "Each of the 16 x 8 = 128 outputs is a 32-long dot product: 128 x 32 = 4096 MACs, or 8192 integer ops counting multiply and add.", source: "04-cuda-cores-vs-tensor-cores §How it works (how small is small); C-KIT-NOTES A3" },
+    { id: "q73", type: "mcq", kp: "mma-tile-shape",
+      prompt: "For an mma of shape m x n x k, the MAC count equals:",
+      choices: ["(m x k) x (k x n), the product of the two input-tile sizes", "m x n x k: output elements times the shared dimension", "m + n + k", "m x n only"],
+      answer: 1,
+      explanation: "Every output element is a k-long dot product; m16n8k16 is 16 x 8 x 16 = 2048, not 256 x 128. The general GEMM cost 2MNK follows from the same rule.", source: "04-cuda-cores-vs-tensor-cores §How it works (how small is small)" },
     { id: "q69", type: "mcq", kp: "portable-vs-specific",
       prompt: "In 'the portable path is the warp-level mma instruction', what does portable mean?",
       choices: ["It runs at the same TFLOP/s on every GPU", "The same kernel source compiles and runs correctly on every tensor-core GPU since Volta, without a per-architecture rewrite", "It can be moved between CPU and GPU", "It uses no registers"],
