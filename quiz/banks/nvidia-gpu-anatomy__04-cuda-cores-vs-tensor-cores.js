@@ -7,7 +7,7 @@ window.QUIZ_BANKS.push({
   notePath: "../nvidia-gpu-anatomy/notes/04-cuda-cores-vs-tensor-cores.md",
   knowledgePoints: {
     "mma-tile-shape": { title: "The mma tile is 16x8 output, k set by precision", summary: "Classic warp-level mma shapes are fixed in the instruction: FP16 m16n8k16, INT8/FP8 m16n8k32, TF32 m16n8k8. Output is always 16x8 (128 values, 4 per thread); k grows as elements narrow so operand bytes per instruction stay constant. The B3 32x32 tile is a block-level shared-memory unit carved into many mma instructions.", source: "04-cuda-cores-vs-tensor-cores §How it works (how small is small); C-KIT-NOTES A3" },
-    "issue-vs-width": { title: "One instruction per cycle, but each can do more work", summary: "The dispatch bound caps instructions issued, not arithmetic done. A 32-bit lane runs one FP32 FMA (w=2), or two packed FP16 FMAs in one HFMA2 (w=4, half2), or four INT8 products in one dp4a (w=8). Rate = theta x 32 x w x 4 x f x n_SM. Thor executes HFMA2 but no faster than FFMA, so its width gain is not a rate gain.", source: "04-cuda-cores-vs-tensor-cores §How it works; C-KIT-NOTES A2" },
+    "issue-vs-width": { title: "One instruction per cycle, but each can do more work", summary: "The dispatch bound caps instructions issued, not arithmetic done. A 32-bit lane runs one FP32 FMA (w=2), or two packed FP16 FMAs in one HFMA2 (w=4, half2), or four INT8 products in one dp4a (w=8). Rate = theta x 32 x w x 4 x f x n_SM. On Thor w is still 4 but the measured 1.01x implies theta_HFMA2 ~ 0.5: half the instruction rate times double the width nets the FP32 rate.", source: "04-cuda-cores-vs-tensor-cores §How it works; C-KIT-NOTES A2" },
     "two-math-units": { title: "Two kinds of math unit per sub-partition", summary: "CUDA cores are scalar FP32/INT lanes doing one multiply-add per lane per instruction (FP32, packed FP16 half2, INT8 dp4a); tensor cores are matrix units, one per sub-partition (4/SM), that multiply-accumulate a whole tile per instruction.", source: "04-cuda-cores-vs-tensor-cores §In one sentence, §What it is" },
     "cuda-ceiling-shape": { title: "A CUDA-core ceiling has one shape", summary: "issue rate × 32 lanes × ops-per-lane × 4 sub-partitions × clock × SM count. You can't beat the dispatch bound; you widen work per instruction (FP16 packs 2, INT8 dp4a does 4).", source: "04-cuda-cores-vs-tensor-cores §How it works; C-KIT-NOTES A2" },
     "mma-fragments": { title: "A warp holds the matrix in fragments", summary: "For classic mma, all 32 threads hold fragments of the tile in registers; the warp issues one mma and the sub-partition's tensor core reads every thread's fragments, computes the whole product, and scatters results back. The warp owns the tensor core, no thread owns or idles.", source: "04-cuda-cores-vs-tensor-cores §How it works (Who holds the matrix)" },
@@ -18,6 +18,11 @@ window.QUIZ_BANKS.push({
     "tensor-vs-cuda-ratio": { title: "Tensor path is ~8× (Orin) to ~25× (Thor) the CUDA path", summary: "FP16 tensor is ~8× the CUDA-core path on Orin (42.5 vs 5.15), and through tcgen05 ~25× on Thor (192.5 vs 7.82); but for the co-tenancy that governs a robot the tensor peak is almost irrelevant.", source: "04-cuda-cores-vs-tensor-cores §On Orin and Thor, §Why it matters" }
   },
   questions: [
+    { id: "q68", type: "mcq", kp: "issue-vs-width",
+      prompt: "Thor runs packed FP16 at 1.01x its FP32 rate although each HFMA2 still does two FMAs per lane (w = 4). In rate = theta x 32 x w x 4 x f x n_SM, what must be true?",
+      choices: ["w is actually 2 on Thor", "theta for HFMA2 is about 0.5: the sub-partition accepts an HFMA2 warp only every two cycles", "The clock halves for FP16", "Thor has half as many SMs for FP16"],
+      answer: 1,
+      explanation: "Width is fixed by the instruction and confirmed by the SASS gate; the only free factor is the issue rate. Half the instructions x double the width = the FFMA rate.", source: "04-cuda-cores-vs-tensor-cores §How it works (issue vs width); C-KIT-NOTES A2" },
     { id: "q64", type: "mcq", kp: "mma-tile-shape",
       prompt: "What is the output (C/D) tile of one classic FP16 `mma.m16n8k16` instruction?",
       choices: ["32x32", "16x16", "16x8", "8x8"],
@@ -53,7 +58,7 @@ window.QUIZ_BANKS.push({
     { id: "q63", type: "tf", kp: "issue-vs-width",
       prompt: "Thor's CUDA cores cannot execute packed FP16 (`HFMA2`) at all.",
       answer: false,
-      explanation: "The SASS gate shows Thor executes HFMA2 with two halves per lane; it simply passes through the datapath no faster than FFMA, so FP16 runs at 1.01x the FP32 rate instead of ~2x.", source: "04-cuda-cores-vs-tensor-cores §How it works; C-KIT-NOTES A2" },
+      explanation: "The SASS gate shows Thor executes HFMA2 with two halves per lane (w=4). The measured 1.01x then implies the instruction issues at about half the rate of FFMA (theta ~ 0.5), so FP16 nets the FP32 rate instead of ~2x.", source: "04-cuda-cores-vs-tensor-cores §How it works; C-KIT-NOTES A2" },
     { id: "q1", type: "mcq", kp: "two-math-units",
       prompt: "What does a tensor core do per instruction?",
       choices: ["One scalar multiply-add per lane", "Multiply and accumulate a whole small matrix tile", "A single transcendental (sin/exp)", "A 128 B memory load"],
