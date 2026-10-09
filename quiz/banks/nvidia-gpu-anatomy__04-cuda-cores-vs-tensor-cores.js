@@ -20,6 +20,16 @@ window.QUIZ_BANKS.push({
     "tensor-vs-cuda-ratio": { title: "Tensor path is ~8× (Orin) to ~25× (Thor) the CUDA path", summary: "FP16 tensor is ~8× the CUDA-core path on Orin (42.5 vs 5.15), and through tcgen05 ~25× on Thor (192.5 vs 7.82); but for the co-tenancy that governs a robot the tensor peak is almost irrelevant.", source: "04-cuda-cores-vs-tensor-cores §On Orin and Thor, §Why it matters" }
   },
   questions: [
+    { id: "q81", type: "mcq", kp: "fragment-layout",
+      prompt: "In the SASS mnemonic `HMMA.16816.F32`, what precisions are the inputs and the accumulator?",
+      choices: ["Inputs FP32, accumulator FP32", "Inputs FP16 (H), accumulator FP32 (.F32)", "Inputs FP32, accumulator FP16", "Inputs INT8, accumulator INT32"],
+      answer: 1,
+      explanation: "HMMA = half-precision matrix multiply-accumulate; the .F32 suffix names the accumulator type. A and B are FP16 fragments, C/D is FP32.", source: "04-cuda-cores-vs-tensor-cores §How it works (how the instruction finds 512 B)" },
+    { id: "q82", type: "mcq", kp: "fragment-layout",
+      prompt: "For `HMMA.16816.F32`, A and C each occupy 4 registers per lane. Why do they hold different element counts?",
+      choices: ["A uses 64-bit registers", "A packs two FP16 per 32-bit register (8 elements per lane); C holds one FP32 per register (4 elements per lane)", "C is stored in shared memory", "They hold the same count"],
+      answer: 1,
+      explanation: "Same 512 B budget per operand, different element width: 16x16 FP16 for A, 16x8 FP32 for C.", source: "04-cuda-cores-vs-tensor-cores §How it works (how the instruction finds 512 B)" },
     { id: "q77", type: "mcq", kp: "fragment-layout",
       prompt: "A classic `mma` reads 512 B of A spread over 32 threads. How many register names does the instruction carry for A?",
       choices: ["32, one per thread", "128, one per element", "One base name (a quad such as R0-R3); every lane supplies its own slots of that name", "None: A is read from shared memory by address"],
