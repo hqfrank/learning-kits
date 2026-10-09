@@ -26,6 +26,7 @@ board; the full value and source live in `constants.json`.
 - **eviction knee** — the aggressor footprint at which a victim's slowdown departs 1.0; = L2 capacity − victim footprint. Reused from `../jetson-orin-thor-metrics/glossary.md` (06-caches-and-working-sets).
 - **execution configuration** — the grid and block dimensions (and optional settings) given at kernel launch (02-threads-warps-blocks-grids).
 - **FP32 CUDA core** — see CUDA core (01-sm-and-smsp).
+- **fragment layout** — the fixed per-shape mapping from (lane, register) to matrix element for a warp-level `mma`; the instruction names one base register per operand and this table does the rest (04-cuda-cores-vs-tensor-cores).
 - **fragment** — the per-thread slice of a matrix tile held in registers for a warp-level `mma`; 32 fragments make the tile (04-cuda-cores-vs-tensor-cores).
 - **global memory / DRAM** — the GPU's main memory, reachable by all SMs through the controller (05-memory-hierarchy).
 - **grid** — all blocks produced by one kernel launch; every block has the same shape (00-the-big-picture).
@@ -43,6 +44,7 @@ board; the full value and source live in `constants.json`.
 - **L2:DRAM ratio** — L2-resident bandwidth over DRAM bandwidth; 12.4× Orin, 14.6× Thor. Reused from `../jetson-orin-thor-metrics/glossary.md` (06-caches-and-working-sets).
 - **lane** — one of the 32 thread slots in a warp, numbered 0–31 (00-the-big-picture).
 - **LD/ST unit (LSU)** — the load/store pipeline that issues memory instructions. See **LSU** in `../jetson-orin-thor-metrics/glossary.md` (01-sm-and-smsp).
+- **`ldmatrix`** — warp instruction that moves 8×8 blocks from shared memory straight into `mma` fragment layout (04-cuda-cores-vs-tensor-cores).
 - **lockout onset** — the co-tenant warp-slot occupancy above which the victim completes nothing; ≈8% Orin, ≈14% Thor. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
 - **lockstep** — the 32 threads of a warp executing one issued instruction together; ordering for free within a warp, suspended during divergence (02-threads-warps-blocks-grids).
 - **MAXN / locked clocks** — the maximum-clock regime with GPU frequency fixed. Reused from `../jetson-orin-thor-metrics/glossary.md` (08-measuring-a-gpu).

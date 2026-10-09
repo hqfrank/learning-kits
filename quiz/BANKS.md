@@ -10,7 +10,7 @@ One row per bank: topic, section, knowledge-point count, question count, date ge
 | nvidia-gpu-anatomy | 01-sm-and-smsp | 9 | 36 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 02-threads-warps-blocks-grids | 10 | 45 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 03-occupancy-and-registers | 10 | 42 | expanded 2026-10-07 |
-| nvidia-gpu-anatomy | 04-cuda-cores-vs-tensor-cores | 11 | 49 | expanded 2026-10-07 |
+| nvidia-gpu-anatomy | 04-cuda-cores-vs-tensor-cores | 12 | 53 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 05-memory-hierarchy | 9 | 36 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 06-caches-and-working-sets | 8 | 32 | expanded 2026-10-07 |
 | nvidia-gpu-anatomy | 07-sharing-the-gpu | 8 | 31 | expanded 2026-10-07 |
