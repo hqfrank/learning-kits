@@ -15,6 +15,7 @@ board; the full value and source live in `constants.json`.
 - **capacity cliff** — the footprint at which bandwidth drops from one plateau to the next; at L2 capacity for reads. Reused from `../jetson-orin-thor-metrics/glossary.md` (06-caches-and-working-sets). Also called: L2 cliff.
 - **classic mma** — the portable warp-level matrix-multiply-accumulate instruction; the floor tensor tier. Reused from `../jetson-orin-thor-metrics/glossary.md` (04-cuda-cores-vs-tensor-cores).
 - **coalescing** — the LD/ST unit merging a warp's 32 per-thread addresses into as few 128 B cache-line requests as possible; consecutive 4 B addresses become one request (02-threads-warps-blocks-grids).
+- **context switch (GPU)** — time-slice hand-over between CUDA contexts; SM state is saved and restored, model weights stay where they are in DRAM (07-sharing-the-gpu).
 - **controller contention** — slowdown from two tenants sharing the memory controller; onsets when the victim spills L2. Reused from `../jetson-orin-thor-metrics/glossary.md` (07-sharing-the-gpu).
 - **CUDA context** — a process's GPU state; the GPU time-slices between contexts (07-sharing-the-gpu).
 - **CUDA core** — one scalar FP32/INT arithmetic lane in a sub-partition; 32 per sub-partition, 128 per SM (01-sm-and-smsp, 04-cuda-cores-vs-tensor-cores).
@@ -91,4 +92,5 @@ board; the full value and source live in `constants.json`.
 - **warp** — a group of 32 threads the hardware schedules and issues together (00-the-big-picture).
 - **warp divergence** — threads of one warp taking different branches, serialising the paths (00-the-big-picture, 02-threads-warps-blocks-grids).
 - **warp scheduler** — the per-sub-partition unit that selects a ready warp to issue each cycle (01-sm-and-smsp).
+- **weight stream** — a model's weights re-read from DRAM on every inference (batch 1: one use per byte per inference); the reason VLA inference is bandwidth-bound and why L2 serves re-reads, not storage (07-sharing-the-gpu).
 - **working set / footprint** — the bytes a kernel touches per pass. Reused from `../jetson-orin-thor-metrics/glossary.md` (06-caches-and-working-sets).
