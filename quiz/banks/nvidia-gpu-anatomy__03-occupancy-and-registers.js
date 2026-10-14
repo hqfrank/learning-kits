@@ -18,6 +18,11 @@ window.QUIZ_BANKS.push({
     "three-sizes": { title: "A register, the file, and a cache line are three sizes", summary: "One register = 4 B (one thread's 32-bit scalar); the register file = 65536 × 4 B = 256 KB (whole SM, four SMSP slices, do not multiply by 4 again); a cache line = 128 B. When a warp instruction names one register, each thread supplies its own 4 B slot of that name, so the warp moves 32 x 4 B = 128 B: 32 per-thread registers, not one register and not the file.", source: "03-occupancy-and-registers §Common confusions" }
   },
   questions: [
+    { id: "q43", type: "mcq", kp: "register-budget",
+      prompt: "Across the B3 ladder naive -> tiled -> register-tiled -> mma fragments, what happens to registers per thread devoted to the operand tile?",
+      choices: ["They fall, since reuse moves to shared memory", "They rise (~0 -> ~3 -> ~16+ -> fragment sets), because reuse moves closer to the lanes", "They stay constant at 32", "They are zero for all four"],
+      answer: 1,
+      explanation: "Each step trades a memory-level stall for register pressure: tiled keeps two operands and an accumulator, register-tiled a 4x4 micro-tile of accumulators, mma whole fragments. Higher R admits fewer warps (the register wall).", source: "03-occupancy-and-registers §What it is (where operand reuse lives); C-KIT-NOTES B3" },
     { id: "q39", type: "mcq", kp: "spill-vs-admission",
       prompt: "A block's total register demand exceeds the SM's free registers at launch. What happens?",
       choices: ["Its threads spill the excess to local memory", "The block waits until an SM has room; nothing spills", "The compiler recompiles the kernel with fewer registers", "The block runs with fewer threads"],
