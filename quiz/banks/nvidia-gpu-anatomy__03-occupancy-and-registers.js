@@ -18,6 +18,15 @@ window.QUIZ_BANKS.push({
     "three-sizes": { title: "A register, the file, and a cache line are three sizes", summary: "One register = 4 B (one thread's 32-bit scalar); the register file = 65536 × 4 B = 256 KB (whole SM, four SMSP slices, do not multiply by 4 again); a cache line = 128 B. When a warp instruction names one register, each thread supplies its own 4 B slot of that name, so the warp moves 32 x 4 B = 128 B: 32 per-thread registers, not one register and not the file.", source: "03-occupancy-and-registers §Common confusions" }
   },
   questions: [
+    { id: "q44", type: "numeric", kp: "register-budget",
+      prompt: "A register-tiled GEMM thread owns a 4x4 micro-tile of outputs. Per k-step it loads 4 A values and 4 B values. How many FFMAs does it perform per k-step?",
+      answer: 16, unit: "FFMAs", tolerance: 0,
+      explanation: "Every a_i times every b_j: 4 x 4 = 16 multiply-adds into 16 accumulators, from 8 loads - 0.5 loads per FFMA versus 2 for the one-output-per-thread kernel.", source: "03-occupancy-and-registers §What it is (where operand reuse lives); C-KIT-NOTES B3" },
+    { id: "q45", type: "mcq", kp: "register-budget",
+      prompt: "Why does the register-tiled kernel cut the MIO (shared-memory) throttle seen in the plain tiled kernel?",
+      choices: ["It stops using shared memory", "Each loaded operand is reused 4x from registers, so shared-memory loads per FFMA fall from 2 to 0.5", "It uses float4 global loads", "It has higher occupancy"],
+      answer: 1,
+      explanation: "Reuse moves from shared memory into the thread's own registers, which have no throughput limit worth mentioning. The price is ~30 registers per thread and fewer resident warps.", source: "03-occupancy-and-registers §What it is (where operand reuse lives); C-KIT-NOTES B3 Table B.3.1" },
     { id: "q43", type: "mcq", kp: "register-budget",
       prompt: "Across the B3 ladder naive -> tiled -> register-tiled -> mma fragments, what happens to registers per thread devoted to the operand tile?",
       choices: ["They fall, since reuse moves to shared memory", "They rise (~0 -> ~3 -> ~16+ -> fragment sets), because reuse moves closer to the lanes", "They stay constant at 32", "They are zero for all four"],
