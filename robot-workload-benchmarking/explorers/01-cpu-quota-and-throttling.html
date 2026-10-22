@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A CPU quota throttles against a demand, not a counter — CFS bandwidth explorer</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --run:#49d17a; --throttle:#ff7a7a; --line:#3a3f4a;
+    --warn:#ffd36b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:70ch}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 16px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .headline{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:130px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>A CPU quota caps delivered cores against the service's <em>demand</em> — and <code>throttled_usec</code> is not that demand</h1>
+  <p class="sub">A container with a CFS bandwidth quota (<code>cpu.max</code> = quota/period) is parked once it spends its
+  quota, until the next accounting period. Move the demand, the quota, and the period to see delivered cores, the fraction of
+  periods throttled, how long a thread waits each period, and the extra latency a request that arrives mid-period pays.
+  The deployed quota is the <strong>baseline</strong>; an uncapped run is a separate call-out, never the headline.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="ctrl">
+      <label for="demand">Service CPU demand <span class="val" id="demand_v"></span></label>
+      <input id="demand" type="range" min="0.1" max="6" step="0.1" value="2.0">
+      <div class="hint">Cores the service would use if never throttled (uncapped demand). Illustrative.</div>
+    </div>
+    <div class="ctrl">
+      <label for="quota">Quota (<code>cpu.max</code>) <span class="val" id="quota_v"></span></label>
+      <input id="quota" type="range" min="0.5" max="4" step="0.1" value="1.5">
+      <div class="hint">The deployed cap, in cores (quota ÷ period). This is the baseline.</div>
+    </div>
+    <div class="ctrl">
+      <label for="period">CFS period <span class="val" id="period_v"></span></label>
+      <input id="period" type="range" min="10" max="200" step="5" value="100">
+      <div class="hint">Accounting period. Linux default is 100 ms (illustrative here).</div>
+    </div>
+    <div class="ctrl">
+      <label for="threads">Runnable threads in the container <span class="val" id="threads_v"></span></label>
+      <input id="threads" type="range" min="1" max="8" step="1" value="4">
+      <div class="hint">How many threads share the quota concurrently. Sets how fast the quota burns and how wide <code>throttled_usec</code> sums.</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <svg id="timeline" viewBox="0 0 720 220" role="img"
+      aria-label="Timeline of CFS accounting periods showing run and throttled stretches"></svg>
+    <div class="why" id="why">
+      <h3>What dominates right now</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters &amp; sources</h3>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag ill">illustrative</span> = a round teaching number, never a measurement.
+  <span class="tag der">derived</span> = computed on this page from the inputs.</p>
+  <table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table>
+</section>
+
+<footer>
+  <span id="gen"></span> · Study aid for <em>robot-workload-benchmarking</em> (rung 3). Numbers are from the listed sources
+  or labelled illustrative/derived; nothing here is a measurement from any specific robot or campaign.
+  CFS bandwidth model: <a href="https://docs.kernel.org/scheduler/sched-bwc.html">docs.kernel.org/scheduler/sched-bwc</a>,
+  cgroups v2: <a href="https://docs.kernel.org/admin-guide/cgroup-v2.html">cgroup-v2</a>. Throttling-counter reading from note B0.
+</footer>
+
+<script type="application/json" id="params">
+{
+  "cfs_default_period_illustrative": {"value": 100, "unit": "ms", "class": "illustrative", "source": "illustrative CFS accounting period in B0/A7; the Linux CFS-bandwidth default period is 100 ms (https://docs.kernel.org/scheduler/sched-bwc.html)"},
+  "foreign_cpu_gate_illustrative": {"value": 0.3, "unit": "cores", "class": "illustrative", "source": "illustrative census threshold in C4: a window is suspect if un-accounted processes use more than ~0.3 cores"}
+}
+</script>
+
+<script>
+/* ---- pure model (also runs under node for self-tests) ---- */
+(function(global){
+  "use strict";
+
+  // Deliver what a CFS-bandwidth quota allows, given an uncapped demand.
+  // Model: in each period of length P (seconds) the container may run quota*P core-seconds
+  // (quota in cores). Its demand*P core-seconds would be wanted. It runs until the quota is
+  // spent, then is throttled for the rest of the period.
+  // Source: CFS bandwidth control, docs.kernel.org/scheduler/sched-bwc.html; reading of
+  // throttled counters from note B0.
+  function cfs_delivered(demand, quota, periodMs, threads){
+    const P = periodMs/1000;                       // period, seconds
+    const wanted = demand;                          // core-seconds wanted per core-second of wall
+    const cap = quota;                              // cores allowed
+    const deliveredCores = Math.min(demand, quota); // steady-state delivered cores
+    // Fraction of a period spent running before the quota is exhausted.
+    // Runnable threads burn the quota at rate = min(demand, threads) cores.
+    const burnRate = Math.min(demand, threads);     // cores actively burning quota
+    const quotaSeconds = cap * P;                   // core-seconds of budget per period
+    // time (wall) to burn the budget at burnRate cores:
+    let runFrac;
+    if (demand <= quota){
+      runFrac = 1;                                  // never exhausts; runs the whole period
+    } else {
+      const tRun = quotaSeconds / burnRate;         // wall seconds of running
+      runFrac = Math.min(1, tRun / P);
+    }
+    const throttledFrac = 1 - runFrac;              // fraction of the period parked
+    // nr_throttled / periods: fraction of periods in which the quota was exhausted.
+    const periodsThrottledFrac = demand > quota ? 1 : 0;
+    // Wall time a thread waits (parked) per period, in ms.
+    const waitPerPeriodMs = throttledFrac * periodMs;
+    // throttled_usec is SUMMED over run-queues: parked time * concurrent threads.
+    const throttledUsecPerPeriod = throttledFrac * periodMs * 1000 * threads; // microseconds
+    // Extra latency a request that arrives mid-period pays: expected park time if it
+    // arrives uniformly during the throttled stretch. Worst case = full throttled stretch;
+    // mean over uniform arrival within the throttled window = throttled stretch (it must wait
+    // to the period boundary). We report the worst-case (arrives at start of throttle).
+    const extraLatencyMs = waitPerPeriodMs;
+    return {
+      P, deliveredCores, runFrac, throttledFrac, periodsThrottledFrac,
+      waitPerPeriodMs, throttledUsecPerPeriod, extraLatencyMs, burnRate, quotaSeconds
+    };
+  }
+
+  const api = { cfs_delivered };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  global.CFS = api;
+})(typeof window !== "undefined" ? window : globalThis);
+
+/* ---- self-tests: reproduce the model's own identities ---- */
+(function(){
+  const C = (typeof module!=="undefined"&&module.exports)?module.exports:
+            (typeof window!=="undefined"?window.CFS:globalThis.CFS);
+  function near(a,b,t){ return Math.abs(a-b) <= (t||1e-9); }
+  // 1. demand <= quota: never throttled, delivers full demand.
+  let r = C.cfs_delivered(1.0, 2.0, 100, 2);
+  console.assert(near(r.deliveredCores,1.0) && r.throttledFrac===0, "T1 under-quota: no throttle");
+  // 2. demand 2 cores, quota 1 core, period 100ms, 2 threads: budget 0.1 core-s burns in
+  //    0.1/ min(2,2)=0.05 s => runFrac 0.5, throttled 0.5, delivered 1 core.
+  r = C.cfs_delivered(2.0, 1.0, 100, 2);
+  console.assert(near(r.deliveredCores,1.0) && near(r.runFrac,0.5) && near(r.throttledFrac,0.5),
+    "T2 half-period throttle");
+  // 3. throttled_usec sums over run-queues: with 2 threads, 50ms parked => 100,000 usec.
+  console.assert(near(r.throttledUsecPerPeriod, 0.5*100*1000*2), "T3 throttled_usec summed x threads");
+  // 4. same park with 4 threads doubles throttled_usec but NOT the delivered cores.
+  let r4 = C.cfs_delivered(2.0, 1.0, 100, 4);
+  console.assert(near(r4.deliveredCores,1.0) && r4.throttledUsecPerPeriod > r.throttledUsecPerPeriod,
+    "T4 more threads inflate throttled_usec, not demand");
+  // 5. wait per period equals throttled fraction * period.
+  console.assert(near(r.waitPerPeriodMs, 0.5*100), "T5 wait per period");
+  if (typeof window==="undefined") console.log("01 self-tests done");
+})();
+
+/* ---- UI (browser only) ---- */
+if (typeof window !== "undefined") {
+  const $ = id => document.getElementById(id);
+  const PARAMS = JSON.parse($("params").textContent);
+  const fmt = (x,d=2) => Number(x).toFixed(d);
+
+  function renderSources(){
+    const tb = $("sources").querySelector("tbody");
+    tb.innerHTML = "";
+    for (const [k,o] of Object.entries(PARAMS)){
+      const tr = document.createElement("tr");
+      const val = Array.isArray(o.value)? o.value.join("–") : o.value;
+      tr.innerHTML = `<td><code>${k}</code></td><td>${val} ${o.unit||""}</td>`+
+        `<td>${o.class}</td><td>${o.source}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+
+  function metric(k, v, tag){
+    const t = tag? `<span class="tag ${tag.cls}">${tag.txt}</span>`:"";
+    return `<div class="metric"><div class="k">${k}${t}</div><div class="v">${v}</div></div>`;
+  }
+
+  function drawTimeline(r){
+    const W=720,H=220,padL=40,padR=20,padT=28,padB=36;
+    const plotW=W-padL-padR;
+    const nPer=3;                              // draw three accounting periods
+    const perW=plotW/nPer;
+    const y0=padT, barH=90;
+    let s=`<text x="${padL}" y="18" fill="#aeb6c4" font-size="13">`+
+      `Three CFS periods (period = ${fmt(r.P*1000,0)} ms each). Green = running, red = throttled.</text>`;
+    for(let i=0;i<nPer;i++){
+      const x=padL+i*perW;
+      const runW=perW*r.runFrac;
+      // running stretch
+      s+=`<rect x="${x}" y="${y0}" width="${runW}" height="${barH}" fill="#49d17a" opacity="0.85"/>`;
+      // throttled stretch
+      if(r.throttledFrac>0){
+        s+=`<rect x="${x+runW}" y="${y0}" width="${perW-runW}" height="${barH}" fill="#ff7a7a" opacity="0.8"/>`;
+      }
+      // period boundary
+      s+=`<line x1="${x}" y1="${y0-4}" x2="${x}" y2="${y0+barH+8}" stroke="#3a3f4a"/>`;
+    }
+    // closing boundary
+    s+=`<line x1="${padL+plotW}" y1="${y0-4}" x2="${padL+plotW}" y2="${y0+barH+8}" stroke="#3a3f4a"/>`;
+    // legend / labels
+    const ly=y0+barH+26;
+    s+=`<rect x="${padL}" y="${ly-10}" width="12" height="12" fill="#49d17a"/>`+
+       `<text x="${padL+18}" y="${ly}" fill="#eef1f6" font-size="12">running (quota not yet spent)</text>`;
+    s+=`<rect x="${padL+250}" y="${ly-10}" width="12" height="12" fill="#ff7a7a"/>`+
+       `<text x="${padL+268}" y="${ly}" fill="#eef1f6" font-size="12">throttled (parked until next period)</text>`;
+    // mid-period arrival marker in period 2
+    const x2=padL+perW*1 + perW*0.5;
+    s+=`<line x1="${x2}" y1="${y0-2}" x2="${x2}" y2="${y0+barH+2}" stroke="#ffd36b" stroke-dasharray="4 3"/>`;
+    s+=`<text x="${x2+4}" y="${y0+barH+2}" fill="#ffd36b" font-size="11">request arrives here</text>`;
+    $("timeline").innerHTML=s;
+  }
+
+  function update(){
+    const demand=+$("demand").value, quota=+$("quota").value,
+          period=+$("period").value, threads=+$("threads").value;
+    $("demand_v").textContent=fmt(demand,1)+" cores";
+    $("quota_v").textContent=fmt(quota,1)+" cores";
+    $("period_v").textContent=fmt(period,0)+" ms";
+    $("threads_v").textContent=threads;
+    const r=window.CFS.cfs_delivered(demand,quota,period,threads);
+    const ill={cls:"ill",txt:"illustrative"}, der={cls:"der",txt:"derived"};
+    $("headline").innerHTML =
+      metric("Delivered cores", fmt(r.deliveredCores,2), der) +
+      metric("Periods throttled", fmt(r.periodsThrottledFrac*100,0)+"%", der) +
+      metric("Thread wait / period", fmt(r.waitPerPeriodMs,1)+" ms", der) +
+      metric("Extra latency (mid-period)", fmt(r.extraLatencyMs,1)+" ms", der) +
+      metric("throttled_usec / period", fmt(r.throttledUsecPerPeriod/1000,1)+" ms-eq", der);
+    drawTimeline(r);
+    // why panel
+    let why;
+    if(demand<=quota){
+      why=`Demand (${fmt(demand,1)} cores) is at or below the quota (${fmt(quota,1)} cores), so the `+
+          `container never exhausts its budget: it runs the whole period and is never throttled. `+
+          `Delivered cores equal demand.`;
+    } else {
+      why=`Demand (${fmt(demand,1)} cores) exceeds the quota (${fmt(quota,1)} cores). The container `+
+          `spends its ${fmt(r.quotaSeconds*1000,1)} ms of budget in the first ${fmt(r.runFrac*100,0)}% of each `+
+          `period (burning at ${fmt(r.burnRate,1)} cores across ${threads} thread(s)), then is parked for the `+
+          `remaining ${fmt(r.waitPerPeriodMs,1)} ms. Delivered cores settle at the quota, ${fmt(quota,1)}.`;
+    }
+    $("why_text").textContent=why;
+    $("callout").innerHTML =
+      `<strong>The counter trap.</strong> <code>throttled_usec</code> is summed over every per-core run-queue, `+
+      `so with ${threads} runnable thread(s) it reads <strong>${fmt(r.throttledUsecPerPeriod/1000,1)} ms</strong> per `+
+      `period — ${threads>1?`that is ${threads}× the ${fmt(r.waitPerPeriodMs,1)} ms of wall-clock park`:`equal to the wall-clock park`}, `+
+      `not "milliseconds of unmet demand". Read throttling as the <em>fraction of periods exhausted</em> `+
+      `(${fmt(r.periodsThrottledFrac*100,0)}% here). To learn true demand, remove the quota and measure again — `+
+      `but keep the deployed quota (${fmt(quota,1)} cores) as the baseline; the uncapped run is a separate call-out (note B0, A7).`;
+    $("live").textContent =
+      `Delivered ${fmt(r.deliveredCores,2)} cores; ${fmt(r.periodsThrottledFrac*100,0)}% of periods throttled; `+
+      `${fmt(r.waitPerPeriodMs,1)} ms wait per period.`;
+  }
+
+  ["demand","quota","period","threads"].forEach(id=>{
+    let raf=null;
+    $(id).addEventListener("input",()=>{ if(raf)cancelAnimationFrame(raf); raf=requestAnimationFrame(update); });
+  });
+  $("gen").textContent="Generated 2026-10-22";
+  renderSources();
+  update();
+}
+</script>
+</body>
+</html>

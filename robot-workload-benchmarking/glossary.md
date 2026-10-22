@@ -1,0 +1,177 @@
+# Glossary — Benchmarking a robot's on-board compute workload
+
+One line per term, alphabetical, each defined once. The note where a term is introduced is named in
+parentheses. Where a term is already defined in a sibling kit, the line says "Reused from
+`../<kit>/glossary.md`" and the definition matches it. Numbers carry their source; the full value
+lives in [`constants.json`](constants.json).
+
+- **action chunk / horizon (H)** — the several future timesteps one VLA inference emits, executed open-loop until replaced. Reused from `../jetson-orin-thor-metrics/glossary.md` (A6-vla-and-large-models).
+- **action head** — the smaller network inside a VLA that turns the backbone's output into actions, often by diffusion/flow refinement (A6-vla-and-large-models).
+- **active-speaker detection** — deciding from lips and audio which visible person is speaking (A2-people-perception).
+- **addendum** — the logged record of a bench/instrument fix made mid-campaign (C5-experimental-design).
+- **alive gate** — a validity check that every service is up and every topic producing; a rate drop is an outcome, silence is a void (C4-windows-gates-and-validity).
+- **architecture direction** — interference flows from providers to consumers; test consumers, not providers (C6-tiers-combined-runs-and-attribution).
+- **arithmetic intensity** — operations per byte moved; places a stage on the roofline. Reused from `../jetson-orin-thor-metrics/glossary.md` (C1-predict-then-measure).
+- **automatic speech recognition (ASR)** — transcribing speech to text; Whisper-class (A5-audio-and-voice).
+- **autocorrelation** — correlation between consecutive samples of a running system, which breaks naive confidence intervals (B3-deadlines-tails-and-statistics).
+- **backbone** — the vision-language encoder inside a VLA (A6-vla-and-large-models).
+- **bag replay** — recorded sensor data played back to drive a bursty service into its working state (A3-mapping-localization-navigation, C3-the-harness-and-fakes).
+- **bench artefact** — a result caused by the measurement apparatus rather than the system under test (C7-how-the-bench-can-lie).
+- **best-effort** — a timing class with no deadline; a slow result is acceptable (A0-the-big-picture).
+- **bound class** — whether a kernel or stage is compute-, memory-, or launch/latency-bound (B4-profilers-and-the-observer-effect, C1-predict-then-measure).
+- **bursty workload** — a load that alternates between near-idle and short heavy peaks; its peak, not its average, competes with other services (A3-mapping-localization-navigation).
+- **"carries" criteria** — per-KPI PASS / UNRESOLVED / FAIL bands, fixed before data; a cell carries only if all PASS (C6-tiers-combined-runs-and-attribution).
+- **CFS quota (`cpu.max`)** — the Completely Fair Scheduler bandwidth cap on a container (B0-cpu-metrics, A7-middleware-containers-and-platform).
+- **clock-free latency** — a latency from two same-machine arrivals, needing no cross-machine clock correction (B2-rates-periods-and-latency).
+- **clock lock** — fixing GPU and memory clocks so busy and bandwidth metrics are comparable across runs (B1-gpu-power-memory-metrics, C4-windows-gates-and-validity).
+- **cloud-API stub** — a local server imitating a cloud service's response shape, status codes, and latency (C3-the-harness-and-fakes).
+- **closed-loop tenant** — a model that runs continuously at a rate set by its own latency, both taking and losing GPU time to co-tenants (A6-vla-and-large-models).
+- **combined run** — the whole tier of services running at once, versus the solo runs (C6-tiers-combined-runs-and-attribution).
+- **compose file** — the declaration of containers, images, and resource limits (A7-middleware-containers-and-platform).
+- **compute-budget ledger** — a pre-run table predicting each stage's time as FLOP/R + bytes/B + t_CPU (C1-predict-then-measure).
+- **container** — an isolated process environment; one service per container (A0-the-big-picture, A7-middleware-containers-and-platform).
+- **control group (cgroup)** — the Linux mechanism that caps and accounts a container's CPU and memory (A7-middleware-containers-and-platform).
+- **control loop** — the fixed-rate cycle that reads state, runs the control policy, and sends actions (A4-locomotion-and-whole-body-control).
+- **core pinning / isolation (cpusets, `isolcpus`)** — assigning threads to dedicated CPU cores that no other service uses (A4-locomotion-and-whole-body-control, A7-middleware-containers-and-platform).
+- **cores (as a unit)** — CPU time used divided by wall-clock time; 1.0 cores = one core fully busy for the window (B0-cpu-metrics).
+- **coverage claim** — the stated fraction of the workload that is real code versus stand-ins (C0-reference-not-replica).
+- **coverage over precision** — accepting a realisation that captures most of a service's workload rather than all of it (C0-reference-not-replica).
+- **crash scan** — a validity check that no service or in-container child died and respawned during the window (C4-windows-gates-and-validity).
+- **cross-machine clock offset** — the difference between two machines' clocks, bounded by SNTP probing (B2-rates-periods-and-latency).
+- **cut edge** — a connection the real robot has that the bench severs; recorded, never silent (C3-the-harness-and-fakes).
+- **deadline** — the time by which one cycle of a pipeline must finish (A0-the-big-picture).
+- **deadline miss** — a control cycle that does not finish within its period (A4-locomotion-and-whole-body-control, B3-deadlines-tails-and-statistics).
+- **deadline misses per minute** — the rate of overrunning cycles; a rare-event rate bounded by a Poisson interval (B3-deadlines-tails-and-statistics).
+- **degenerate operand** — a benchmark input (all zeros) that overstates compute speed and understates power (C7-how-the-bench-can-lie).
+- **demand-gated work** — processing a service does only when a consumer subscribes to its output (A1-depth-camera-and-odometry).
+- **denoising / flow steps** — the refinement iterations of a VLA action head, each re-reading its weights (A6-vla-and-large-models).
+- **depth map** — an image whose pixels are distances (A1-depth-camera-and-odometry).
+- **detection injection** — overwriting a detector's output with ground-truth detections at a controlled N, with the injection cost accounted (A2-people-perception, C3-the-harness-and-fakes).
+- **disparity** — the pixel shift of the same point between left and right images; inversely proportional to distance (A1-depth-camera-and-odometry).
+- **driver (test)** — a component that drives a service through its own interface to put it in its working state (C2-solo-runs-and-levels).
+- **embedding** — a vector such that same-identity inputs are close and different-identity inputs are far (A2-people-perception).
+- **EMC %** — the memory-controller index in `tegrastats`, an integer relative to the current memory clock, not absolute bandwidth (B1-gpu-power-memory-metrics).
+- **end-to-end latency** — time from an input to the output it caused (B2-rates-periods-and-latency).
+- **falsifiable prediction** — a named claim committed before data, with the measurement that would decide it (C1-predict-then-measure, C5-experimental-design).
+- **fake hardware board** — a program that speaks a real device's wire protocol, framing, and rate (C3-the-harness-and-fakes).
+- **false 'working'** — a service appearing to run while on a degraded fallback, caused by an unfaithful stub (C7-how-the-bench-can-lie).
+- **fast bus** — the serial link to the motor boards, running at hundreds of Hz, faster than the control loop (A4-locomotion-and-whole-body-control).
+- **first-limit attribution** — a pre-registered rule naming the first resource to bind (CPU / GPU / memory / none-observed) (C6-tiers-combined-runs-and-attribution).
+- **foreign-CPU census** — a per-window list of processes using CPU that are not part of the experiment (B0-cpu-metrics, C4-windows-gates-and-validity).
+- **frame (audio)** — a small fixed group of audio samples; the unit a board packs into packets (A5-audio-and-voice).
+- **frames per packet / packets per message** — the framing that sets the message rate on the audio topic (A5-audio-and-voice).
+- **framing fidelity** — matching the real device's frames-per-packet and packets-per-message, which set the message rate (A5-audio-and-voice, C3-the-harness-and-fakes).
+- **gap above threshold** — a count of message periods exceeding a chosen bound (B2-rates-periods-and-latency).
+- **Garwood (exact Poisson) interval** — an exact confidence interval for a Poisson rate from a count over a known time (B3-deadlines-tails-and-statistics).
+- **GR3D % / utilization.gpu** — GPU-busy: the fraction of sample time a kernel was running, not occupancy (B1-gpu-power-memory-metrics).
+- **hard real-time** — a timing class where a missed deadline is a fault (A0-the-big-picture).
+- **harness** — the test apparatus that stands in for the physical world: fakes, stubs, synthetic inputs, bags, islands (C3-the-harness-and-fakes).
+- **Hungarian algorithm** — the optimal solution to the assignment problem; matches detections to tracks (A2-people-perception).
+- **idle floor** — the near-zero cost of an event-driven service with no input; not its working cost (C2-solo-runs-and-levels).
+- **independent review** — a second person checking the analysis (C5-experimental-design).
+- **inertial measurement unit (IMU)** — a sensor reporting acceleration and rotation rate, read at hundreds of Hz (A1-depth-camera-and-odometry, A4-locomotion-and-whole-body-control).
+- **integrated system-on-chip (SoC)** — a computer where CPU and GPU share one physical memory and one memory controller. Reused from `../jetson-orin-thor-metrics/glossary.md` (A0-the-big-picture).
+- **interference factor** — combined value over solo baseline for a KPI; 1 means co-tenants are free (C6-tiers-combined-runs-and-attribution).
+- **interrupt coalescing** — a NIC holding frames before interrupting, adding latency to cross-machine measurements (C7-how-the-bench-can-lie).
+- **interrupt placement** — which CPU core a device's interrupts land on; the default (core 0) can disturb a time-critical loop (C7-how-the-bench-can-lie).
+- **isolate versus chain** — giving a service its own sized input versus feeding it from the upstream; chain only where the upstream does not limit the downstream (C0-reference-not-replica).
+- **Kalman filter** — a predictor-corrector that estimates a moving quantity and predicts its next value (A2-people-perception).
+- **keyframe** — a camera frame kept as a map anchor, chosen when the robot has moved enough (A3-mapping-localization-navigation).
+- **keypoint detection / description** — finding distinctive image points and describing each with a vector; here DISK (A3-mapping-localization-navigation).
+- **launch overhead / launch-bound** — time spent between small kernels while the CPU launches the next; the usual bound for batch-1 models (B4-profilers-and-the-observer-effect, C1-predict-then-measure).
+- **learned matching** — matching keypoints between images with a trained network; here LightGlue (A3-mapping-localization-navigation).
+- **L1 / L2 / L3 levels** — the inference engine alone / the service as deployed / the service with its real upstream (C2-solo-runs-and-levels).
+- **load average** — the kernel's smoothed count of runnable-plus-waiting threads (B0-cpu-metrics).
+- **loop closure** — detecting a return to a known place and using it to correct accumulated drift (A3-mapping-localization-navigation).
+- **MemAvailable** — board-wide free memory from `/proc/meminfo`; the honest total on a shared-memory board (B1-gpu-power-memory-metrics).
+- **measured R and B** — the compute rate and bandwidth measured on the target board, not from a datasheet (C1-predict-then-measure).
+- **measured ÷ predicted ratio** — the headline result: how far the measurement departs from the first-principles prediction (C1-predict-then-measure).
+- **`memory.current`** — a cgroup's charged memory, including page cache (B1-gpu-power-memory-metrics).
+- **message rate** — messages per second on a topic; for audio, set by the framing, not the sample rate (A5-audio-and-voice).
+- **microphone-array board** — hardware that captures several audio channels and streams them as packets (A5-audio-and-voice).
+- **middleware** — the pub/sub system (ROS 2) that provides typed topics and subscriptions (A0-the-big-picture, A7-middleware-containers-and-platform).
+- **motor-control board** — hardware that drives the actuators, talking to the computer over a fast bus (A4-locomotion-and-whole-body-control).
+- **moving-block bootstrap** — resampling contiguous blocks to get an honest interval for autocorrelated data (B3-deadlines-tails-and-statistics).
+- **MPS / SM cap** — NVIDIA Multi-Process Service and its per-client SM-fraction limit, the GPU sharing discipline that lets a VLA and a control loop coexist. Reused from `../jetson-orin-thor-metrics/glossary.md` (A6-vla-and-large-models, B4-profilers-and-the-observer-effect).
+- **multi-layer perceptron (MLP)** — a small feed-forward network; here the control policy, run on the CPU (A4-locomotion-and-whole-body-control).
+- **N (people in view)** — the number of people the perception pipeline is processing; the per-person cost scales with it (A2-people-perception).
+- **neural / classic stereo depth** — depth from a learned network (accurate, GPU-heavy) versus from patch matching (cheap, noisier) (A1-depth-camera-and-odometry).
+- **non-maximum suppression (NMS)** — removing overlapping detections so each object is counted once (A2-people-perception).
+- **Nsight Compute** — the per-kernel counter profiler; identifies a kernel's bound class. Reused from `../jetson-orin-thor-metrics/glossary.md` (ncu) (B4-profilers-and-the-observer-effect).
+- **Nsight Systems** — the system-level timeline of kernels and API calls; reveals launch gaps and GPU ownership (B4-profilers-and-the-observer-effect).
+- **no tuning after data** — never changing a service's configuration to make a result pass (C5-experimental-design).
+- **`nr_throttled` / `throttled_usec`** — the count of throttled periods / the summed throttled time (summed over run-queues, not wall-clock demand) (B0-cpu-metrics).
+- **NVENC** — the GPU's dedicated hardware video encoder, separate from the compute units (A1-depth-camera-and-odometry).
+- **nvmap** — the GPU memory allocator; its allocations are not simply additive with cgroup memory on unified memory (B1-gpu-power-memory-metrics).
+- **observer core** — a dedicated core for samplers and probes, so they do not steal from the services (B0-cpu-metrics, C4-windows-gates-and-validity).
+- **observer effect (profiler)** — the perturbation a profiler adds to the system under test (B4-profilers-and-the-observer-effect).
+- **occupancy** — the fraction of an SM's warp slots that are active; needs the kernel profiler, not GPU-busy. Reused from `../jetson-orin-thor-metrics/glossary.md` (B1-gpu-power-memory-metrics).
+- **occupancy / height map** — a 2D grid of traversable and blocked space derived from depth (A3-mapping-localization-navigation).
+- **on-board / cloud** — work that runs on the robot / work that runs on a remote server over a network (A0-the-big-picture).
+- **on-demand LLM** — a large language model called occasionally for reasoning, usually best-effort and often cloud-based (A6-vla-and-large-models).
+- **One Euro filter** — a speed-dependent low-pass filter: more smoothing when slow, more responsiveness when fast (A2-people-perception).
+- **overdispersion** — variance larger than a single-rate model predicts; widens the honest interval (B3-deadlines-tails-and-statistics).
+- **p99** — the 99th-percentile latency; the tail metric for deadline-bound work. Reused from `../jetson-orin-thor-metrics/glossary.md` (B2, B3).
+- **paired comparison / difference** — comparing two conditions within one block, cancelling shared noise (B3-deadlines-tails-and-statistics, C5-experimental-design).
+- **per-frame vs per-person work** — the fixed cost paid once per frame versus the cost paid once per detected person (A2-people-perception).
+- **per-message overhead** — the fixed cost of handling each message (receive, decode, deserialise, callback), independent of model work (A5-audio-and-voice).
+- **period percentiles (p50/p95/p99)** — the per-message gap at the median and the tails (B2-rates-periods-and-latency).
+- **point cloud** — the depth map projected into 3D points (A1-depth-camera-and-odometry).
+- **pose-graph optimisation** — adjusting all past poses for consistency after a loop closure; here iSAM2 (A3-mapping-localization-navigation).
+- **power rail** — a measured power supply line (CPU rail, GPU/SoC rail, system input), reported in coarse steps (B1-gpu-power-memory-metrics).
+- **pre-registration** — freezing hypotheses, thresholds, and run order before any data (C5-experimental-design).
+- **publish/subscribe (pub/sub)** — the pattern where services communicate only through topics, never by direct calls (A0-the-big-picture).
+- **quality of service (QoS)** — ROS 2 settings (reliability, history, durability) that decide message delivery (A7-middleware-containers-and-platform).
+- **rate** — how often a pipeline produces output, in Hz (A0-the-big-picture).
+- **re-planning rate** — the inverse of a VLA's observation-to-action latency; latency is a rate cap. Reused from `../jetson-orin-thor-metrics/glossary.md` (A6-vla-and-large-models).
+- **receive time vs header stamp** — a message's arrival time (reader's clock) versus its sender's stamp (sender's clock) (B2-rates-periods-and-latency).
+- **rectification** — removing lens distortion and aligning the two camera images so matching runs along straight scan-lines (A1-depth-camera-and-odometry).
+- **reference, not replica** — characterising the workload class, not reproducing one exact robot (C0-reference-not-replica).
+- **replaced pair** — a sized stand-in measured in place of a service that will not run, labelled with its basis (C2-solo-runs-and-levels).
+- **replicate block** — a repeat of a cell, giving block-to-block variability (C5-experimental-design).
+- **roofline** — a plot of achievable rate against arithmetic intensity, bounded by compute and bandwidth roofs. Reused from `../jetson-orin-thor-metrics/glossary.md` (C1-predict-then-measure).
+- **router / bridge** — a process that carries messages within and across machines (for example, zenoh) (A7-middleware-containers-and-platform).
+- **run-queue wait** — time runnable threads spent waiting for a core, from `/proc/schedstat`; the signature of a CPU-bound stack (B0-cpu-metrics).
+- **sample-count rule** — the requirement that sets the window length from the number of samples the statistics need (B3-deadlines-tails-and-statistics, C4-windows-gates-and-validity).
+- **saturated-baseline failure** — when the lightest tier is already at the limit, so the attribution classifier cannot attribute cause (C6-tiers-combined-runs-and-attribution).
+- **schema-faithful stub** — a stub matching the real API's response format, so it cannot produce a false 'working' (C3-the-harness-and-fakes).
+- **script-edit-in-flight** — corrupting a running window by editing its script; avoided by immutable snapshots (C7-how-the-bench-can-lie).
+- **second machine** — the separate computer the harness runs on, so it does not steal the robot's compute (C3-the-harness-and-fakes).
+- **seeded randomised order** — a reproducible unbiased run order generated from a fixed seed (C5-experimental-design).
+- **service** — one operating-system process (usually one container) that runs part of the stack (A0-the-big-picture).
+- **signed deviation** — a labelled over- or under-estimate, with its direction and rough size (C0-reference-not-replica).
+- **sized stand-in** — a replacement for a service that will not run, chosen to capture the same workload, with its basis stated (C0-reference-not-replica).
+- **SM co-scheduling / sharing discipline** — how tenants are placed on the GPU (shared context, separate process, MPS, SM cap). Reused from `../jetson-orin-thor-metrics/glossary.md` (A6-vla-and-large-models).
+- **soft real-time** — a timing class where a missed deadline degrades quality but is not a fault (A0-the-big-picture).
+- **software rate cap** — a minimum interval a service enforces, making its rate a ceiling rather than a compute measurement (B2-rates-periods-and-latency, C7-how-the-bench-can-lie).
+- **solo run** — a service measured alone, without contention; the baseline for interference (C2-solo-runs-and-levels).
+- **speaker identification** — identifying who is speaking from a speech embedding; here ECAPA-TDNN (A5-audio-and-voice).
+- **stereo depth** — distance per pixel computed from the disparity between two camera views a known distance apart (A1-depth-camera-and-odometry).
+- **supersede** — re-running an affected run whole under the same seeds, keeping the original (C5-experimental-design).
+- **tail (p99)** — a high percentile of the per-cycle time; the metric for deadlines, versus the mean (B3-deadlines-tails-and-statistics).
+- **`tegrastats`** — the cheap periodic summary of GPU-busy, memory index, power, and temperature (B1-gpu-power-memory-metrics, B4-profilers-and-the-observer-effect).
+- **telemetry / monitoring service** — a small service collecting metrics, logs, and health (A7-middleware-containers-and-platform).
+- **TensorRT vs eager** — a compiled inference engine versus step-by-step framework execution; compiled is much faster (A6-vla-and-large-models).
+- **topic** — a named channel that carries messages of one type; services publish to it and subscribe from it (A0-the-big-picture).
+- **topic rate** — messages per second on a topic (B2-rates-periods-and-latency).
+- **tracking-by-detection** — keeping stable identities across frames by matching fresh detections to existing tracks (A2-people-perception).
+- **trace-only window** — a separate, labelled window run with the profiler attached, used for mechanism not KPIs (B4-profilers-and-the-observer-effect).
+- **TSDF fusion** — merging many depth frames into one 3D surface via a truncated signed distance function (A3-mapping-localization-navigation).
+- **t-interval across replicate blocks** — a confidence interval from a few independent repeats (B3-deadlines-tails-and-statistics).
+- **unattributed** — a loss with no matching resource signal (C6-tiers-combined-runs-and-attribution).
+- **unified memory** — one physical memory shared by CPU and GPU. Reused from `../nvidia-gpu-anatomy/glossary.md` (B1-gpu-power-memory-metrics).
+- **union of kernel intervals** — a true GPU-busy fraction computed from the timeline, used to calibrate the coarse counter (B4-profilers-and-the-observer-effect).
+- **UNRESOLVED zone** — the band between PASS and FAIL where the benchmark cannot call the result (C6-tiers-combined-runs-and-attribution).
+- **validity gate** — an automated check (alive, expected rates, crash scan, census, clocks) that decides whether a window counts (C4-windows-gates-and-validity).
+- **vision-language-action (VLA) model** — a model mapping camera images and a language goal to robot actions; here GR00T N1.x, π0.5 (A6-vla-and-large-models).
+- **visual place recognition (VPR)** — recognising a previously seen place from a whole-image descriptor; here MixVPR (A3-mapping-localization-navigation).
+- **visual-inertial odometry (VIO)** — an estimate of the camera's own motion from the image stream plus an inertial sensor (A1-depth-camera-and-odometry).
+- **void versus flagged** — a window thrown out entirely versus kept with a caveat (C4-windows-gates-and-validity).
+- **void class** — the recorded reason a window was discarded, so the failure pattern is visible (C4-windows-gates-and-validity).
+- **wake-word detection** — continuously scoring for a chosen wake phrase; here openWakeWord (A5-audio-and-voice).
+- **warm-up** — the settling period before a measurement window (C4-windows-gates-and-validity).
+- **warp** — a group of 32 threads the hardware schedules together. Reused from `../nvidia-gpu-anatomy/glossary.md` (referenced from A0 via the sibling kits).
+- **whole-body control (WBC)** — computing joint torques/actions for the whole robot from its state and a command. Related to the metrics-kit **WBC** (a batch-1 control MLP). (A4-locomotion-and-whole-body-control).
+- **window** — the fixed span over which a cell's numbers are collected (C4-windows-gates-and-validity).
+- **working cost** — a service's cost when driven with real input, as opposed to its idle floor (C2-solo-runs-and-levels).
+- **workload tier** — one of a sequence of increasingly heavy stacks (default, next-generation, plus manipulation, plus on-demand large models) (C6-tiers-combined-runs-and-attribution).

@@ -82,3 +82,42 @@ opposed streams, aggregate throughput vs tail latency, bytes vs TOPS).
 objective and metric, with no prediction/measurement/gap written yet — so the bank tests the stated
 objective, the bimodal-median reasoning, the fixed-sharing-discipline design, and that the committed
 answer lives in the L4 note. It is intentionally lighter than the other sections.
+
+## robot-workload-benchmarking — Benchmarking a robot workload: stack, metrics, method
+
+| Topic | Section | KPs | Questions | Date |
+|---|---|---|---|---|
+| robot-workload-benchmarking | A0-the-big-picture | 7 | 30 | 2026-10-22 |
+| robot-workload-benchmarking | A1-depth-camera-and-odometry | 7 | 29 | 2026-10-22 |
+| robot-workload-benchmarking | A2-people-perception | 7 | 28 | 2026-10-22 |
+| robot-workload-benchmarking | A3-mapping-localization-navigation | 6 | 25 | 2026-10-22 |
+| robot-workload-benchmarking | A4-locomotion-and-whole-body-control | 7 | 28 | 2026-10-22 |
+| robot-workload-benchmarking | A5-audio-and-voice | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | A6-vla-and-large-models | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | A7-middleware-containers-and-platform | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | B0-cpu-metrics | 7 | 28 | 2026-10-22 |
+| robot-workload-benchmarking | B1-gpu-power-memory-metrics | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | B2-rates-periods-and-latency | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | B3-deadlines-tails-and-statistics | 7 | 28 | 2026-10-22 |
+| robot-workload-benchmarking | B4-profilers-and-the-observer-effect | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | C0-reference-not-replica | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | C1-predict-then-measure | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | C2-solo-runs-and-levels | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | C3-the-harness-and-fakes | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | C4-windows-gates-and-validity | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | C5-experimental-design | 7 | 28 | 2026-10-22 |
+| robot-workload-benchmarking | C6-tiers-combined-runs-and-attribution | 6 | 24 | 2026-10-22 |
+| robot-workload-benchmarking | C7-how-the-bench-can-lie | 7 | 28 | 2026-10-22 |
+
+**Totals:** 21 banks (one per note: A0–A7, B0–B4, C0–C7), 134 knowledge points, 540 questions.
+
+Notes: one bank per note. Every knowledge point carries 4–5 questions from distinct angles
+(definition, mechanism, contrast, scenario, numeric); distractors are drawn from each note's own
+"Common confusions". Numeric questions use only values the note states (via `constants.json`):
+the 50 Hz / 20 ms control deadline, the 30 Hz camera rate, the 48-frames/packet → 3 ms → ~55 msg/s
+audio framing, Silero VAD ~1.8M parameters, the sibling π0.5 53.03 ms latency, the 25–35% SM cap,
+the 0.5 ms clock-offset bound, 120 s warm-up / 300 s window, the 0.3-core foreign-CPU gate, and the
+~15 ms Nsight timeline-trace perturbation; each is cited to its `constants.json` key. Derived
+numbers (e.g. the audio message rate) are asked with their inputs shown in the prompt. This kit is
+public: no internal names, hosts, URLs, paths, or identifiers appear in any bank
+(verified by grep). Validated with `node quiz/check-banks.js` → 0 errors.

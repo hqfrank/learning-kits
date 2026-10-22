@@ -7,6 +7,7 @@ Study material generated with a four-rung learning method (notes â†’ diagrams â†
 | Kit | What it covers |
 |---|---|
 | [`jetson-orin-thor-metrics/`](jetson-orin-thor-metrics/README.md) | Study notes on a measured reference for NVIDIA Jetson Orin and Thor under robotics workloads: compute and memory ceilings, interference and contention, real VLA models, GPU-sharing disciplines. |
+| [`robot-workload-benchmarking/`](robot-workload-benchmarking/README.md) | How to benchmark a robot's on-board compute: what each part of a typical stack does (depth camera, people perception, mapping, control, voice, VLA), what each metric means and how it is collected (CPU quota and throttling, run-queue wait, GPU busy, latency and clocks, deadline statistics, profilers), and why such a campaign is designed the way it is (predict then measure, solo levels, off-board harness, validity gates, pre-registration, how the bench can lie). |
 | [`nvidia-gpu-anatomy/`](nvidia-gpu-anatomy/README.md) | A concept primer for readers new to the terms: SMs and sub-partitions, warps/blocks/grids, occupancy and registers, CUDA vs tensor cores, the memory hierarchy, caches and working sets, sharing a GPU, measuring a GPU. |
 
 Each kit has `notes/`, `glossary.md`, `constants.json` (every constant with its source), `diagrams/` (draw.io + SVG/PNG), `explorers/` (interactive HTML), `videos/` (MP4 + captions) and `SOURCES.md`.

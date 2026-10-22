@@ -1,0 +1,33 @@
+{
+  "_about": "Numbers cited by the robot-workload-benchmarking kit. Every value is one of three classes, given in its 'source' field: 'public' (a cited public paper/doc with URL), 'sibling' (a value already in ../nvidia-gpu-anatomy or ../jetson-orin-thor-metrics, cited by that kit's constants key or note), or 'illustrative' (a round number invented to explain an idea, never a measurement). NO number here is copied from any internal campaign. Load this file; do not retype the numbers into prose.",
+
+  "warp_size": {"value": 32, "unit": "threads", "class": "sibling", "source": "../nvidia-gpu-anatomy/constants.json and glossary (warp)"},
+  "wbc_control_rate_illustrative": {"value": 50, "unit": "Hz", "class": "illustrative", "source": "illustrative control-loop rate used in A4; a learned locomotion policy at 50 Hz is a common choice"},
+  "wbc_deadline_illustrative": {"value": 20, "unit": "ms", "class": "illustrative", "source": "illustrative: the period of a 50 Hz loop is 20 ms, used in A4/B3 as the deadline"},
+  "motor_bus_rate_illustrative": {"value": [100, 1000], "unit": "Hz", "class": "illustrative", "source": "illustrative range for a motor-control board bus in A4; 'hundreds of Hz' is typical"},
+
+  "perception_output_rate_illustrative": {"value": 10, "unit": "Hz", "class": "illustrative", "source": "illustrative perception publish rate in A2/A0; soft-real-time perception commonly targets ~10 Hz"},
+  "camera_frame_rate_illustrative": {"value": 30, "unit": "Hz", "class": "illustrative", "source": "illustrative camera frame rate in A1/A2; 30 fps is a common depth-camera rate"},
+  "audio_packet_framing_illustrative": {"value": 48, "unit": "frames/packet", "class": "illustrative", "source": "illustrative microphone-array packet framing in A5 to show frames-per-packet sets message rate; 48 frames at 16 kHz is 3 ms"},
+  "audio_sample_rate_illustrative": {"value": 16000, "unit": "Hz", "class": "illustrative", "source": "illustrative microphone sample rate in A5; 16 kHz is standard for speech models"},
+
+  "nvfp4_available_board": {"value": "second example board only", "unit": "", "class": "sibling", "source": "../jetson-orin-thor-metrics/glossary.md (NVFP4; Thor only) — referenced generically in A6/B1"},
+
+  "silero_vad_params_public": {"value": 1.8, "unit": "M parameters", "class": "public", "source": "Silero VAD, https://github.com/snakers4/silero-vad (model is sub-2M parameters; order-of-magnitude only)"},
+  "openwakeword_window_public": {"value": 1280, "unit": "samples", "class": "public", "source": "openWakeWord, https://github.com/dscripka/openWakeWord (80 ms at 16 kHz melspectrogram hop window; order-of-magnitude)"},
+
+  "vla_action_horizon_illustrative": {"value": 10, "unit": "future timesteps", "class": "illustrative", "source": "illustrative action-chunk horizon in A6; see sibling C1 note for a real example (H=10)"},
+  "vla_latency_example_sibling": {"value": 53.03, "unit": "ms", "class": "sibling", "source": "../jetson-orin-thor-metrics/constants.json pi05_latency_measured.thor_fp8 — cited in A6 only as the sibling kit's worked example, not a new measurement"},
+  "vla_replan_rate_example_sibling": {"value": 15.6, "unit": "Hz", "class": "sibling", "source": "../jetson-orin-thor-metrics/constants.json pi05_latency_predicted.thor_16bit re-plan — cited in A6 as the sibling example"},
+
+  "p99_definition_sibling": {"value": 99, "unit": "th percentile", "class": "sibling", "source": "../jetson-orin-thor-metrics/glossary.md (p99) — tail metric for deadline work"},
+  "mps_sm_cap_example_sibling": {"value": [25, 35], "unit": "% SM", "class": "sibling", "source": "../jetson-orin-thor-metrics/constants.json mps_cap_wbc_p99 — the MPS SM-cap range that returned the example control loop under deadline; cited in A6/B4"},
+
+  "clock_offset_target_illustrative": {"value": 0.5, "unit": "ms", "class": "illustrative", "source": "illustrative cross-machine clock-offset bound in B2; set below the smallest latency being measured"},
+  "warmup_illustrative": {"value": 120, "unit": "s", "class": "illustrative", "source": "illustrative warm-up before a measurement window in C4"},
+  "window_illustrative": {"value": 300, "unit": "s", "class": "illustrative", "source": "illustrative measurement-window length in C4; actual length comes from a sample-count rule"},
+  "foreign_cpu_gate_illustrative": {"value": 0.3, "unit": "cores", "class": "illustrative", "source": "illustrative census threshold in C4: a window is suspect if un-accounted processes use more than ~0.3 cores"},
+
+  "interference_factor_definition": {"value": "stack latency / solo latency", "unit": "ratio", "class": "illustrative", "source": "definition used in C6; the ratio itself is computed per run, no fixed value"},
+  "nsys_perturbation_illustrative": {"value": 15, "unit": "ms added latency", "class": "illustrative", "source": "illustrative order of the observer effect in B4: enabling a timeline trace can add milliseconds of latency to the traced service"}
+}

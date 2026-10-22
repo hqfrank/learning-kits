@@ -1,0 +1,192 @@
+1
+00:00:02,800 --> 00:00:06,800
+A home robot is not one program. It is a crowd
+
+2
+00:00:06,800 --> 00:00:10,800
+of services on one small computer, all at once. A camera
+
+3
+00:00:10,800 --> 00:00:14,800
+makes depth at thirty hertz. People perception runs near ten. Mapping,
+
+4
+00:00:14,800 --> 00:00:18,800
+voice, and a control loop at fifty hertz on isolated cores.
+
+5
+00:00:18,800 --> 00:00:22,800
+They share one C P U and one G P U.
+
+6
+00:00:22,800 --> 00:00:26,387
+The benchmark answers two questions for this stack on this computer.
+
+7
+00:00:26,387 --> 00:00:29,973
+Does it all fit at once? And when something gives, what
+
+8
+00:00:29,973 --> 00:00:33,560
+runs out first — the C P U, the G P
+
+9
+00:00:33,560 --> 00:00:37,147
+U, or memory? A single average utilisation number cannot tell you
+
+10
+00:00:37,147 --> 00:00:40,733
+whether the robot still walks while it thinks.
+
+11
+00:00:40,733 --> 00:00:44,376
+Predict before you measure. Write a budget ledger: time equals arithmetic
+
+12
+00:00:44,376 --> 00:00:48,019
+over the compute rate, plus bytes over the bandwidth, plus C
+
+13
+00:00:48,019 --> 00:00:51,662
+P U overhead. A prediction made before the data cannot be
+
+14
+00:00:51,662 --> 00:00:55,305
+tuned to fit it. And it warns you: a small batch-one
+
+15
+00:00:55,305 --> 00:00:58,948
+model does little math per launch. Like a van stuck at
+
+16
+00:00:58,948 --> 00:01:02,590
+every traffic light, it spends its time between kernels, not computing.
+
+17
+00:01:02,590 --> 00:01:06,233
+It is launch-bound, far slower than its roofline.
+
+18
+00:01:06,233 --> 00:01:10,062
+Measure each service alone first, at three levels. L one is the
+
+19
+00:01:10,062 --> 00:01:13,890
+bare engine. L two is the service as deployed, with its real
+
+20
+00:01:13,890 --> 00:01:17,719
+glue. L three adds the real upstream feeding it. The gaps are
+
+21
+00:01:17,719 --> 00:01:21,548
+the finding: L two minus L one is the service's own C
+
+22
+00:01:21,548 --> 00:01:25,376
+P U glue, and that glue usually costs more than the network.
+
+23
+00:01:25,376 --> 00:01:29,205
+And an event-driven service with no input shows an idle floor, near
+
+24
+00:01:29,205 --> 00:01:33,033
+zero, not its working cost. You must drive it.
+
+25
+00:01:33,033 --> 00:01:37,300
+Now the bench. Everything that stands in for the world — fake
+
+26
+00:01:37,300 --> 00:01:41,567
+motor boards, a fake microphone, cloud stubs, synthetic people — runs on
+
+27
+00:01:41,567 --> 00:01:45,833
+a second machine. If the harness ran on the robot, it would
+
+28
+00:01:45,833 --> 00:01:50,100
+steal the very cycles you are trying to measure. A dedicated link
+
+29
+00:01:50,100 --> 00:01:54,367
+carries the control bus; a separate link carries the bulk feeds.
+
+30
+00:01:54,367 --> 00:01:58,450
+The bench can lie in confident ways. A shared link lets
+
+31
+00:01:58,450 --> 00:02:02,533
+bulk traffic slow the control bus below its rate. Device interrupts
+
+32
+00:02:02,533 --> 00:02:06,617
+all land on core zero and disturb the loop. Turning on
+
+33
+00:02:06,617 --> 00:02:10,700
+tracing can add milliseconds to the very latency it measures. And
+
+34
+00:02:10,700 --> 00:02:14,783
+a benchmark fed all-zero data runs faster than real data, because
+
+35
+00:02:14,783 --> 00:02:18,867
+the datapath never toggles. A clean number can still be wrong.
+
+36
+00:02:18,867 --> 00:02:23,050
+To stop yourself tuning a result, freeze the rules first. Warm
+
+37
+00:02:23,050 --> 00:02:27,233
+up, then measure a fixed window. Before its numbers count, gates
+
+38
+00:02:27,233 --> 00:02:31,417
+check the window: services alive, rates as expected, no crash, no
+
+39
+00:02:31,417 --> 00:02:35,600
+stray C P U, clocks locked at both ends. Conditions run
+
+40
+00:02:35,600 --> 00:02:39,783
+interleaved, so slow drift cancels. Hypotheses and thresholds are pre-registered, so
+
+41
+00:02:39,783 --> 00:02:43,967
+a result cannot be tuned into passing.
+
+42
+00:02:43,967 --> 00:02:47,614
+Finally, run the whole stack together. The combined cost beats the
+
+43
+00:02:47,614 --> 00:02:51,262
+sum of the solos, because the services fight over C P
+
+44
+00:02:51,262 --> 00:02:54,910
+U, G P U, and memory. That ratio is the interference
+
+45
+00:02:54,910 --> 00:02:58,557
+factor. Each timing promise is judged pass, unresolved, or fail, and
+
+46
+00:02:58,557 --> 00:03:02,205
+a pre-set rule names the first resource to give. On a
+
+47
+00:03:02,205 --> 00:03:05,852
+small robot computer, it is often the C P U quota
+
+48
+00:03:05,852 --> 00:03:09,500
+that fills before the G P U.
+

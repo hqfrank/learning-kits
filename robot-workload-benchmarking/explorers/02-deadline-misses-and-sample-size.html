@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A short window cannot prove a low miss rate — exact Poisson interval &amp; sample size</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --line:#3a3f4a; --pass:#49d17a; --fail:#ff7a7a; --unres:#ffd36b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:72ch}
+  main{display:grid;grid-template-columns:330px 1fr;gap:18px;padding:18px 22px}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .panel>*{min-width:0}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range],input[type=number]{width:100%}
+  input[type=number]{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 7px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .headline{display:flex;flex-wrap:wrap;gap:14px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:120px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .verdict{font-size:26px;font-weight:800;padding:10px 16px;border-radius:10px;display:inline-block}
+  .verdict.PASS{background:#123020;color:var(--pass);border:1px solid var(--pass)}
+  .verdict.FAIL{background:#301212;color:var(--fail);border:1px solid var(--fail)}
+  .verdict.UNRESOLVED{background:#302a12;color:var(--unres);border:1px solid var(--unres)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px}
+  .tag.ill{color:var(--unres);border-color:var(--unres)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.pub{color:var(--pass);border-color:var(--pass)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>A short window cannot prove a low miss rate: the exact Poisson interval, and how many samples a p99 needs</h1>
+  <p class="sub">Deadline misses are counted as rare Poisson events. From a count over a known time this page computes the
+  exact two-sided <strong>Garwood</strong> 95% interval on the rate, in the browser, and calls PASS / UNRESOLVED / FAIL
+  against bands you set. A second panel turns an output rate and a window length into a sample count, and shows why a stable
+  p99 needs several thousand samples.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <h3 style="margin:0 0 10px">Panel 1 — misses &amp; interval</h3>
+    <div class="ctrl">
+      <label for="events">Deadline misses observed <span class="val" id="events_v"></span></label>
+      <input id="events" type="range" min="0" max="60" step="1" value="12">
+      <div class="hint">Count of cycles that overran their deadline in the window.</div>
+    </div>
+    <div class="ctrl">
+      <label for="minutes">Minutes observed <span class="val" id="minutes_v"></span></label>
+      <input id="minutes" type="range" min="1" max="120" step="1" value="30">
+      <div class="hint">Window length. A longer window tightens the interval.</div>
+    </div>
+    <div class="ctrl">
+      <label for="banda">PASS band — rate ≤ a (per min) <span class="val" id="banda_v"></span></label>
+      <input id="banda" type="range" min="0" max="2" step="0.05" value="0.5">
+      <div class="hint">PASS needs point rate ≤ a AND upper bound ≤ b.</div>
+    </div>
+    <div class="ctrl">
+      <label for="bandb">FAIL band — lower &gt; b (per min) <span class="val" id="bandb_v"></span></label>
+      <input id="bandb" type="range" min="0" max="3" step="0.05" value="1.0">
+      <div class="hint">FAIL if the lower bound exceeds b. Between the two: UNRESOLVED.</div>
+    </div>
+    <hr>
+    <h3 style="margin:0 0 10px">Panel 2 — rate &amp; sample size</h3>
+    <div class="ctrl">
+      <label for="hz">Output rate <span class="val" id="hz_v"></span></label>
+      <input id="hz" type="range" min="1" max="200" step="1" value="50">
+      <div class="hint">Cycles per second of the loop under test.</div>
+    </div>
+    <div class="ctrl">
+      <label for="winsec">Window length <span class="val" id="winsec_v"></span></label>
+      <input id="winsec" type="range" min="10" max="600" step="10" value="300">
+      <div class="hint">Seconds of collection. 300 s is the kit's illustrative window.</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <div id="verdictBox" style="margin-bottom:12px"></div>
+    <svg id="ciplot" viewBox="0 0 720 150" role="img"
+      aria-label="Point rate with its 95% Garwood confidence interval and the PASS and FAIL bands"></svg>
+    <hr>
+    <div class="headline" id="samplebox"></div>
+    <svg id="tailplot" viewBox="0 0 720 130" role="img"
+      aria-label="How many of the collected samples fall in the top 1 percent tail"></svg>
+    <div class="why" id="why">
+      <h3>What this window can and cannot prove</h3>
+      <p id="why_text"></p>
+    </div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters &amp; sources</h3>
+  <p class="hint">Numbers loaded from the inlined params block (also <code>params.json</code>), copied from <code>../constants.json</code>.
+  <span class="tag pub">public</span> cited source · <span class="tag ill">illustrative</span> teaching number ·
+  <span class="tag der">derived</span> computed here.</p>
+  <table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table>
+</section>
+
+<footer>
+  <span id="gen"></span> · Study aid for <em>robot-workload-benchmarking</em> (rung 3). Interval: Garwood exact Poisson
+  (Garwood 1936, Biometrika 28). Self-tests reproduce the standard bounds (0 misses in 30 min → upper ≈ 0.123/min;
+  12 misses in 30 min → [0.207, 0.699]/min). Method from note B3. No measurement from any specific robot or campaign appears here.
+</footer>
+
+<script type="application/json" id="params">
+{
+  "poisson_ci_level": {"value": 95, "unit": "% confidence", "class": "public", "source": "Garwood exact Poisson interval, Garwood (1936), Biometrika 28; 95% two-sided is the convention in B3"},
+  "p99_definition_sibling": {"value": 99, "unit": "th percentile", "class": "sibling", "source": "../jetson-orin-thor-metrics/glossary.md (p99) — tail metric for deadline work"},
+  "p99_sample_rule_illustrative": {"value": 3000, "unit": "samples", "class": "illustrative", "source": "illustrative sample-count rule in B3/C4: ~several thousand cycles for a stable p99; 3000 samples gives ~30 points in the top 1% tail"},
+  "window_illustrative": {"value": 300, "unit": "s", "class": "illustrative", "source": "illustrative measurement-window length in C4; actual length comes from a sample-count rule"}
+}
+</script>
+
+<script>
+/* ---- pure stats (also runs under node) ---- */
+(function(global){
+  "use strict";
+
+  // Regularized lower incomplete gamma P(a,x) via series + continued fraction (Numerical Recipes form).
+  function gammaln(x){
+    const c=[76.18009172947146,-86.50532032941677,24.01409824083091,
+             -1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+    let y=x, tmp=x+5.5; tmp-=(x+0.5)*Math.log(tmp);
+    let ser=1.000000000190015;
+    for(let j=0;j<6;j++){ y+=1; ser+=c[j]/y; }
+    return -tmp+Math.log(2.5066282746310005*ser/x);
+  }
+  function gammaP(a,x){
+    if(x<0||a<=0) return NaN;
+    if(x===0) return 0;
+    if(x < a+1){ // series
+      let ap=a, sum=1/a, del=sum;
+      for(let n=0;n<500;n++){ ap+=1; del*=x/ap; sum+=del; if(Math.abs(del)<Math.abs(sum)*1e-15) break; }
+      return sum*Math.exp(-x+a*Math.log(x)-gammaln(a));
+    } else { // continued fraction for Q, return 1-Q
+      const FPMIN=1e-300; let b=x+1-a, c=1/FPMIN, d=1/b, h=d;
+      for(let i=1;i<500;i++){
+        const an=-i*(i-a); b+=2; d=an*d+b; if(Math.abs(d)<FPMIN)d=FPMIN;
+        c=b+an/c; if(Math.abs(c)<FPMIN)c=FPMIN; d=1/d; const del=d*c; h*=del;
+        if(Math.abs(del-1)<1e-15) break;
+      }
+      const Q=Math.exp(-x+a*Math.log(x)-gammaln(a))*h;
+      return 1-Q;
+    }
+  }
+  // Inverse of P(a,x)=p in x, by bisection (robust for our range).
+  function gammaPinv(p,a){
+    if(p<=0) return 0;
+    if(p>=1) return Infinity;
+    let lo=0, hi=Math.max(10, a*4+40);
+    while(gammaP(a,hi)<p && hi<1e7) hi*=2;
+    for(let i=0;i<200;i++){
+      const mid=(lo+hi)/2, f=gammaP(a,mid);
+      if(f<p) lo=mid; else hi=mid;
+    }
+    return (lo+hi)/2;
+  }
+  // Chi-square quantile: chi2inv(q, df) = 2 * gammaPinv(q, df/2).
+  function chi2inv(q,df){ return 2*gammaPinv(q, df/2); }
+
+  // Garwood exact two-sided Poisson interval on the RATE (per unit time T), for a count k.
+  // lower = 0 if k==0 else chi2inv(alpha/2, 2k)/2 / T
+  // upper = chi2inv(1-alpha/2, 2k+2)/2 / T
+  // Source: Garwood (1936); standard exact Poisson interval (note B3).
+  function garwood(k, T, conf){
+    const alpha = 1-(conf/100);
+    const lower = k===0 ? 0 : chi2inv(alpha/2, 2*k)/2 / T;
+    const upper = chi2inv(1-alpha/2, 2*k+2)/2 / T;
+    const rate = k / T;
+    return { rate, lower, upper };
+  }
+
+  // PASS/UNRESOLVED/FAIL against bands a (pass rate ceiling) and b (fail lower threshold).
+  function verdict(rate, lower, upper, a, b){
+    if (lower > b) return "FAIL";
+    if (rate <= a && upper <= b) return "PASS";
+    return "UNRESOLVED";
+  }
+
+  // Samples in a window, and expected tail points above a percentile.
+  function samples(hz, windowSec){ return hz*windowSec; }
+  function tailPoints(n, percentile){ return n*(1-percentile/100); }
+
+  const api={ gammaln, gammaP, gammaPinv, chi2inv, garwood, verdict, samples, tailPoints };
+  if (typeof module!=="undefined"&&module.exports) module.exports=api;
+  global.POIS=api;
+})(typeof window!=="undefined"?window:globalThis);
+
+/* ---- self-tests: reproduce known Garwood bounds ---- */
+(function(){
+  const P=(typeof module!=="undefined"&&module.exports)?module.exports:
+          (typeof window!=="undefined"?window.POIS:globalThis.POIS);
+  function near(a,b,t){ return Math.abs(a-b)<=t; }
+  // 1. 0 events in 30 min, 95%: lower 0, upper ~ 0.1230/min.
+  let g=P.garwood(0,30,95);
+  console.assert(g.lower===0 && near(g.upper,0.1230,0.002), "G1 0/30min upper ~0.123, got "+g.upper);
+  // 2. 12 events in 30 min, 95%: [0.207, 0.699] /min.
+  g=P.garwood(12,30,95);
+  console.assert(near(g.lower,0.2067,0.004) && near(g.upper,0.6987,0.006),
+    "G2 12/30min ["+g.lower.toFixed(4)+","+g.upper.toFixed(4)+"] expected [0.207,0.699]");
+  // 3. chi2inv sanity: median of chi2(df=2) is ~1.3863 (=-2 ln 0.5).
+  console.assert(near(P.chi2inv(0.5,2), -2*Math.log(0.5), 1e-3), "G3 chi2 df2 median");
+  // 4. sample count: 50 Hz * 300 s = 15000; ~1% tail = 150 points. p99 rule.
+  console.assert(P.samples(50,300)===15000 && near(P.tailPoints(15000,99),150,1e-9), "G4 samples/tail");
+  // 5. 3000 samples give ~30 points in the top 1% tail (the kit's rule of thumb).
+  console.assert(near(P.tailPoints(3000,99),30,1e-9), "G5 3000 samples -> 30 tail points");
+  if (typeof window==="undefined") console.log("02 self-tests done");
+})();
+
+/* ---- UI (browser only) ---- */
+if (typeof window!=="undefined"){
+  const $=id=>document.getElementById(id);
+  const PARAMS=JSON.parse($("params").textContent);
+  const fmt=(x,d=3)=>Number(x).toFixed(d);
+
+  function renderSources(){
+    const tb=$("sources").querySelector("tbody"); tb.innerHTML="";
+    for(const [k,o] of Object.entries(PARAMS)){
+      const tr=document.createElement("tr");
+      const val=Array.isArray(o.value)?o.value.join("–"):o.value;
+      tr.innerHTML=`<td><code>${k}</code></td><td>${val} ${o.unit||""}</td><td>${o.class}</td><td>${o.source}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  function metric(k,v,tag){
+    const t=tag?`<span class="tag ${tag.cls}">${tag.txt}</span>`:"";
+    return `<div class="metric"><div class="k">${k}${t}</div><div class="v">${v}</div></div>`;
+  }
+
+  function drawCI(g,a,b){
+    const W=720,H=150,padL=40,padR=20,padT=24,padB=40, plotW=W-padL-padR;
+    const xmax=Math.max(g.upper, b, a, 0.5)*1.15;
+    const X=v=>padL+(v/xmax)*plotW;
+    const yMid=padT+40;
+    let s=`<text x="${padL}" y="16" fill="#aeb6c4" font-size="12">Rate per minute with its 95% Garwood interval</text>`;
+    // axis
+    s+=`<line x1="${padL}" y1="${yMid+34}" x2="${padL+plotW}" y2="${yMid+34}" stroke="#3a3f4a"/>`;
+    for(let t=0;t<=5;t++){ const v=xmax*t/5, x=X(v);
+      s+=`<line x1="${x}" y1="${yMid+34}" x2="${x}" y2="${yMid+39}" stroke="#3a3f4a"/>`+
+         `<text x="${x}" y="${yMid+52}" fill="#aeb6c4" font-size="10" text-anchor="middle">${v.toFixed(2)}</text>`; }
+    // PASS band (<=a) shaded green, FAIL band (>b) red
+    s+=`<rect x="${padL}" y="${padT}" width="${X(a)-padL}" height="${yMid+34-padT}" fill="#49d17a" opacity="0.10"/>`;
+    s+=`<rect x="${X(b)}" y="${padT}" width="${padL+plotW-X(b)}" height="${yMid+34-padT}" fill="#ff7a7a" opacity="0.10"/>`;
+    s+=`<line x1="${X(a)}" y1="${padT}" x2="${X(a)}" y2="${yMid+34}" stroke="#49d17a" stroke-dasharray="4 3"/>`+
+       `<text x="${X(a)+3}" y="${padT+10}" fill="#49d17a" font-size="10">a=${a.toFixed(2)}</text>`;
+    s+=`<line x1="${X(b)}" y1="${padT}" x2="${X(b)}" y2="${yMid+34}" stroke="#ff7a7a" stroke-dasharray="4 3"/>`+
+       `<text x="${X(b)+3}" y="${padT+10}" fill="#ff7a7a" font-size="10">b=${b.toFixed(2)}</text>`;
+    // interval bar
+    s+=`<line x1="${X(g.lower)}" y1="${yMid}" x2="${X(g.upper)}" y2="${yMid}" stroke="#5ec8ff" stroke-width="3"/>`;
+    s+=`<line x1="${X(g.lower)}" y1="${yMid-8}" x2="${X(g.lower)}" y2="${yMid+8}" stroke="#5ec8ff" stroke-width="2"/>`;
+    s+=`<line x1="${X(g.upper)}" y1="${yMid-8}" x2="${X(g.upper)}" y2="${yMid+8}" stroke="#5ec8ff" stroke-width="2"/>`;
+    s+=`<circle cx="${X(g.rate)}" cy="${yMid}" r="5" fill="#eef1f6"/>`;
+    s+=`<text x="${X(g.rate)}" y="${yMid-12}" fill="#eef1f6" font-size="11" text-anchor="middle">point ${g.rate.toFixed(3)}</text>`;
+    $("ciplot").innerHTML=s;
+  }
+
+  function drawTail(n){
+    const W=720,H=130,padL=40,padR=20,padT=24,padB=28, plotW=W-padL-padR, barH=46;
+    const tail=window.POIS.tailPoints(n,99), body=n-tail;
+    const rule=+PARAMS.p99_sample_rule_illustrative.value;
+    let s=`<text x="${padL}" y="16" fill="#aeb6c4" font-size="12">${n.toLocaleString()} samples; top 1% tail holds `+
+      `${Math.round(tail).toLocaleString()} points (p99 estimated from these)</text>`;
+    const bodyW=plotW*(body/n), tailW=plotW*(tail/n);
+    s+=`<rect x="${padL}" y="${padT}" width="${bodyW}" height="${barH}" fill="#2b4a63"/>`;
+    s+=`<rect x="${padL+bodyW}" y="${padT}" width="${tailW}" height="${barH}" fill="#5ec8ff"/>`;
+    s+=`<text x="${padL+4}" y="${padT+barH+16}" fill="#aeb6c4" font-size="11">lower 99%</text>`;
+    s+=`<text x="${padL+plotW}" y="${padT+barH+16}" fill="#5ec8ff" font-size="11" text-anchor="end">top 1% tail</text>`;
+    // the rule marker: n needed for ~30 tail points
+    const ok = tail>=30;
+    s+=`<text x="${padL}" y="${H-6}" fill="${ok?'#49d17a':'#ffd36b'}" font-size="12">`+
+       `${ok?'✓':'⚠'} tail points = ${Math.round(tail)} — rule of thumb: ~30 (needs ≥ ${rule.toLocaleString()} samples)</text>`;
+    $("tailplot").innerHTML=s;
+  }
+
+  function update(){
+    const k=+$("events").value, mins=+$("minutes").value,
+          a=+$("banda").value, b=+$("bandb").value,
+          hz=+$("hz").value, winsec=+$("winsec").value;
+    $("events_v").textContent=k;
+    $("minutes_v").textContent=mins+" min";
+    $("banda_v").textContent=a.toFixed(2)+" /min";
+    $("bandb_v").textContent=b.toFixed(2)+" /min";
+    $("hz_v").textContent=hz+" Hz";
+    $("winsec_v").textContent=winsec+" s";
+    const g=window.POIS.garwood(k,mins,95);
+    const v=window.POIS.verdict(g.rate,g.lower,g.upper,a,b);
+    const der={cls:"der",txt:"derived"};
+    $("headline").innerHTML=
+      metric("Point rate", fmt(g.rate,3)+" /min", der)+
+      metric("95% lower", fmt(g.lower,3)+" /min", der)+
+      metric("95% upper", fmt(g.upper,3)+" /min", der);
+    $("verdictBox").innerHTML=`<span class="verdict ${v}">${v}</span>`;
+    drawCI(g,a,b);
+    const n=window.POIS.samples(hz,winsec), tail=window.POIS.tailPoints(n,99);
+    $("samplebox").innerHTML=
+      metric("Samples in window", Math.round(n).toLocaleString(), der)+
+      metric("Top-1% tail points", Math.round(tail).toLocaleString(), der)+
+      metric("p99 stable?", tail>=30?"yes":"no", der);
+    drawTail(n);
+    let why;
+    if(k===0){
+      why=`Zero misses over ${mins} min gives a lower bound of 0 and an upper bound of ${fmt(g.upper,3)}/min: `+
+          `the window proves only that the rate is below ${fmt(g.upper,3)}/min, not that it is zero. A longer window `+
+          `shrinks that upper bound — the only way to prove a low rate.`;
+    } else {
+      why=`${k} misses over ${mins} min is a point rate of ${fmt(g.rate,3)}/min, but the true rate lies in `+
+          `[${fmt(g.lower,3)}, ${fmt(g.upper,3)}]/min at 95% confidence. The verdict is ${v} because `+
+          (v==="PASS"?`the point rate is within a and the whole interval sits below b.`:
+           v==="FAIL"?`even the lower bound exceeds b.`:
+           `the interval straddles a band edge — the window cannot call it either way; collect more.`);
+    }
+    why+=` For the tail: at ${hz} Hz over ${winsec} s you collect ${Math.round(n).toLocaleString()} cycles, `+
+         `of which about ${Math.round(tail)} land in the top 1% that defines p99. Fewer than ~30 tail points and the p99 is noisy.`;
+    $("why_text").textContent=why;
+    $("live").textContent=`Rate ${fmt(g.rate,3)}/min, 95% CI [${fmt(g.lower,3)}, ${fmt(g.upper,3)}], verdict ${v}.`;
+  }
+
+  ["events","minutes","banda","bandb","hz","winsec"].forEach(id=>{
+    let raf=null;
+    $(id).addEventListener("input",()=>{ if(raf)cancelAnimationFrame(raf); raf=requestAnimationFrame(update); });
+  });
+  $("gen").textContent="Generated 2026-10-22";
+  renderSources();
+  update();
+}
+</script>
+</body>
+</html>
