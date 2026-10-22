@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Learning kits</title>
+<style>
+  :root{--bg:#0f1218;--ink:#e7ebf2;--mute:#9aa4b5;--acc:#58d6a0;--line:#2a3140}
+  @media (prefers-color-scheme: light){:root{--bg:#f6f7fa;--ink:#14181f;--mute:#5b6473;--acc:#1f6fb8;--line:#d9dee8}}
+  body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  main{max-width:860px;margin:0 auto;padding:28px 24px 60px}
+  h1{font-size:24px;margin:0 0 6px} p{color:var(--mute)} a{color:var(--acc)}
+  a:focus-visible{outline:3px solid #ffd166;outline-offset:2px}
+  .kit{border:1px solid var(--line);border-radius:10px;padding:14px 18px;margin:14px 0}
+  .kit h2{font-size:18px;margin:0 0 6px} ul{margin:6px 0 0;padding-left:20px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Learning kits</h1>
+  <p>Study material built with a four-rung method (notes, diagrams, interactive explorers, explainer video) plus a spaced-repetition quiz. Every number cites its source or is labelled illustrative.</p>
+
+  <div class="kit">
+    <h2><a href="quiz/">Quiz</a></h2>
+    <p>One question bank per note. Wrong answers bring the knowledge point back more often. Progress is stored only in your browser.</p>
+  </div>
+
+  <div class="kit">
+    <h2><a href="nvidia-gpu-anatomy/README.md">Anatomy of an NVIDIA GPU</a></h2>
+    <p>SMs and sub-partitions, warps, blocks and grids, occupancy and registers, CUDA vs tensor cores, the memory hierarchy, sharing and measuring a GPU.</p>
+    <ul><li><a href="nvidia-gpu-anatomy/explorers/01-launch-to-hardware.html">Explorer: launch to hardware</a></li><li><a href="nvidia-gpu-anatomy/explorers/02-memory-ladder.html">Explorer: memory ladder</a></li></ul>
+  </div>
+
+  <div class="kit">
+    <h2><a href="jetson-orin-thor-metrics/README.md">Jetson Orin and Thor: a measured reference for robotics workloads</a></h2>
+    <p>Compute and memory ceilings, interference and contention, real VLA models, GPU-sharing disciplines.</p>
+    <ul><li><a href="jetson-orin-thor-metrics/explorers/01-roofline-explorer.html">Explorer: roofline</a></li><li><a href="jetson-orin-thor-metrics/explorers/02-who-pays-explorer.html">Explorer: who pays under co-tenancy</a></li></ul>
+  </div>
+
+  <div class="kit">
+    <h2><a href="robot-workload-benchmarking/README.md">Benchmarking a robot's on-board compute</a></h2>
+    <p>What each part of a robot stack does, what each metric means and how it is collected, and why a benchmarking campaign is designed the way it is.</p>
+    <ul><li><a href="robot-workload-benchmarking/explorers/01-cpu-quota-and-throttling.html">Explorer: CPU quota and throttling</a></li><li><a href="robot-workload-benchmarking/explorers/02-deadline-misses-and-sample-size.html">Explorer: deadline misses and sample size</a></li><li><a href="robot-workload-benchmarking/explorers/03-perception-scaling-with-people.html">Explorer: perception scaling with people</a></li></ul>
+  </div>
+</main>
+</body>
+</html>
