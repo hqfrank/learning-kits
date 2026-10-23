@@ -55,6 +55,16 @@ Not applicable here. The later notes compare measured rates against ceilings der
 ## So what
 Interpretation (mine, from the table): the per-SM machinery is identical on the two boards, so a kernel bound by instruction issue scales by clock × SM count only (1.575 × 20 / (1.30 × 16) = 1.51×). The large differences are in memory: Thor has 8× the L2 and about 1.33× the DRAM specification. The book's Doc A shows that these memory differences, not the TOPS figures, decide most robotics workloads.
 
+## Clarification: what MAXN means
+**MAXN** is one of the board's power modes, chosen with `sudo nvpmodel -m <id>` and read with `nvpmodel -q`. The modes are listed in `/etc/nvpmodel.conf`; mode IDs differ by module, so check the file.
+
+- **A capped mode** (for example 15 W, 30 W or 50 W on AGX Orin; 40 W to 120 W on Thor) is a power budget. It turns off some CPU cores or SMs and lowers the maximum clocks so the module stays inside that budget.
+- **MAXN** has **no power budget**. All CPU cores are online, and CPU, GPU, memory (EMC), DLA, PVA and the video engines may run at their highest frequencies. The "N" has no official expansion; read it as "max, no limit". On Thor the default mode is 120 W, not MAXN.
+- **MAXN is a ceiling, not a lock.** DVFS still lowers clocks when the load is light. To get comparable runs the book also runs `sudo jetson_clocks` (pin clocks at the maximum) and verifies the GPU frequency through devfreq on every run.
+- **MAXN is not a guarantee.** Thermal and over-current protection can still throttle the module. A result at MAXN is therefore valid only if the run's frequency check passes.
+
+Source: NVIDIA Jetson power-optimization blog (https://developer.nvidia.com/blog/power-optimization-with-nvidia-jetson/); Jetson Linux docs on nvpmodel.
+
 ## Terms introduced
 - **MAXN** — NVIDIA's maximum-clock power regime on Jetson; the standing configuration for every measurement in the book.
 - **SM** — streaming multiprocessor, the GPU's compute unit; 16 on Orin, 20 on Thor.

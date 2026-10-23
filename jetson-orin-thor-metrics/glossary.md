@@ -73,7 +73,7 @@ note, the note is named in parentheses. Where the book uses an alternative name,
 - **lower bound (cell)** — a slowdown from a cell that failed the overlap gate; sustained co-tenancy would be at least this bad (first used in B8).
 - **LSU** — load/store unit, the SM's memory-instruction pipeline; its depth sets the L1 hit latency (first used in A7).
 - **M mod 16 effect** — the GEMM library's kernel choice depends on how the row count M divides, so delivered rate is discontinuous in M (first used in C1).
-- **MAXN** — NVIDIA's maximum-clock power regime on Jetson; the standing configuration for every measurement in the book (first used in 00-platforms).
+- **MAXN** — the Jetson power mode (`nvpmodel`) with no power budget: every CPU core online and the highest allowed clocks for CPU, GPU, memory and the accelerators. It sets the clock *ceiling*, not a fixed clock; DVFS can still lower clocks, so the book also locks them (`jetson_clocks`, devfreq-verified). The standing configuration for every measurement in the book (first used in 00-platforms; see the clarification there).
 - **MIG** — multi-instance GPU, NVIDIA's spatial partitioning of a GPU; tech-preview on Thor, absent on Orin (first used in 00-platforms).
 - **mio_throttle** — stall because the on-chip memory-I/O queue (shared memory, special ops) is full (first used in B3).
 - **mix ladder** — a sequence of cells that adds co-tenants cumulatively (solo; + VLM-decode; + VLM-decode + VLA) (first used in B8).
