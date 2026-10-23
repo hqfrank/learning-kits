@@ -1,5 +1,7 @@
 # Benchmarking a robot's on-board compute workload: the stack, the metrics, and the method — study notes
 
+**Start here: the story →** [The robot's kitchen](stories/01-the-robots-kitchen.html) — a picture-first, interactive tour of the whole kit in ten minutes ([all stories](stories/INDEX.md)).
+
 ## In one paragraph
 
 A home robot runs its whole software stack — cameras, perception, mapping, locomotion, voice, and

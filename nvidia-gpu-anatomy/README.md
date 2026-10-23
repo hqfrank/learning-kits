@@ -5,6 +5,11 @@ who meets terms like SM, SMSP, warp, L2, tcgen05 and MPS for the first time. It 
 mechanisms behind Table 1 of the metrics kit, anchors every number to that kit's measured data,
 and points back to the kit note that measured each one.
 
+> **Start here: the story.** [The GPU city](stories/01-the-gpu-factory.html) — a picture-first,
+> interactive page that makes the execution model and memory hierarchy felt in 5–10 minutes (SMs as
+> city blocks, warps as benches of 32, the memory ladder as travel distance, the L2 cliff, tiling).
+> The notes below are the reference; the story is the hook.
+
 **One paragraph:** A GPU is many **streaming multiprocessors (SMs)** sitting behind one shared
 **L2 cache** and one **memory controller**. You program it through a software ladder — **thread
 → warp → block → grid → kernel** — that the hardware maps onto a physical ladder — **lane →

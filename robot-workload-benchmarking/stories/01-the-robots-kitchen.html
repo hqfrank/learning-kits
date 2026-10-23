@@ -1,0 +1,673 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The robot's kitchen — why a small robot computer runs out of cooks before oven</title>
+<meta name="description" content="A visual story: a home robot's on-board computer as one busy kitchen. CPU cores are cooks, the GPU is the oven, memory is the pantry door, the control loop is the pass bell. How to benchmark it without fooling yourself.">
+<link rel="stylesheet" href="../../stories/story.css">
+<style>
+  /* page palette meaning: coral = CPU (cooks) · sun = GPU (oven) · sky = memory / perception · leaf = control deadline · plum = large model · stone = the observer */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--ink-2);margin:10px 4px 0}
+  .legend i{display:inline-block;width:16px;height:12px;border-radius:4px;border:1.5px solid var(--navy);margin-right:6px;vertical-align:-1px}
+  .hero-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+  .hero h1{max-width:22ch;font-size:clamp(30px,4vw,48px)}
+  /* still mode (reduced motion, motion off, screenshots): show a representative frame, not frame 0 */
+  .st-still .tkt{animation:none;opacity:1;transform:translateX(var(--sx,0))}
+  .st-still .pile{animation:none;opacity:1;transform:none}
+  .st-still .steam{animation:none;opacity:.55;transform:translateY(-4px)}
+  .st-still .memtok{animation:none;offset-distance:var(--od,0%)}
+  .st-still .ring{animation:none;opacity:.5;transform:scale(1.3)}
+  @keyframes tkt{0%{transform:translateX(0);opacity:0}10%{opacity:1}85%{opacity:1}100%{transform:translateX(118px);opacity:0}}
+  .tkt{animation:tkt 3.2s linear infinite}
+  @keyframes pile{0%,8%{opacity:0;transform:translateY(-14px)}16%,92%{opacity:1;transform:none}100%{opacity:0}}
+  .pile{animation:pile 7s var(--ease) infinite;transform-box:fill-box}
+  @keyframes steam{0%{transform:translateY(6px);opacity:0}30%{opacity:.85}100%{transform:translateY(-18px);opacity:0}}
+  .steam{animation:steam 2.4s ease-out infinite;transform-box:fill-box}
+  @keyframes glow{0%,100%{opacity:1}50%{opacity:.55}}
+  .glow{animation:glow 1.6s ease-in-out infinite}
+  @keyframes ring{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+  .ring{animation:ring 1s ease-out infinite;transform-box:fill-box;transform-origin:center}
+  @keyframes mem{0%{offset-distance:0%}100%{offset-distance:100%}}
+  .memtok{animation:mem 4.5s linear infinite;offset-rotate:0deg}
+  .grow{transform-box:fill-box;transform-origin:left center}
+  .js .st-scene .grow[data-s]:not(.is-on){transform:scaleX(0);opacity:1}
+  .st-scene .lit.is-lit, .st-scene .is-lit .lit{stroke:var(--coral)!important;stroke-width:4!important}
+  .bar-gpu{fill:var(--sun)} .bar-cpu{fill:var(--coral)} .bar-fix{opacity:1} .bar-per{opacity:.62}
+  #guests .g{transition:opacity .35s var(--ease),transform .45s var(--ease);transform-box:fill-box;transform-origin:bottom center}
+  #guests .g.off{opacity:0;transform:scale(.6)}
+  .readout{font:700 16px/1.5 var(--body);margin:10px 0 0}
+  .readout b{font-family:var(--mono);color:var(--coral-d)}
+  .readout .gpu{color:var(--sun-d)}
+  details{margin-top:10px;font-size:15px;color:var(--ink-2)} summary{cursor:pointer;font-weight:700;color:var(--ink)}
+  code{font:600 .92em var(--mono);background:var(--card-2);padding:1px 5px;border-radius:5px}
+  .sq{transition:fill .25s}
+  .breaks li{margin:4px 0}
+</style>
+</head>
+<body>
+<a class="skip" href="#s1">Skip to the first scene</a>
+<noscript><p class="wrap" style="background:#FFF4DE;padding:10px;border-radius:10px">This story draws its pictures with JavaScript. The written version is in <a href="../notes/A0-the-big-picture.md">the notes</a>.</p></noscript>
+
+<!-- the cast: drawn once, reused everywhere with <use>. Colours come in through --c / --skin. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#CFC8B8"/><line x1="0" y1="0" x2="0" y2="8" stroke="#8C8670" stroke-width="3"/></pattern>
+  <symbol id="i-cook" viewBox="0 0 60 96">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="12" y="50" width="36" height="43" rx="14" style="fill:var(--c,#EE6A45)"/>
+    <rect x="21" y="60" width="18" height="31" rx="5" fill="#FFFDF8"/>
+    <circle cx="30" cy="37" r="13" style="fill:var(--skin,#F4CDA7)"/>
+    <circle cx="21" cy="17" r="8" fill="#FFFDF8"/><circle cx="30" cy="12" r="9.5" fill="#FFFDF8"/><circle cx="39" cy="17" r="8" fill="#FFFDF8"/>
+   </g>
+   <g fill="#FFFDF8"><circle cx="21" cy="17" r="6.8"/><circle cx="30" cy="12" r="8.3"/><circle cx="39" cy="17" r="6.8"/></g>
+   <rect x="18" y="19" width="24" height="8" rx="2" fill="#FFFDF8" stroke="#141C2E" stroke-width="2.5"/>
+   <circle cx="25.5" cy="36" r="1.9" fill="#141C2E"/><circle cx="34.5" cy="36" r="1.9" fill="#141C2E"/>
+   <ellipse cx="21.5" cy="41.5" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/><ellipse cx="38.5" cy="41.5" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/>
+   <path d="M26.5 42.5 Q30 45.5 33.5 42.5" fill="none" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-guest" viewBox="0 0 40 72">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M6 70 V46 a14 14 0 0 1 28 0 V70 Z" style="fill:var(--c,#5E9FB8)"/>
+    <circle cx="20" cy="18" r="12" style="fill:var(--skin,#F4CDA7)"/>
+    <path d="M8 16 a12 12 0 0 1 24 0 q-6 -5 -12 -4 q-6 -1 -12 4z" style="fill:var(--hair,#3A2618)"/>
+   </g>
+   <circle cx="16" cy="20" r="1.7" fill="#141C2E"/><circle cx="24" cy="20" r="1.7" fill="#141C2E"/>
+   <path d="M16.5 25 Q20 27.5 23.5 25" fill="none" stroke="#141C2E" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-insp" viewBox="0 0 64 96">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="12" y="50" width="36" height="43" rx="14" style="fill:var(--c,#8C8670)"/>
+    <circle cx="30" cy="36" r="13" style="fill:var(--skin,#D49A6A)"/>
+    <path d="M15 30 Q16 16 30 16 Q44 16 45 30 Z" fill="#55607A"/><rect x="13" y="28" width="38" height="5" rx="2" fill="#55607A"/>
+    <rect x="38" y="56" width="20" height="26" rx="3" fill="#FFFDF8" transform="rotate(8 48 69)"/>
+    <circle cx="10" cy="62" r="8" fill="#DCEFF5"/><path d="M15 68 L22 76" stroke-width="4"/>
+   </g>
+   <circle cx="25.5" cy="38" r="1.9" fill="#141C2E"/><circle cx="34.5" cy="38" r="1.9" fill="#141C2E"/>
+   <path d="M26 44 H34" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+   <path d="M43 62 h10 M43 67 h10 M43 72 h7" stroke="#55607A" stroke-width="1.6" transform="rotate(8 48 69)"/>
+  </symbol>
+  <symbol id="i-ticket" viewBox="0 0 30 40">
+   <path d="M2 2 H28 V34 l-3.25 4 -3.25 -4 -3.25 4 -3.25 -4 -3.25 4 -3.25 -4 -3.25 4 L2 34 Z" fill="#FFFDF8" stroke="#141C2E" stroke-width="2" stroke-linejoin="round"/>
+   <path d="M7 10 H23 M7 16 H20 M7 22 H23" stroke="#55607A" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-bell" viewBox="0 0 60 50">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M10 40 Q10 14 30 14 Q50 14 50 40 Z" fill="#3AA88D"/><rect x="4" y="40" width="52" height="7" rx="3" fill="#1D7660"/>
+    <rect x="26" y="6" width="8" height="8" rx="2" fill="#1D7660"/>
+   </g>
+   <path d="M18 32 Q19 21 28 19" fill="none" stroke="#FFFDF8" stroke-width="3" stroke-linecap="round" opacity=".7"/>
+  </symbol>
+  <symbol id="i-oven" viewBox="0 0 80 80">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="3" y="3" width="74" height="74" rx="10" fill="#5A6170"/><rect x="12" y="22" width="56" height="46" rx="6" fill="#2E3646"/>
+   </g>
+   <g fill="#F2C64A"><rect x="17" y="27" width="13" height="10" rx="2"/><rect x="33" y="27" width="13" height="10" rx="2" opacity=".3"/><rect x="49" y="27" width="13" height="10" rx="2" opacity=".3"/>
+    <rect x="17" y="41" width="13" height="10" rx="2" opacity=".3"/><rect x="33" y="41" width="13" height="10" rx="2"/><rect x="49" y="41" width="13" height="10" rx="2" opacity=".3"/>
+    <rect x="17" y="55" width="13" height="10" rx="2" opacity=".3"/><rect x="33" y="55" width="13" height="10" rx="2" opacity=".3"/><rect x="49" y="55" width="13" height="10" rx="2" opacity=".3"/></g>
+   <circle cx="20" cy="12" r="4" fill="#EFE5D4" stroke="#141C2E" stroke-width="2"/><circle cx="34" cy="12" r="4" fill="#EFE5D4" stroke="#141C2E" stroke-width="2"/>
+  </symbol>
+  <symbol id="i-door" viewBox="0 0 54 84">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="3" y="3" width="48" height="78" rx="6" fill="#A7C8D6"/><rect x="10" y="10" width="34" height="71" rx="3" fill="#5E9FB8"/></g>
+   <circle cx="37" cy="47" r="3" fill="#F2C64A" stroke="#141C2E" stroke-width="1.6"/>
+  </symbol>
+  <symbol id="i-card" viewBox="0 0 52 66">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="3" y="3" width="46" height="60" rx="6" fill="#FFFDF8"/><rect x="3" y="3" width="46" height="13" rx="6" fill="#EE6A45"/>
+    <rect x="12" y="24" width="28" height="32" rx="3" fill="#EFE5D4"/></g>
+   <rect x="14" y="38" width="24" height="16" rx="2" fill="#EE6A45" opacity=".85"/>
+  </symbol>
+  <symbol id="i-house" viewBox="0 0 72 62">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><path d="M6 30 L36 6 L66 30 V58 H6 Z" fill="#FFF4DE"/><rect x="48" y="8" width="9" height="14" fill="#B33F1D"/>
+    <rect x="28" y="38" width="16" height="20" rx="2" fill="#EE6A45"/><rect x="12" y="34" width="11" height="10" rx="2" fill="#A7C8D6"/><rect x="49" y="34" width="11" height="10" rx="2" fill="#A7C8D6"/></g>
+  </symbol>
+ </defs>
+</svg>
+
+<!-- ================================ HERO: the answer as a picture ================================ -->
+<header class="hero wrap">
+ <div class="hero-top">
+  <div>
+   <div class="kicker">Robot workload benchmarking · story 1</div>
+   <h1><span class="lbl-k">A small robot computer usually runs out of cooks before it runs out of oven.</span><span class="lbl-e">A small robot computer usually fills its CPU pool before its GPU.</span></h1>
+  </div>
+  <div class="st-switch" data-view-switch role="group" aria-label="Label style">
+   <button data-view="kitchen" aria-pressed="true">Kitchen view</button><button data-view="eng" aria-pressed="false">Engineer view</button>
+  </div>
+ </div>
+ <p class="lede">A home robot runs its whole stack at once on one small computer — think of it as <b>one busy kitchen</b>. Benchmarking means finding <b>which station overflows first, and why</b>, without letting the inspector fool you. Flip to <b>Engineer view</b> at any time to see the real names.</p>
+ <figure class="panel" style="padding:10px 10px 4px">
+  <svg id="hero" data-wide viewBox="0 0 1000 470" role="img" aria-labelledby="hero-t"><title id="hero-t">A kitchen: orders arrive at the left and pile up waiting; all the cooks at the stoves are busy; the big oven on the right has most of its trays empty; one pantry door at the back is shared by everyone; a bell at the pass rings on a fixed beat.</title></svg>
+  <figcaption class="legend"><span><i style="background:var(--coral)"></i><span class="lbl-k">cooks</span><span class="lbl-e">CPU</span></span><span><i style="background:var(--sun)"></i><span class="lbl-k">oven</span><span class="lbl-e">GPU</span></span><span><i style="background:var(--sky)"></i><span class="lbl-k">pantry door</span><span class="lbl-e">shared memory</span></span><span><i style="background:var(--leaf)"></i><span class="lbl-k">pass bell</span><span class="lbl-e">control deadline</span></span><span><i style="background:var(--plum)"></i><span class="lbl-k">dessert</span><span class="lbl-e">large model</span></span><span><i style="background:var(--stone)"></i><span class="lbl-k">inspector</span><span class="lbl-e">profiler / probe</span></span><span>Picture, not data: it shows the common pattern from <a href="../notes/A0-the-big-picture.md">A0</a>, not one robot.</span></figcaption>
+ </figure>
+ <div class="cast" aria-label="The cast">
+  <div class="c" data-ref="kitchen"><svg viewBox="0 0 72 62" role="img" aria-label="kitchen"><use href="#i-house"/></svg><b>The kitchen</b><span>the robot's on-board computer</span></div>
+  <div class="c" data-ref="cook"><svg viewBox="0 0 60 96" role="img" aria-label="cook"><use href="#i-cook"/></svg><b>Cooks</b><span>CPU cores</span></div>
+  <div class="c" data-ref="oven"><svg viewBox="0 0 80 80" role="img" aria-label="oven"><use href="#i-oven"/></svg><b>The oven</b><span>the GPU; trays ≈ its SMs</span></div>
+  <div class="c" data-ref="door"><svg viewBox="0 0 54 84" role="img" aria-label="pantry door"><use href="#i-door"/></svg><b>Pantry door</b><span>one memory, shared by CPU and GPU</span></div>
+  <div class="c" data-ref="ticket"><svg viewBox="0 0 30 40" role="img" aria-label="order ticket"><use href="#i-ticket"/></svg><b>Orders</b><span>sensor messages (frames, packets)</span></div>
+  <div class="c" data-ref="bell"><svg viewBox="0 0 60 50" role="img" aria-label="bell"><use href="#i-bell"/></svg><b>The pass bell</b><span>the control loop's deadline</span></div>
+  <div class="c" data-ref="guest"><svg viewBox="0 0 40 72" role="img" aria-label="guest"><use href="#i-guest"/></svg><b>Guests</b><span>people in view (N)</span></div>
+  <div class="c" data-ref="card"><svg viewBox="0 0 52 66" role="img" aria-label="time card"><use href="#i-card"/></svg><b>Time card</b><span>a container's CPU quota</span></div>
+  <div class="c" data-ref="insp"><svg viewBox="0 0 64 96" role="img" aria-label="inspector"><use href="#i-insp"/></svg><b>The inspector</b><span>a profiler or probe</span></div>
+ </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================================ 1. three kinds of orders ================================ -->
+<section class="scene" id="s1" data-title="1 · Three kinds of orders">
+ <h2><span class="num">1</span>Three kinds of orders, one kitchen</h2>
+ <p class="sub">Every pipeline runs on its own beat. What matters is <b>what happens when a plate is late</b>. Step through.</p>
+ <figure class="st-scene panel" id="s-orders" data-dwell="3200" aria-label="Scene: three timing classes">
+  <svg data-wide viewBox="0 0 1000 360" role="img" aria-label="Three lanes on a 200 millisecond timeline: control plates every 20 ms, perception plates every 100 ms with one late, and a long best-effort dessert bar."></svg>
+  <ol class="st-cap">
+   <li><b>Hard real-time.</b> The <span class="lbl-k">walking plate</span><span class="lbl-e">leg control loop</span> must leave at every bell: every <b>20 ms</b> at 50 Hz. A late plate is a stumble. <a class="read-note" href="../notes/A4-locomotion-and-whole-body-control.md">A4</a></li>
+   <li><b>Soft real-time.</b> <span class="lbl-k">The seeing plate</span><span class="lbl-e">Perception</span> aims for 10 Hz. A late plate makes the robot see a little worse. Nothing falls over. <a class="read-note" href="../notes/A2-people-perception.md">A2</a></li>
+   <li><b>Best-effort.</b> <span class="lbl-k">Dessert</span><span class="lbl-e">A large model</span> is served when it is ready. Slow is acceptable. <a class="read-note" href="../notes/A6-vla-and-large-models.md">A6</a></li>
+   <li><b>The catch:</b> all three lanes use the <b>same cooks, oven and pantry door</b>. The benchmark's first job is to keep every walking plate on its bell <b>while</b> the other lanes run. <a class="read-note" href="../notes/A0-the-big-picture.md">A0</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 2. more guests ================================ -->
+<section class="scene" id="s2" data-title="2 · More guests">
+ <h2><span class="num">2</span>More guests, more plating</h2>
+ <p class="sub">Each camera frame, the kitchen finds everyone in view. Some work is paid <b>once per frame</b>; some is paid <b>once per guest</b>.</p>
+ <div class="grid2">
+  <figure class="panel">
+   <svg id="guests" viewBox="0 0 600 250" role="img" aria-label="A dining room with N guests seated."></svg>
+   <svg id="bars" viewBox="0 0 600 210" role="img" aria-label="Two bars: oven time and cook time per frame, each split into a fixed part and one segment per guest."></svg>
+   <figcaption><span class="tag ill">illustrative</span> Values: the "CPU-heavy post-processing" case of <a href="../explorers/03-perception-scaling-with-people.html">explorer 03</a>. The shape is the lesson, not the numbers.</figcaption>
+  </figure>
+  <div>
+   <div class="st-predict" id="p-guests">
+    <p class="q">Each extra guest adds work for the oven and for the cooks. Which grows faster?</p>
+    <div class="opts">
+     <button class="btn" data-choice="oven" data-why="The oven only runs a few small networks per guest. The cooks do the tracking, matching, 3D lifting and smoothing for every guest — on the CPU, often in a scripting language.">The oven</button>
+     <button class="btn" data-choice="cooks" data-right data-why="Per guest, the cooks track, match, lift to 3D and smooth — on the CPU. Here that is +2 ms per guest against +1 ms for the oven, so the cooks pass the oven at 3 guests.">The cooks</button>
+     <button class="btn" data-choice="same" data-why="They grow at different rates: per-guest CPU bookkeeping (Kalman, Hungarian matching, depth sampling, One Euro smoothing) usually costs more than the small per-guest networks.">The same</button>
+    </div>
+    <p class="why"></p>
+   </div>
+   <div class="ctl"><label for="nG">Guests in view (N) <output id="nG-v">6</output></label><input id="nG" data-k="N" type="range" min="0" max="10" step="1" value="6"></div>
+   <p class="readout" id="g-read" aria-live="polite"></p>
+   <details><summary>The model</summary>oven ms per frame = fixed + N × per-guest; cook ms per frame = (fixed + N × per-guest) ÷ cores allowed. Per-frame: detection and NMS once on the whole picture. Per-guest: face, re-ID, pose on the oven; Kalman, Hungarian matching, depth sampling and One Euro smoothing on the cooks (<a href="../notes/A2-people-perception.md">A2</a>).</details>
+  </div>
+ </div>
+</section>
+
+<!-- ================================ 3. the time-card trap ================================ -->
+<section class="scene" id="s3" data-title="3 · The time-card trap">
+ <h2><span class="num">3</span>The time-card trap</h2>
+ <p class="sub">A container gets a <b>time card</b>: so much cook-time per period. When the card runs out, every burner it uses stops until the next period. The counter that records this is the most misread number on the bench.</p>
+ <div class="st-predict" id="p-quota">
+  <p class="q">Four burners stood frozen for 50 ms of wall time. How much does <code>throttled_usec</code> add for this period?</p>
+  <div class="opts">
+   <button class="btn" data-choice="50" data-why="50 ms is the wall time. The counter adds the frozen time once per run-queue — here four of them.">50 ms</button>
+   <button class="btn" data-choice="100" data-why="It is a sum over run-queues, not half of anything: four queues × 50 ms.">100 ms</button>
+   <button class="btn" data-choice="200" data-right data-why="The counter sums frozen time over every per-CPU run-queue: 4 × 50 ms = 200 ms. It is not 200 ms of unmet demand.">200 ms</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-quota" data-dwell="3600" aria-label="Scene: CPU quota throttling">
+  <svg data-wide viewBox="0 0 1000 420" role="img" aria-label="A cook with a time card and four burner tracks over one 100 ms period: all run for 50 ms, then all freeze for 50 ms; the counter adds 4 times 50 ms."></svg>
+  <ol class="st-cap">
+   <li>The card allows <b>2 cores' worth</b> per 100 ms period: 200 ms of cook-time. Four burners are hot: <span class="lbl-k">four pans</span><span class="lbl-e">four runnable threads</span>.</li>
+   <li>Four burners drain the card four times as fast. It is empty at <b>50 ms</b>.</li>
+   <li>Every burner freezes until the next period: <b>50 ms of wall time</b> lost. The counter adds 50 ms <b>per run-queue</b>: 4 × 50 = <b>200 ms</b>.</li>
+   <li><b>Report the fraction of throttled periods</b> (here 1 of 1), never "200 ms of demand". To learn demand, run without the card — as a separate, labelled call-out. The deployed card stays the baseline. <a class="read-note" href="../notes/B0-cpu-metrics.md">B0</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 4. zero burnt plates ================================ -->
+<section class="scene" id="s4" data-title="4 · Zero misses — proof?">
+ <h2><span class="num">4</span>Zero late plates. Is that proof?</h2>
+ <p class="sub">Late walking plates are <b>rare events</b>. Counting zero of them tells you less than it feels like.</p>
+ <div class="st-predict" id="p-zero">
+  <p class="q">You watched for 2 minutes. The walking plate never missed its bell. What is the honest claim?</p>
+  <div class="opts">
+   <button class="btn" data-choice="never" data-why="Zero in a short window is weak evidence. The true miss rate could still be well above zero.">"It never misses."</button>
+   <button class="btn" data-choice="two" data-right data-why="With zero events, the exact 95 % Poisson upper bound is 3.69 events. Over 2 minutes that is up to 1.84 misses per minute — roughly one every 33 s.">"Fewer than ~2 per minute."</button>
+   <button class="btn" data-choice="hour" data-why="To claim that, you need a far longer window. Move the slider below to find out how long.">"Fewer than 1 per hour."</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <div class="grid2">
+  <figure class="panel">
+   <svg id="dl" viewBox="0 0 640 300" role="img" aria-label="A grid of minutes watched with late plates marked, and the 95 percent interval on the miss rate."></svg>
+   <figcaption>Exact (Garwood) two-sided 95 % Poisson interval. One square = one minute watched; × = one late plate.</figcaption>
+  </figure>
+  <div>
+   <div class="ctl"><label for="dT">Minutes watched <output id="dT-v">2</output></label><input id="dT" data-k="T" type="range" min="1" max="60" step="1" value="2"></div>
+   <div class="ctl"><label for="dK">Late plates seen <output id="dK-v">0</output></label><input id="dK" data-k="k" type="range" min="0" max="5" step="1" value="0"></div>
+   <p class="readout" id="d-read" aria-live="polite"></p>
+   <details><summary>Why Poisson, and why blocks</summary>Misses are rare and roughly independent, so their count is Poisson. The exact interval comes from the count alone. Consecutive cycles of a running robot are correlated, so intervals on percentiles or means need block methods (moving-block bootstrap, or a t-interval across replicate blocks), not ÷√N (<a href="../notes/B3-deadlines-tails-and-statistics.md">B3</a>).</details>
+  </div>
+ </div>
+</section>
+
+<!-- ================================ 5. the inspector ================================ -->
+<section class="scene" id="s5" data-title="5 · The inspector">
+ <h2><span class="num">5</span>The inspector changes the kitchen</h2>
+ <p class="sub">Everything you measure, someone has to measure. That someone uses the kitchen too.</p>
+ <figure class="st-scene panel" id="s-observer" data-dwell="3400" aria-label="Scene: the observer effect">
+  <svg data-wide viewBox="0 0 1000 360" role="img" aria-label="Four cooks with plate-time bars; an inspector beside cook 2 slows cook 2; the inspector moves to a separate corner; a late inspector misses the first plates."></svg>
+  <ol class="st-cap">
+   <li>An inspector at a cook's station takes that cook's time. The plates come out slower <b>because</b> they are being watched. <a class="read-note" href="../notes/B4-profilers-and-the-observer-effect.md">B4</a></li>
+   <li>Give the inspector their own corner — <span class="lbl-k">a desk away from the stoves</span><span class="lbl-e">a dedicated observer core</span> — and the cooks work as they do unwatched.</li>
+   <li>An inspector who arrives late misses the first plates and reports a rate that is <b>too low</b>. Here: 7 counted of 10 served.</li>
+   <li><b>The rule:</b> ready every probe before the window opens, pin it to a quiet core, and measure its own delay. <a class="read-note" href="../notes/C4-windows-gates-and-validity.md">C4</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 6. how the bench can lie ================================ -->
+<section class="scene" id="s6" data-title="6 · How the bench lies">
+ <h2><span class="num">6</span>Six ways the bench can lie</h2>
+ <p class="sub">Each of these gives a <b>clean, confident, wrong</b> number. Tap a card to see the trick and the rule that catches it. The full catalogue is in <a href="../notes/C7-how-the-bench-can-lie.md">C7</a>.</p>
+ <div class="st-cards" id="cards"></div>
+</section>
+
+<!-- ================================ 7. the method ================================ -->
+<section class="scene" id="s7" data-title="7 · The method">
+ <h2><span class="num">7</span>The method, as a recipe</h2>
+ <p class="sub">Every step exists because the bench can lie in a particular way.</p>
+ <figure class="st-scene panel" id="s-method" data-dwell="2600" aria-label="Scene: the eight-step method">
+  <svg data-wide viewBox="0 0 1000 330" role="img" aria-label="Eight numbered stations on a winding path, from reference workload to naming the first limit."></svg>
+  <ol class="st-cap">
+   <li><b>Cook the same kind of menu, not a copy of one restaurant.</b> Characterise the workload class; label every deviation. <a class="read-note" href="../notes/C0-reference-not-replica.md">C0</a></li>
+   <li><b>Write down each dish's expected time before cooking.</b> A budget ledger; then measured ÷ predicted tests your understanding. <a class="read-note" href="../notes/C1-predict-then-measure.md">C1</a></li>
+   <li><b>Cook each dish alone first.</b> Solo runs of each deployed service, at defined levels, before any combination. <a class="read-note" href="../notes/C2-solo-runs-and-levels.md">C2</a></li>
+   <li><b>Fake suppliers must look exactly like real ones, and work from a second kitchen.</b> A faithful harness on a second machine. <a class="read-note" href="../notes/C3-the-harness-and-fakes.md">C3</a></li>
+   <li><b>Warm up, time a fixed window, throw out spoiled windows.</b> Validity gates decide which windows count. <a class="read-note" href="../notes/C4-windows-gates-and-validity.md">C4</a></li>
+   <li><b>Fix the rules before service.</b> Pre-register; interleave the order; compare in pairs. <a class="read-note" href="../notes/C5-experimental-design.md">C5</a></li>
+   <li><b>Add dishes in tiers.</b> Build the stack up until something gives. <a class="read-note" href="../notes/C6-tiers-combined-runs-and-attribution.md">C6</a></li>
+   <li><b>Name the first station that overflowed, and why.</b> Attribute the first limit to a resource and a mechanism. <a class="read-note" href="../notes/C6-tiers-combined-runs-and-attribution.md">C6</a></li>
+  </ol>
+ </figure>
+</section>
+
+<section class="scene" id="s8" data-title="Your turn">
+ <h2>Your turn</h2>
+ <p class="sub">Play with the real knobs, then check what stuck.</p>
+ <div class="next">
+  <a href="../explorers/01-cpu-quota-and-throttling.html"><b>Time-card sandbox</b><span>Move demand, quota, period and threads (explorer 01).</span></a>
+  <a href="../explorers/02-deadline-misses-and-sample-size.html"><b>How long to watch?</b><span>Miss rates, windows and sample counts (explorer 02).</span></a>
+  <a href="../explorers/03-perception-scaling-with-people.html"><b>Guests sandbox</b><span>All six perception knobs and three cases (explorer 03).</span></a>
+  <a href="../../quiz/"><b>Quiz yourself</b><span>Spaced-repetition questions for every note.</span></a>
+  <a href="../README.md"><b>Read the notes</b><span>21 notes: the stack, the metrics, the method.</span></a>
+ </div>
+</section>
+
+<footer class="st-foot">
+ <h3>Where the kitchen breaks</h3>
+ <ul class="breaks">
+  <li>A real scheduler does not give orders to a named cook: any free core runs any runnable thread.</li>
+  <li>A time card belongs to a <b>container</b>, not to one cook; it is spent by all of that container's threads together.</li>
+  <li>The oven is not one oven: a GPU runs thousands of threads in groups of 32 on many SMs. See <a href="../../nvidia-gpu-anatomy/README.md">GPU anatomy</a>.</li>
+  <li>The pantry door is shared because CPU and GPU share one memory on an integrated SoC; on a desktop with a separate graphics card they do not.</li>
+ </ul>
+ <h3>Numbers on this page</h3>
+ <div class="tbl"><table id="src"><thead><tr><th>What</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+ <p>Every number is a public source or labelled illustrative; none is a measurement from any specific robot. Kit: <a href="../README.md">robot workload benchmarking</a> · <a href="../SOURCES.md">sources</a>.</p>
+</footer>
+</main>
+
+<script type="application/json" id="params">
+{
+ "wbc_control_rate_illustrative": {"value": 50, "unit": "Hz", "class": "illustrative", "source": "illustrative control-loop rate used in A4; a learned locomotion policy at 50 Hz is a common choice"},
+ "wbc_deadline_illustrative": {"value": 20, "unit": "ms", "class": "illustrative", "source": "illustrative: the period of a 50 Hz loop is 20 ms, used in A4/B3 as the deadline"},
+ "perception_output_rate_illustrative": {"value": 10, "unit": "Hz", "class": "illustrative", "source": "illustrative perception publish rate in A2/A0; soft-real-time perception commonly targets ~10 Hz"},
+ "cfs_default_period_illustrative": {"value": 100, "unit": "ms", "class": "illustrative", "source": "illustrative CFS accounting period in B0/A7; the Linux CFS-bandwidth default period is 100 ms (https://docs.kernel.org/scheduler/sched-bwc.html)"},
+ "story_quota_cores_illustrative": {"value": 2, "unit": "cores", "class": "illustrative", "source": "story 1 scene 3: a round quota (cpu.max 200000 100000) chosen to make the arithmetic visible"},
+ "story_threads_illustrative": {"value": 4, "unit": "runnable threads", "class": "illustrative", "source": "story 1 scene 3: four busy threads, one per run-queue"},
+ "perception_case_cpu_heavy_illustrative": {"value": {"gpuFrame": 5, "gpuPerson": 1, "cpuFrame": 4, "cpuPerson": 4, "quota": 2}, "unit": "ms per frame, ms per person, cores", "class": "illustrative", "source": "explorers/03-perception-scaling-with-people.html, case 'CPU-heavy post-processing'"},
+ "poisson_ci_level": {"value": 95, "unit": "% confidence", "class": "public", "source": "Garwood exact Poisson interval, Garwood (1936), Biometrika 28; 95% two-sided is the convention in B3"}
+}
+</script>
+
+<script>
+/* ===================== drawing: everything below builds SVG; story.js then runs the scenes ===================== */
+const NS = "http://www.w3.org/2000/svg", NAVY = "#141C2E";
+const P = JSON.parse(document.getElementById("params").textContent);
+const C = {coral:"#EE6A45", coralD:"#B33F1D", sun:"#F2C64A", sunD:"#8A6800", sky:"#5E9FB8", skyD:"#2C6A82", leaf:"#3AA88D", leafD:"#1D7660",
+  plum:"#B4669D", stone:"#8C8670", ink:"#1D2A44", ink2:"#55607A", card:"#FFFAF2", card2:"#EFE5D4", line:"#DCCDB4"};
+const SKIN = ["#F4CDA7", "#D49A6A", "#8E5B3B", "#E8B98F"], HAIR = ["#3A2618", "#1C1714", "#E5BE5C", "#A8492A", "#C9CCD2"];
+function el(t, a = {}, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+function tx(p, x, y, s, a = {}) { const t = el("text", Object.assign({x, y}, a), p); t.textContent = s; return t; }
+function dual(p, x, y, k, e, a = {}) { const g = el("g", {}, p); const c = a.class || ""; tx(g, x, y, k, Object.assign({}, a, {class: ("lbl-k " + c).trim()})); tx(g, x, y, e, Object.assign({}, a, {class: ("lbl-e " + c).trim()})); return g; }
+function use(p, id, x, y, w, h, style = "", a = {}) { return el("use", Object.assign({href: "#" + id, x, y, width: w, height: h, style}, a), p); }
+const OL = {stroke: NAVY, "stroke-width": 2.5, "stroke-linejoin": "round"};
+const svgOf = id => document.querySelector(`#${id} svg`) || document.getElementById(id);  // runs before story.js wraps wide svgs
+
+/* ---------------- HERO ---------------- */
+(() => {
+ const s = document.getElementById("hero");
+ el("rect", {x: 0, y: 0, width: 1000, height: 340, fill: "#F3E6D0"}, s);
+ el("rect", {x: 0, y: 340, width: 1000, height: 130, fill: "#E7D5B8"}, s);
+ for (let x = 0; x < 1000; x += 50) el("line", {x1: x, y1: 340, x2: x - 30, y2: 470, stroke: "#DCC7A6", "stroke-width": 1.5}, s);
+ // order window + moving tickets (ambient: orders keep arriving)
+ dual(s, 95, 50, "Orders arrive", "Sensor messages", {"text-anchor": "middle", "font-weight": 800, "font-size": 17});
+ el("rect", Object.assign({x: 20, y: 64, width: 150, height: 104, rx: 12, fill: "#FFFAF2"}, OL), s);
+ el("line", {x1: 30, y1: 80, x2: 160, y2: 80, stroke: NAVY, "stroke-width": 3, "stroke-linecap": "round"}, s);
+ for (let i = 0; i < 4; i++) use(s, "i-ticket", 26, 82, 28, 38, `animation-delay:${-i * 0.8}s;--sx:${12 + i * 30}px`, {class: "tkt st-loop"});
+ tx(s, 95, 160, "camera · mic · motors", {"text-anchor": "middle", "font-size": 13, fill: C.ink2, class: "lbl-e"});
+ tx(s, 95, 160, "frames, sounds, motors", {"text-anchor": "middle", "font-size": 13, fill: C.ink2, class: "lbl-k"});
+ // the pile of waiting tickets (ambient: the queue builds when every cook is busy)
+ el("rect", Object.assign({x: 60, y: 300, width: 70, height: 10, rx: 3, fill: "#8C8670"}, OL), s);
+ el("line", {x1: 95, y1: 300, x2: 95, y2: 196, stroke: NAVY, "stroke-width": 3}, s);
+ for (let i = 0; i < 5; i++) use(s, "i-ticket", 80 + (i % 2 ? 4 : -4), 262 - i * 15, 30, 40, `animation-delay:${i * 0.9}s`, {class: "pile st-loop"});
+ dual(s, 95, 334, "Orders wait for a free cook", "Run-queue wait rises", {"text-anchor": "middle", "font-weight": 700, "font-size": 14, fill: C.coralD});
+ // the cooks (CPU cores): two rows of four, every busy meter near full
+ dual(s, 420, 50, "The cooks: all busy", "CPU cores: the pool is full", {"text-anchor": "middle", "font-weight": 800, "font-size": 17});
+ const busy = [0.97, 1, 0.92, 0.99, 1, 0.95, 0.98, 0.9];
+ for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) {
+  const i = r * 4 + c, x = 220 + c * 102, y = 72 + r * 136, g = el("g", {"data-ref": "cook"}, s);
+  el("rect", {x: x + 4, y, width: 72, height: 9, rx: 4, fill: "#E2D6C2", stroke: NAVY, "stroke-width": 1.5}, g);
+  el("rect", {x: x + 4, y, width: 72 * busy[i], height: 9, rx: 4, fill: C.coral, stroke: NAVY, "stroke-width": 1.5}, g);
+  use(g, "i-cook", x + 12, y + 14, 56, 90, `--skin:${SKIN[i % 4]}`);
+  el("rect", Object.assign({x: x - 6, y: y + 88, width: 92, height: 34, rx: 6, fill: "#C9C1AE"}, OL), g);
+  el("ellipse", Object.assign({cx: x + 40, cy: y + 88, rx: 26, ry: 6, fill: "#2E3646"}, OL), g);
+  for (const k of [0, 1, 2]) el("path", {d: `M${x + [6, 70, 80][k]} ${y + 84} q-4 -6 0 -12 q4 -6 0 -12`, fill: "none", stroke: "#B8AFA0", "stroke-width": 2.5, "stroke-linecap": "round", class: "steam st-loop", style: `animation-delay:${-(i * 0.37 + k * 0.6)}s`}, g);
+ }
+ // the oven (GPU): 16 trays, a few busy
+ dual(s, 790, 50, "The oven: room to spare", "GPU: often not the first to fill", {"text-anchor": "middle", "font-weight": 800, "font-size": 17});
+ const ov = el("g", {"data-ref": "oven"}, s);
+ el("rect", Object.assign({x: 680, y: 66, width: 220, height: 250, rx: 16, fill: "#5A6170"}, OL), ov);
+ for (const kx of [712, 742, 772]) el("circle", Object.assign({cx: kx, cy: 88, r: 7, fill: C.card2}, OL), ov);
+ el("rect", Object.assign({x: 698, y: 106, width: 184, height: 192, rx: 10, fill: "#2E3646"}, OL), ov);
+ const hot = new Set([0, 5, 6, 11]);
+ for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { const k = r * 4 + c;
+  el("rect", {x: 708 + c * 43, y: 116 + r * 45, width: 37, height: 34, rx: 5, fill: hot.has(k) ? C.sun : "#414A5B", stroke: hot.has(k) ? "#FFE9A6" : "#566075", "stroke-width": 1.5, class: hot.has(k) ? "glow st-loop" : "", style: `animation-delay:${-k * 0.23}s`}, ov); }
+ tx(s, 790, 334, "trays ≈ SMs", {"text-anchor": "middle", "font-size": 13, fill: C.ink2, class: "lbl-e"});
+ // pantry door (memory) + the shared corridor with traffic both ways
+ const dr = el("g", {"data-ref": "door"}, s);
+ use(dr, "i-door", 922, 196, 64, 100);
+ dual(s, 954, 190, "Pantry", "Memory", {"text-anchor": "middle", "font-weight": 800, "font-size": 14});
+ const corridor = "M240 410 H954 V300";
+ el("path", {d: corridor, fill: "none", stroke: C.sky, "stroke-width": 10, "stroke-linecap": "round", opacity: .35}, s);
+ el("path", {d: "M790 316 V410", fill: "none", stroke: C.sky, "stroke-width": 10, "stroke-linecap": "round", opacity: .35}, s);
+ for (let i = 0; i < 6; i++) el("circle", {r: 6, fill: C.sky, stroke: NAVY, "stroke-width": 1.5, class: "memtok st-loop", style: `offset-path:path('${corridor}');animation-delay:${-i * 0.75}s;--od:${8 + i * 16}%`}, s);
+ dual(s, 560, 446, "One pantry door, shared by cooks and oven", "One memory, shared by CPU and GPU (integrated SoC)", {"text-anchor": "middle", "font-weight": 700, "font-size": 15, fill: C.skyD});
+ // the pass bell (control deadline) with its beat
+ const bl = el("g", {"data-ref": "bell"}, s);
+ el("rect", Object.assign({x: 912, y: 132, width: 84, height: 10, rx: 3, fill: "#8C8670"}, OL), bl);
+ el("circle", {cx: 954, cy: 110, r: 22, fill: "none", stroke: C.leaf, "stroke-width": 3, class: "ring st-loop"}, bl);
+ use(bl, "i-bell", 930, 96, 48, 40);
+ dual(s, 954, 84, "Pass bell", "Deadline", {"text-anchor": "middle", "font-weight": 800, "font-size": 14, fill: C.leafD});
+ tx(s, 954, 162, "beat slowed 50×", {"text-anchor": "middle", "font-size": 11, fill: C.ink2});
+})();
+
+/* ---------------- SCENE 1: three lanes on a 200 ms timeline ---------------- */
+(() => {
+ const s = svgOf("s-orders"), X = t => 200 + 3.85 * t, L = [62, 152, 242];
+ const names = [["Walking plate", "Control loop · 50 Hz"], ["Seeing plate", "Perception · 10 Hz"], ["Dessert", "Large model · best effort"]];
+ const subs = [["on every bell", "deadline 20 ms"], ["about every 100 ms", "target 10 Hz"], ["when it is ready", "no deadline"]];
+ const cols = [C.leaf, C.sky, C.plum];
+ const base = el("g", {"data-s": "0"}, s);
+ L.forEach((y, i) => { dual(base, 16, y - 2, names[i][0], names[i][1], {"font-weight": 800, "font-size": 16, fill: cols[i] === C.sky ? C.skyD : cols[i] === C.leaf ? C.leafD : "#7E3A6C"});
+  dual(base, 16, y + 18, subs[i][0], subs[i][1], {"font-size": 13, fill: C.ink2});
+  el("line", {x1: X(0), y1: y, x2: X(200), y2: y, stroke: C.line, "stroke-width": 2, "stroke-dasharray": "4 6"}, base); });
+ el("line", {x1: X(0), y1: 300, x2: X(200), y2: 300, stroke: NAVY, "stroke-width": 2}, base);
+ for (let t = 0; t <= 200; t += 20) { el("line", {x1: X(t), y1: 300, x2: X(t), y2: 307, stroke: NAVY, "stroke-width": 2}, base); if (t % 40 === 0) tx(base, X(t), 324, t + " ms", {"text-anchor": "middle", "font-size": 13, fill: C.ink2}); }
+ // step 1: the bell beat and a plate on every beat; lit again on step 4
+ const l1 = el("g", {"data-s": "1 4"}, s);
+ for (let t = 0; t <= 200; t += 20) { el("line", {x1: X(t), y1: 30, x2: X(t), y2: 92, stroke: C.leaf, "stroke-width": 1.5, "stroke-dasharray": "3 4", opacity: .7}, l1);
+  el("rect", {x: X(t) - 12, y: L[0] - 9, width: 24, height: 18, rx: 6, fill: C.leaf, stroke: NAVY, "stroke-width": 2, class: "lit"}, l1); }
+ tx(l1, X(0) - 8, 30, "bell", {"font-size": 12, fill: C.leafD, "text-anchor": "end"});
+ el("circle", {r: 7, fill: "#FFFDF8", stroke: C.leafD, "stroke-width": 3, class: "st-tok", "data-s": "1", style: `offset-path:path('M${X(0)} ${L[0]} H${X(200)}');--dur:2600ms`}, s);
+ // step 2: perception plates, one late
+ const l2 = el("g", {"data-s": "2"}, s);
+ for (const t of [0, 200]) el("rect", {x: X(t) - 14, y: L[1] - 10, width: 28, height: 20, rx: 7, fill: C.sky, stroke: NAVY, "stroke-width": 2}, l2);
+ el("rect", {x: X(100) - 14, y: L[1] - 10, width: 28, height: 20, rx: 7, fill: "none", stroke: C.skyD, "stroke-width": 2, "stroke-dasharray": "4 3"}, l2);
+ el("path", {d: `M${X(100) + 16} ${L[1]} H${X(130) - 18}`, stroke: C.sunD, "stroke-width": 2.5, "marker-end": "", fill: "none"}, l2);
+ el("path", {d: `M${X(130) - 24} ${L[1] - 5} l7 5 -7 5`, stroke: C.sunD, "stroke-width": 2.5, fill: "none", "stroke-linecap": "round"}, l2);
+ el("rect", {x: X(130) - 14, y: L[1] - 10, width: 28, height: 20, rx: 7, fill: C.sky, stroke: C.sunD, "stroke-width": 3}, l2);
+ tx(l2, X(118), L[1] - 22, "late → a blurrier view; nothing breaks", {"text-anchor": "middle", "font-size": 13, fill: C.sunD, "font-weight": 700});
+ // step 3: a long dessert
+ const l3 = el("g", {"data-s": "3"}, s);
+ el("rect", {x: X(12), y: L[2] - 14, width: X(165) - X(12), height: 28, rx: 10, fill: C.plum, opacity: .3, stroke: "#7E3A6C", "stroke-width": 2}, l3);
+ tx(l3, (X(12) + X(165)) / 2, L[2] + 5, "thinking…", {"text-anchor": "middle", "font-size": 14, "font-weight": 700, fill: "#7E3A6C", class: "hand"});
+ el("rect", {x: X(165) + 4, y: L[2] - 10, width: 28, height: 20, rx: 7, fill: C.plum, stroke: NAVY, "stroke-width": 2}, l3);
+ // step 4: the shared kitchen
+ const l4 = el("g", {"data-s": "4"}, s);
+ el("rect", {x: 200, y: 332, width: 770, height: 26, rx: 13, fill: "#FFF4DE", stroke: C.coralD, "stroke-width": 2}, l4);
+ use(l4, "i-cook", 214, 333, 16, 25); use(l4, "i-oven", 234, 335, 22, 22); use(l4, "i-door", 260, 334, 14, 22);
+ dual(l4, 590, 350, "all three lanes share the same cooks, oven and pantry door", "all three share the same CPU cores, GPU and memory", {"text-anchor": "middle", "font-size": 14, "font-weight": 700, fill: C.coralD});
+})();
+
+/* ---------------- SCENE 2: guests (live) ---------------- */
+const GUEST = P.perception_case_cpu_heavy_illustrative.value;
+const gModel = s => { const N = s.N, oven = GUEST.gpuFrame + N * GUEST.gpuPerson, cooks = (GUEST.cpuFrame + N * GUEST.cpuPerson) / GUEST.quota;
+ const cross = (GUEST.gpuFrame - GUEST.cpuFrame / GUEST.quota) / (GUEST.cpuPerson / GUEST.quota - GUEST.gpuPerson);
+ return {N, oven, cooks, binder: cooks > oven ? "cooks" : cooks < oven ? "oven" : "tie", cross, dOven: GUEST.gpuPerson, dCooks: GUEST.cpuPerson / GUEST.quota}; };
+(() => {
+ const s = document.getElementById("guests");
+ el("rect", {x: 0, y: 0, width: 600, height: 250, rx: 16, fill: "#F3E6D0"}, s);
+ dual(s, 20, 30, "The dining room", "The camera's view", {"font-weight": 800, "font-size": 16});
+ for (let i = 0; i < 2; i++) el("rect", Object.assign({x: 40, y: 150 + i * 0, width: 520, height: 22, rx: 8, fill: "#C9A27A"}, OL), s);
+ for (let i = 0; i < 10; i++) { const x = 52 + i * 51, g = el("g", {class: "g off", "data-i": i}, s);
+  use(g, "i-guest", x, 82 + (i % 2) * 6, 40, 72, `--c:${[C.sky, C.leaf, C.plum, C.sun, C.coral][i % 5]};--skin:${SKIN[(i * 3) % 4]};--hair:${HAIR[i % 5]}`); }
+ tx(s, 300, 205, "", {id: "g-n", "text-anchor": "middle", "font-size": 15, "font-weight": 700, fill: C.ink2});
+ const b = document.getElementById("bars");
+ const XS = 22, x0 = 150, W = 430;  // 0..XS ms across W px
+ const sx = ms => x0 + W * ms / XS;
+ [["Oven", "GPU", 30], ["Cooks", "CPU", 112]].forEach(([k, e, y]) => { dual(b, 10, y + 24, k, e, {"font-weight": 800, "font-size": 16}); tx(b, 10, y + 44, "ms per frame", {"font-size": 12, fill: C.ink2}); });
+ el("line", {x1: x0, y1: 180, x2: x0 + W, y2: 180, stroke: NAVY, "stroke-width": 1.5}, b);
+ for (let t = 0; t <= XS; t += 4) { el("line", {x1: sx(t), y1: 180, x2: sx(t), y2: 186, stroke: NAVY}, b); tx(b, sx(t), 202, t, {"text-anchor": "middle", "font-size": 12, fill: C.ink2}); }
+ el("g", {id: "bars-oven"}, b); el("g", {id: "bars-cook"}, b);
+ el("line", {id: "cross", y1: 14, y2: 180, stroke: C.coralD, "stroke-width": 2, "stroke-dasharray": "4 4", opacity: 0}, b);
+ window.drawBars = o => {
+  const draw = (gid, y, fixed, per, n, cls) => { const g = document.getElementById(gid); g.innerHTML = ""; let x = sx(0);
+   el("rect", {x, y, width: sx(fixed) - sx(0), height: 44, rx: 6, class: cls + " bar-fix", stroke: NAVY, "stroke-width": 2}, g); x = sx(fixed);
+   for (let i = 0; i < n; i++) { el("rect", {x, y, width: sx(per) - sx(0), height: 44, rx: 4, class: cls + " bar-per", stroke: NAVY, "stroke-width": 1.5}, g); x += sx(per) - sx(0); }
+   tx(g, x + 8, y + 28, (fixed + n * per).toFixed(1) + " ms", {"font-weight": 800, "font-size": 15, fill: NAVY});
+   if (n === 0) tx(g, sx(fixed) / 2 + sx(0) / 2, y + 28, "per frame", {"text-anchor": "middle", "font-size": 12, fill: NAVY}); };
+  draw("bars-oven", 30, GUEST.gpuFrame, GUEST.gpuPerson, o.N, "bar-gpu");
+  draw("bars-cook", 112, GUEST.cpuFrame / GUEST.quota, GUEST.cpuPerson / GUEST.quota, o.N, "bar-cpu");
+ };
+})();
+
+/* ---------------- SCENE 3: the time card ---------------- */
+(() => {
+ const s = svgOf("s-quota"), x0 = 340, px = 5.9, X = t => x0 + px * t, TY = [118, 176, 234, 292], TH = 38;
+ const Q = P.story_quota_cores_illustrative.value, PER = P.cfs_default_period_illustrative.value, TH_N = P.story_threads_illustrative.value;
+ const tEmpty = Q * PER / TH_N;  // 2 cores × 100 ms ÷ 4 threads = 50 ms
+ const base = el("g", {"data-s": "0"}, s);
+ use(base, "i-cook", 18, 150, 96, 154);
+ dual(base, 180, 116, "Time card", "Quota (cpu.max)", {"text-anchor": "middle", "font-weight": 800, "font-size": 15});
+ el("rect", Object.assign({x: 136, y: 128, width: 88, height: 120, rx: 10, fill: "#FFFDF8"}, OL), base);
+ el("rect", Object.assign({x: 136, y: 128, width: 88, height: 22, rx: 10, fill: C.coral}, OL), base);
+ el("rect", {x: 152, y: 160, width: 56, height: 78, rx: 4, fill: C.card2, stroke: NAVY, "stroke-width": 2}, base);
+ dual(base, 180, 270, `${Q * PER} ms / ${PER} ms`, `${Q} cores / period`, {"text-anchor": "middle", "font-size": 14, "font-weight": 700, fill: C.coralD});
+ el("rect", {x: 154, y: 162, width: 52, height: 74, rx: 3, fill: C.coral, class: "st-at", "data-s": "1"}, s);
+ tx(s, 180, 205, "0", {class: "st-at", "data-s": "2 3 4", "text-anchor": "middle", "font-size": 26, "font-weight": 800, fill: C.coralD});
+ TY.forEach((y, i) => { el("rect", {x: X(0), y, width: X(PER) - X(0), height: TH, rx: 7, fill: "#FFFDF8", stroke: C.line, "stroke-width": 2}, base);
+  el("path", {d: `M${x0 - 34} ${y + 30} q-8 -10 0 -22 q3 8 7 6 q3 -8 -1 -14 q12 8 8 24 q-6 8 -14 6z`, fill: C.coral, stroke: NAVY, "stroke-width": 1.8}, base);
+  dual(base, x0 - 44, y + 24, `burner ${i + 1}`, `run-queue ${i + 1}`, {"text-anchor": "end", "font-size": 13, fill: C.ink2}); });
+ el("line", {x1: X(0), y1: 344, x2: X(PER), y2: 344, stroke: NAVY, "stroke-width": 2}, base);
+ for (let t = 0; t <= PER; t += 25) { el("line", {x1: X(t), y1: 344, x2: X(t), y2: 351, stroke: NAVY, "stroke-width": 2}, base); tx(base, X(t), 368, t + " ms", {"text-anchor": "middle", "font-size": 13, fill: C.ink2}); }
+ tx(base, X(PER) + 10, 349, "one period", {"font-size": 13, fill: C.ink2});
+ // step 2: all four run until the card is empty
+ TY.forEach((y, i) => { el("rect", {x: X(0), y: y + 3, width: X(tEmpty) - X(0), height: TH - 6, rx: 6, fill: C.coral, stroke: NAVY, "stroke-width": 2, class: "grow", "data-s": "2", style: `transition-delay:${i * 90}ms`}, s); });
+ const s2 = el("g", {"data-s": "2"}, s);
+ el("line", {x1: X(tEmpty), y1: 104, x2: X(tEmpty), y2: 340, stroke: C.coralD, "stroke-width": 2.5, "stroke-dasharray": "5 4"}, s2);
+ tx(s2, X(tEmpty), 98, `card empty at ${tEmpty} ms`, {"text-anchor": "middle", "font-size": 14, "font-weight": 800, fill: C.coralD});
+ tx(s2, (X(0) + X(tEmpty)) / 2, TY[0] + 25, "cooking", {"text-anchor": "middle", "font-size": 14, "font-weight": 700, fill: "#fff"});
+ // step 3: frozen until the next period, and the counter sums the four
+ TY.forEach((y, i) => { el("rect", {x: X(tEmpty), y: y + 3, width: X(PER) - X(tEmpty), height: TH - 6, rx: 6, fill: "url(#hatch)", stroke: NAVY, "stroke-width": 2, class: "grow", "data-s": "3", style: `transition-delay:${i * 90}ms`}, s); });
+ const s3 = el("g", {"data-s": "3"}, s);
+ tx(s3, (X(tEmpty) + X(PER)) / 2, TY[0] + 25, "frozen", {"text-anchor": "middle", "font-size": 14, "font-weight": 800, fill: NAVY});
+ el("path", {d: `M${X(tEmpty)} 74 V66 H${X(PER)} V74`, fill: "none", stroke: NAVY, "stroke-width": 2}, s3);
+ tx(s3, (X(tEmpty) + X(PER)) / 2, 58, `${PER - tEmpty} ms of wall time`, {"text-anchor": "middle", "font-size": 14, "font-weight": 800});
+ const cx0 = 470, cy = 384;
+ el("rect", Object.assign({x: cx0 - 140, y: cy - 4, width: 120, height: 32, rx: 8, fill: "#2E3646"}, OL), s3);
+ tx(s3, cx0 - 80, cy + 17, "throttled_usec", {"text-anchor": "middle", "font-size": 13, "font-weight": 700, fill: "#fff", "font-family": "SF Mono,Menlo,monospace"});
+ TY.forEach((y, i) => { const bx = cx0 + i * 66;
+  el("rect", {x: bx, y: cy, width: 60, height: 26, rx: 5, fill: "url(#hatch)", stroke: NAVY, "stroke-width": 2}, s3);
+  tx(s3, bx + 30, cy + 18, `+${PER - tEmpty}`, {"text-anchor": "middle", "font-size": 13, "font-weight": 800});
+  el("circle", {r: 7, fill: C.stone, stroke: NAVY, "stroke-width": 2, class: "st-tok", "data-s": "3", style: `offset-path:path('M${X(80)} ${y + 19} C ${X(80)} ${cy - 30}, ${bx + 30} ${cy - 40}, ${bx + 30} ${cy + 13}');--dur:1200ms;--d:${300 + i * 160}ms`}, s); });
+ tx(s3, cx0 + 4 * 66 + 6, cy + 19, `= ${TH_N} × ${PER - tEmpty} = ${TH_N * (PER - tEmpty)} ms`, {"font-size": 16, "font-weight": 800, fill: C.coralD});
+ // step 4: what to report
+ const s4 = el("g", {"data-s": "4"}, s);
+ el("rect", {x: X(0), y: 8, width: 290, height: 40, rx: 20, fill: C.card2, stroke: C.stone, "stroke-width": 2}, s4);
+ tx(s4, X(0) + 145, 34, `"${TH_N * (PER - tEmpty)} ms of unmet demand"`, {"text-anchor": "middle", "font-size": 15, "font-weight": 700, fill: C.ink2});
+ el("line", {x1: X(0) + 14, y1: 28, x2: X(0) + 276, y2: 28, stroke: C.coralD, "stroke-width": 3}, s4);
+ el("rect", {x: X(0) + 310, y: 8, width: 290, height: 40, rx: 20, fill: C.leaf, stroke: NAVY, "stroke-width": 2}, s4);
+ tx(s4, X(0) + 455, 34, "1 of 1 periods throttled ✓", {"text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: "#fff"});
+ console.assert(tEmpty === 50 && TH_N * (PER - tEmpty) === 200, "scene 3 arithmetic: empty at 50 ms; counter adds 200 ms");
+})();
+
+/* ---------------- SCENE 4: zero misses (live) ---------------- */
+const dlModel = s => { const ci = Story.poisson(s.k), T = s.T; return {T, k: s.k, lo: ci.lo / T, up: ci.up / T, est: s.k / T, needFor01: Story.poisson(s.k).up / 0.1}; };
+(() => {
+ const s = document.getElementById("dl");
+ tx(s, 20, 22, "minutes watched", {"font-size": 13, "font-weight": 700, fill: C.ink2});
+ for (let i = 0; i < 60; i++) { const c = i % 10, r = Math.floor(i / 10);
+  el("rect", {x: 20 + c * 30, y: 32 + r * 30, width: 26, height: 26, rx: 5, fill: "none", stroke: C.line, "stroke-width": 1.5, class: "sq", id: "sq" + i}, s); }
+ el("g", {id: "dl-x"}, s);
+ const ax = {x0: 350, x1: 620, y: 150}, lg = v => ax.x0 + (ax.x1 - ax.x0) * (Math.log10(Math.max(v, 0.01)) + 2) / 3;
+ tx(s, 350, 22, "true late-plate rate (per minute), 95 %", {"font-size": 13, "font-weight": 700, fill: C.ink2});
+ el("line", {x1: ax.x0, y1: ax.y, x2: ax.x1, y2: ax.y, stroke: NAVY, "stroke-width": 2}, s);
+ for (const v of [0.01, 0.1, 1, 10]) { el("line", {x1: lg(v), y1: ax.y, x2: lg(v), y2: ax.y + 7, stroke: NAVY, "stroke-width": 2}, s); tx(s, lg(v), ax.y + 24, v, {"text-anchor": "middle", "font-size": 12, fill: C.ink2}); }
+ el("rect", {id: "ci", y: ax.y - 26, height: 20, rx: 10, fill: C.coral, opacity: .85, stroke: NAVY, "stroke-width": 2}, s);
+ el("circle", {id: "est", cy: ax.y - 16, r: 6, fill: "#fff", stroke: NAVY, "stroke-width": 2}, s);
+ tx(s, 0, ax.y - 38, "", {id: "ci-up", "text-anchor": "middle", "font-size": 14, "font-weight": 800, fill: C.coralD});
+ el("line", {x1: lg(0.1), y1: 60, x2: lg(0.1), y2: ax.y + 2, stroke: C.leafD, "stroke-width": 2, "stroke-dasharray": "4 4"}, s);
+ tx(s, lg(0.1), 56, "a 0.1/min claim", {"text-anchor": "middle", "font-size": 12, fill: C.leafD, "font-weight": 700});
+ tx(s, 20, 252, "", {id: "dl-sent", "font-size": 15, "font-weight": 700});
+ tx(s, 20, 276, "", {id: "dl-sent2", "font-size": 14, fill: C.ink2});
+ window.drawDL = o => {
+  for (let i = 0; i < 60; i++) document.getElementById("sq" + i).setAttribute("fill", i < o.T ? "#BFE3D7" : "none");
+  const gx = document.getElementById("dl-x"); gx.innerHTML = "";
+  for (let j = 0; j < o.k; j++) { const m = Math.min(o.T - 1, Math.floor((j + 0.5) * o.T / o.k)), c = m % 10, r = Math.floor(m / 10), x = 20 + c * 30 + 13, y = 32 + r * 30 + 13;
+   el("path", {d: `M${x - 7} ${y - 7} L${x + 7} ${y + 7} M${x + 7} ${y - 7} L${x - 7} ${y + 7}`, stroke: C.coralD, "stroke-width": 3.5, "stroke-linecap": "round"}, gx); }
+  const a = lg(o.lo || 0.01), b = lg(o.up); const ci = document.getElementById("ci"); ci.setAttribute("x", a); ci.setAttribute("width", Math.max(4, b - a));
+  const e = document.getElementById("est"); e.setAttribute("cx", lg(o.est || 0.01)); e.style.display = o.k ? "" : "none";
+  const u = document.getElementById("ci-up"); u.setAttribute("x", Math.min(b, 600)); u.textContent = `≤ ${o.up.toFixed(o.up < 0.1 ? 3 : 2)}/min`;
+  const every = 60 / o.up;
+  document.getElementById("dl-sent").textContent = `Honest claim: at most ${o.up.toFixed(o.up < 0.1 ? 3 : 2)} late plates per minute (95 %).`;
+  document.getElementById("dl-sent2").textContent = every < 120 ? `That still allows one stumble every ~${Math.round(every)} s.` : `That still allows one stumble every ~${(every / 60).toFixed(0)} min.`;
+ };
+})();
+
+/* ---------------- SCENE 5: the inspector ---------------- */
+(() => {
+ const s = svgOf("s-observer"), xs = [50, 225, 400, 575];
+ const base = el("g", {"data-s": "0"}, s);
+ xs.forEach((x, i) => { use(base, "i-cook", x + 26, 36, 64, 102, `--skin:${SKIN[i]}`);
+  el("rect", Object.assign({x, y: 130, width: 120, height: 34, rx: 6, fill: "#C9C1AE"}, OL), base);
+  el("rect", {x, y: 186, width: 120, height: 14, rx: 7, fill: C.card2, stroke: NAVY, "stroke-width": 1.5}, base); });
+ dual(base, 50, 222, "plate time", "latency", {"font-size": 13, fill: C.ink2});
+ // corner desk
+ el("rect", Object.assign({x: 790, y: 120, width: 170, height: 18, rx: 4, fill: "#A07850"}, OL), base);
+ el("rect", {x: 800, y: 138, width: 10, height: 40, fill: "#A07850", stroke: NAVY, "stroke-width": 2}, base);
+ el("rect", {x: 940, y: 138, width: 10, height: 40, fill: "#A07850", stroke: NAVY, "stroke-width": 2}, base);
+ dual(base, 875, 200, "the inspector's corner", "observer core", {"text-anchor": "middle", "font-size": 13, "font-weight": 700, fill: C.ink2});
+ // plate-time bars per step: cook 2 is slow only on step 1
+ xs.forEach((x, i) => { const slow = i === 1;
+  el("rect", {x, y: 186, width: slow ? 112 : 54 + i * 3, height: 14, rx: 7, fill: slow ? C.coralD : C.coral, class: "st-at", "data-s": slow ? "1" : "1 2 3 4"}, s);
+  if (slow) el("rect", {x, y: 186, width: 57, height: 14, rx: 7, fill: C.coral, class: "st-at", "data-s": "2 3 4"}, s); });
+ tx(s, 225 + 118, 182, "slower", {class: "st-at", "data-s": "1", "text-anchor": "end", "font-size": 13, "font-weight": 800, fill: C.coralD});
+ use(s, "i-insp", 330, 40, 64, 96, "", {class: "st-at", "data-s": "1"});
+ use(s, "i-insp", 843, 26, 64, 96, "", {class: "st-at", "data-s": "2 3 4"});
+ // step 3: a late inspector misses the first plates
+ const s3 = el("g", {"data-s": "3", class: "st-at"}, s);
+ for (let i = 0; i < 10; i++) { const x = 70 + i * 66, counted = i >= 3;
+  el("rect", {x, y: 262, width: 40, height: 22, rx: 8, fill: counted ? C.leaf : C.card2, stroke: counted ? NAVY : C.stone, "stroke-width": 2, "stroke-dasharray": counted ? "" : "4 3"}, s3);
+  if (counted) el("path", {d: `M${x + 12} ${273} l6 6 10 -11`, fill: "none", stroke: "#fff", "stroke-width": 3, "stroke-linecap": "round"}, s3); }
+ el("path", {d: "M262 248 V300", stroke: C.stone, "stroke-width": 3, "stroke-dasharray": "5 4"}, s3);
+ tx(s3, 262, 242, "inspector arrives", {"text-anchor": "middle", "font-size": 13, "font-weight": 700, fill: C.ink2});
+ tx(s3, 760, 278, "7 counted of 10 served", {"font-size": 15, "font-weight": 800, fill: C.coralD});
+ tx(s3, 760, 298, "→ rate reads 30 % low", {"font-size": 14, "font-weight": 700, fill: C.coralD});
+ // step 4: the rule
+ const s4 = el("g", {"data-s": "4", class: "st-at"}, s);
+ el("rect", {x: 50, y: 252, width: 900, height: 60, rx: 18, fill: "#FFF4DE", stroke: NAVY, "stroke-width": 2.5}, s4);
+ [["1", "Ready before the window opens"], ["2", "Own quiet core"], ["3", "Measure its own delay"]].forEach(([n, t], i) => { const x = 80 + i * 300;
+  el("circle", {cx: x, cy: 282, r: 15, fill: NAVY}, s4); tx(s4, x, 288, n, {"text-anchor": "middle", fill: "#fff", "font-weight": 800}); tx(s4, x + 24, 288, t, {"font-size": 16, "font-weight": 700}); });
+})();
+
+/* ---------------- SCENE 6: flip cards (C7) ---------------- */
+(() => {
+ const cards = [
+  {k: "Plastic food", e: "Zero-valued operands", art: "zeros", looks: "The oven bakes faster and runs cooler.", really: "All-zero data barely toggles the wires, so it draws less power — and under a power limit it can run faster than real data.", rule: "Use random operands, long samples, many repeats; record power and kernel names. (C7 #5)"},
+  {k: "The delivery driver cooks in your kitchen", e: "Harness on the measured machine", art: "driver", looks: "The kitchen is busier than all its cooks added up.", really: "Harness work charged to the robot's CPU inflates the stack's cost.", rule: "Run the harness on a second machine; measure its cost there. (C7 #6)"},
+  {k: "The supplier who says yes to everything", e: "Stub that is not schema-faithful", art: "yes", looks: "A service starts and reports success.", really: "It is quietly running a degraded fallback path.", rule: "Match the real response schema and status codes; void the window on any unexpected call. (C7 #9)"},
+  {k: "The pass that only opens every 100 ms", e: "Software rate cap", art: "gate", looks: "A steady output rate, whatever the load.", really: "The service holds a minimum interval, so its rate cannot show a compute limit.", rule: "Read the limit from CPU and latency; label the rate as throttled. (C7 #10)"},
+  {k: "Tickets cut to the wrong size", e: "Fake board with wrong framing", art: "tickets", looks: "A plausible message rate from a fake microphone or motor board.", really: "Wrong frames-per-packet gives the wrong message rate, biasing every consumer's per-message cost.", rule: "Match the real device's framing exactly; A/B-test the framing. (C7 #8)"},
+  {k: "Rewriting the recipe mid-service", e: "Editing a running script", art: "recipe", looks: "One window's results are simply missing.", really: "The shell reads a script as it runs; an edit mid-window breaks the running copy.", rule: "Run every window from an immutable snapshot; never deploy during a window. (C7 #7)"}];
+ const box = document.getElementById("cards");
+ cards.forEach((c, i) => {
+  const b = document.createElement("button"); b.className = "st-card"; b.setAttribute("aria-label", `${c.k} (${c.e}). Tap to reveal.`);
+  b.innerHTML = `<div class="in"><div class="face front"><svg viewBox="0 0 220 130" aria-hidden="true"></svg><h3>${c.k}</h3><div style="font-size:14px;color:var(--ink-2)">${c.e}</div><div class="hint">tap to reveal ↻</div></div>
+   <div class="face back"><h3>${c.k}</h3><dl><dt>Looks like</dt><dd>${c.looks}</dd><dt>Really</dt><dd>${c.really}</dd><dt>Caught by</dt><dd>${c.rule}</dd></dl></div></div>`;
+  box.appendChild(b);
+  const s = b.querySelector("svg");
+  el("rect", {x: 0, y: 0, width: 220, height: 130, rx: 14, fill: "#F3E6D0"}, s);
+  if (c.art === "zeros") { use(s, "i-oven", 20, 20, 90, 90);
+   for (let j = 0; j < 3; j++) { el("circle", {cx: 150 + j * 22, cy: 66, r: 14, fill: ["#FF5FA2", "#3DDC97", "#FFD23F"][j], stroke: NAVY, "stroke-width": 2.5}, s); el("ellipse", {cx: 146 + j * 22, cy: 60, rx: 4, ry: 2.5, fill: "#fff", opacity: .9}, s); }
+   el("rect", {x: 132, y: 92, width: 76, height: 20, rx: 6, fill: "#fff", stroke: NAVY, "stroke-width": 2}, s); tx(s, 170, 107, "0 0 0 0", {"text-anchor": "middle", "font-size": 13, "font-weight": 800, "font-family": "SF Mono,Menlo,monospace"}); }
+  if (c.art === "driver") { use(s, "i-cook", 40, 18, 60, 96, `--c:${C.stone}`); el("rect", Object.assign({x: 36, y: 16, width: 68, height: 14, rx: 6, fill: C.sky}, OL), s);
+   el("rect", Object.assign({x: 120, y: 60, width: 80, height: 50, rx: 6, fill: "#C9A27A"}, OL), s); tx(s, 160, 90, "BOX", {"text-anchor": "middle", "font-weight": 800}); }
+  if (c.art === "yes") { el("rect", Object.assign({x: 30, y: 40, width: 50, height: 80, rx: 10, fill: "#2E3646"}, OL), s); el("rect", {x: 37, y: 50, width: 36, height: 54, rx: 4, fill: "#A7C8D6"}, s);
+   el("path", Object.assign({d: "M100 20 H200 V80 H130 L112 98 L116 80 H100 Z", fill: "#fff"}, OL), s); tx(s, 150, 58, "YES!", {"text-anchor": "middle", "font-size": 24, "font-weight": 800, fill: C.leafD, class: "hand"}); }
+  if (c.art === "gate") { use(s, "i-bell", 20, 70, 50, 42); el("rect", Object.assign({x: 90, y: 30, width: 14, height: 84, fill: "#8C8670"}, OL), s);
+   el("circle", Object.assign({cx: 97, cy: 24, r: 14, fill: "#fff"}, OL), s); el("path", {d: "M97 24 V15 M97 24 L104 28", stroke: NAVY, "stroke-width": 2.5, "stroke-linecap": "round"}, s);
+   for (let j = 0; j < 4; j++) el("rect", {x: 116 + j * 24, y: 84, width: 20, height: 14, rx: 5, fill: C.sky, stroke: NAVY, "stroke-width": 2}, s); tx(s, 165, 120, "every 100 ms", {"text-anchor": "middle", "font-size": 12, fill: C.ink2}); }
+  if (c.art === "tickets") { for (let j = 0; j < 9; j++) use(s, "i-ticket", 20 + j * 21, 40 + (j % 2) * 18, 16, 22); use(s, "i-ticket", 70, 72, 34, 46, "opacity:.35"); tx(s, 160, 118, "wrong size", {"text-anchor": "middle", "font-size": 12, fill: C.ink2}); }
+  if (c.art === "recipe") { el("rect", Object.assign({x: 50, y: 16, width: 100, height: 100, rx: 6, fill: "#fff"}, OL), s);
+   for (let j = 0; j < 5; j++) el("line", {x1: 64, y1: 36 + j * 16, x2: 136, y2: 36 + j * 16, stroke: C.ink2, "stroke-width": 2.5}, s);
+   el("path", {d: "M60 66 L140 84", stroke: C.coralD, "stroke-width": 4}, s); el("path", Object.assign({d: "M150 30 L176 4 L188 16 L162 42 L146 46 Z", fill: C.sun}, OL), s); }
+ });
+})();
+
+/* ---------------- SCENE 7: the method path ---------------- */
+(() => {
+ const s = svgOf("s-method");
+ const pts = [[110, 80], [330, 80], [550, 80], [770, 80], [770, 240], [550, 240], [330, 240], [110, 240]];
+ const lab = [["Same kind of menu", "Reference, not replica"], ["Guess each dish's time", "Predict, then measure"], ["One dish at a time", "Solo runs first"], ["Fake suppliers, 2nd kitchen", "Faithful harness, 2nd machine"],
+  ["Throw out spoiled windows", "Warm-up + validity gates"], ["Rules before service", "Pre-register, interleave, pair"], ["Add dishes in tiers", "Build up in tiers"], ["Name the first overflow", "Attribute the first limit"]];
+ const route = "M110 80 H770 Q890 80 890 160 Q890 240 770 240 H110";
+ el("path", {d: route, fill: "none", stroke: C.line, "stroke-width": 12, "stroke-linecap": "round", "data-s": "0"}, s);
+ const seg = k => k === 0 ? null : (k === 4 ? `M770 80 Q890 80 890 160 Q890 240 770 240` : `M${pts[k - 1][0]} ${pts[k - 1][1]} L${pts[k][0]} ${pts[k][1]}`);
+ pts.forEach(([x, y], k) => {
+  const g0 = el("g", {"data-s": "0"}, s);
+  el("circle", {cx: x, cy: y, r: 32, fill: C.card, stroke: C.line, "stroke-width": 3}, g0);
+  tx(g0, x, y + 8, k + 1, {"text-anchor": "middle", "font-size": 22, "font-weight": 800, fill: C.ink2});
+  const g = el("g", {"data-s": String(k + 1)}, s);
+  el("circle", {cx: x, cy: y, r: 32, fill: k === 7 ? C.coral : C.leaf, stroke: NAVY, "stroke-width": 3, class: "lit"}, g);
+  tx(g, x, y + 8, k + 1, {"text-anchor": "middle", "font-size": 22, "font-weight": 800, fill: "#fff"});
+  dual(g, x, y + 54, lab[k][0], lab[k][1], {"text-anchor": "middle", "font-size": 14, "font-weight": 700});
+  if (seg(k)) el("circle", {r: 8, fill: C.sun, stroke: NAVY, "stroke-width": 2, class: "st-tok", "data-s": String(k + 1), style: `offset-path:path('${seg(k)}');--dur:900ms`}, s);
+ });
+})();
+
+/* ---------------- sources table from the params block ---------------- */
+(() => { const tb = document.querySelector("#src tbody");
+ for (const [k, o] of Object.entries(P)) { const v = typeof o.value === "object" ? Object.entries(o.value).map(([a, b]) => `${a} ${b}`).join(", ") : o.value;
+  const tr = document.createElement("tr"); tr.innerHTML = `<td><code>${k}</code></td><td>${v} ${o.unit}</td><td><span class="tag ${o.class === "public" ? "pub" : o.class === "sibling" ? "sib" : "ill"}">${o.class}</span></td><td>${o.source}</td>`; tb.appendChild(tr); } })();
+</script>
+<script src="../../stories/story.js"></script>
+<script>
+/* live figures: one pure model each, bound after story.js */
+Story.bind(document.getElementById("s2"), gModel, o => {
+ document.getElementById("nG-v").textContent = o.N;
+ document.querySelectorAll("#guests .g").forEach((g, i) => g.classList.toggle("off", i >= o.N));
+ document.getElementById("g-n").textContent = o.N === 0 ? "nobody in view" : `${o.N} ${o.N === 1 ? "guest" : "guests"} in view`;
+ drawBars(o);
+ const who = o.binder === "cooks" ? `<span class="lbl-k">the cooks</span><span class="lbl-e">the CPU</span>` : o.binder === "oven" ? `<span class="lbl-k">the oven</span><span class="lbl-e">the GPU</span>` : "both equally";
+ document.getElementById("g-read").innerHTML = `Per frame: <b class="gpu">${o.oven.toFixed(1)} ms</b> oven, <b>${o.cooks.toFixed(1)} ms</b> cooks → ${who} set the pace.<br>Each extra guest adds <b class="gpu">+${o.dOven} ms</b> oven, <b>+${o.dCooks} ms</b> cooks. The cooks pass the oven at <b>${o.cross} guests</b>.`;
+});
+Story.bind(document.getElementById("s4"), dlModel, o => {
+ document.getElementById("dT-v").textContent = o.T; document.getElementById("dK-v").textContent = o.k;
+ drawDL(o);
+ document.getElementById("d-read").innerHTML = `${o.k} late in ${o.T} min → the true rate is between <b>${o.lo.toFixed(3)}</b> and <b>${o.up.toFixed(3)}</b> per minute (95 %).<br>To claim <b>under 0.1 per minute</b> with ${o.k} seen, you must watch at least <b>${Math.ceil(o.needFor01)} min</b>.`;
+});
+/* self-tests reproducing the page's own claims */
+console.assert(gModel({N: 3}).cross === 3, "guests: cooks pass the oven at 3 guests");
+console.assert(Math.abs(dlModel({T: 2, k: 0}).up - 1.844) < 0.002, "zero in 2 min allows 1.84/min");
+console.assert(Math.ceil(dlModel({T: 2, k: 0}).needFor01) === 37, "zero misses needs 37 min for a 0.1/min claim");
+</script>
+</body>
+</html>
