@@ -32,7 +32,7 @@ lives in [`constants.json`](constants.json).
 - **container** — an isolated process environment; one service per container (A0-the-big-picture, A7-middleware-containers-and-platform).
 - **control group (cgroup)** — the Linux mechanism that caps and accounts a container's CPU and memory (A7-middleware-containers-and-platform).
 - **control loop** — the fixed-rate cycle that reads state, runs the control policy, and sends actions (A4-locomotion-and-whole-body-control).
-- **core pinning / isolation (cpusets, `isolcpus`)** — assigning threads to dedicated CPU cores that no other service uses (A4-locomotion-and-whole-body-control, A7-middleware-containers-and-platform).
+- **core pinning / isolation (cpusets, `isolcpus`)** — assigning threads to dedicated CPU cores that no other service uses (A4-locomotion-and-whole-body-control, A7-middleware-containers-and-platform). `isolcpus` removes cores from the general scheduler only: it does not move interrupts, stop the tick, or load-balance inside the isolated set (A7 clarification).
 - **cores (as a unit)** — CPU time used divided by wall-clock time; 1.0 cores = one core fully busy for the window (B0-cpu-metrics).
 - **coverage claim** — the stated fraction of the workload that is real code versus stand-ins (C0-reference-not-replica).
 - **coverage over precision** — accepting a realisation that captures most of a service's workload rather than all of it (C0-reference-not-replica).
@@ -175,3 +175,5 @@ lives in [`constants.json`](constants.json).
 - **window** — the fixed span over which a cell's numbers are collected (C4-windows-gates-and-validity).
 - **working cost** — a service's cost when driven with real input, as opposed to its idle floor (C2-solo-runs-and-levels).
 - **workload tier** — one of a sequence of increasingly heavy stacks (default, next-generation, plus manipulation, plus on-demand large models) (C6-tiers-combined-runs-and-attribution).
+- **`nospectre_bhb`** — arm64 kernel flag that turns off the Spectre-BHB (branch history injection) mitigation, making every kernel entry from user space cheaper at a security cost (A7-middleware-containers-and-platform).
+- **swap off** — no memory page is moved out of RAM (no zram/disk swap); under memory pressure a process is OOM-killed instead of slowed (A7-middleware-containers-and-platform).

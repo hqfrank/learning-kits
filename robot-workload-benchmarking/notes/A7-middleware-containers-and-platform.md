@@ -41,6 +41,19 @@ This note covers the parts of the stack that are not a sensor, a model, or a con
 ## Why it matters for robotics workloads
 The platform layer is where the deployment's intent lives: who gets which core, who may use how much CPU, and which messages are guaranteed. These choices decide whether the control loop survives a full stack. A benchmark that respects them measures the robot as it actually runs; one that simplifies them measures a robot that does not exist.
 
+## Clarification: reading a boot-time core map
+A robot computer's platform is often set at boot, on the kernel command line, plus a few system settings. A typical line for a 12-core board reads: `isolcpus=8-11`, swap off, `nospectre_bhb`, with cores 0–7 as the shared pool, 8–9 for pinned helper services and 10–11 for the control loop. Each part means one thing.
+
+- **`isolcpus=8-11`** removes cores 8–11 from the scheduler's general pool. A thread runs there only if something pins it there (a container `cpuset`, `taskset`). Unpinned work lands on cores 0–7, which is why 0–7 is "the shared pool". Three limits matter in a benchmark:
+  - Per-core kernel threads (workers, softirq, migration) still run on isolated cores.
+  - `isolcpus` does not move device interrupts (that needs IRQ affinity or `irqaffinity=`) and does not stop the scheduler tick (that needs `nohz_full=`).
+  - The scheduler does not load-balance inside an isolated set: if a container is pinned to 10–11, its threads stay on the core they first got, so two busy threads can share one core while the other is idle.
+- **Swap off** means no memory page is ever moved out of RAM. Many embedded Linux images enable compressed swap in RAM (zram) by default. With swap off, a service never stalls on a swap-in, and no CPU is spent compressing pages. The cost: under memory pressure the kernel kills a process (the OOM killer) instead of slowing down. A benchmark must match the robot here, or memory behaviour differs.
+- **`nospectre_bhb`** is an arm64 kernel flag. It turns off the mitigation for Spectre-BHB ("branch history injection"), a CPU side-channel attack in which user code steers the kernel's branch predictor. The mitigation clears the branch history each time the CPU enters the kernel from user space (a system call or an interrupt). That adds a small cost to every kernel entry. Turning it off makes kernel entries cheaper, and trades away that protection. A benchmark must match the robot, because a message-heavy stack makes many system calls.
+- **The core map** is a deployment decision: a protected island for the control loop, a small pinned set for helpers that must not be starved or must not disturb the pool, and a shared pool for the rest. Cores are also grouped in clusters that share a cache, so "isolated" cores in one cluster still share that cache with each other. Isolation protects CPU time, not cache or memory bandwidth.
+
+Source: Linux kernel parameters (https://docs.kernel.org/admin-guide/kernel-parameters.html; `isolcpus`, `irqaffinity`, `nohz_full`, `nospectre_bhb`); Arm Spectre-BHB advisory (https://developer.arm.com/Arm%20Security%20Center/Spectre-BHB).
+
 ## Terms introduced
 - **middleware** — the pub/sub system (ROS 2) that provides typed topics and subscriptions.
 - **quality of service (QoS)** — ROS 2 settings (reliability, history, durability) that decide message delivery.
@@ -51,3 +64,5 @@ The platform layer is where the deployment's intent lives: who gets which core, 
 - **CPU quota (`cpu.max`)** — the cap on a container's CPU; hitting it throttles the container.
 - **core pinning (cpusets) / reserved cores (`isolcpus`)** — assigning work to specific cores and reserving cores for specific work.
 - **telemetry / monitoring service** — a small service collecting metrics, logs, and health.
+- **swap off** — no page is moved out of RAM; memory pressure ends in an OOM kill rather than a slowdown.
+- **`nospectre_bhb`** — arm64 kernel flag that disables the Spectre-BHB mitigation (branch-history clearing on every kernel entry from user space).
