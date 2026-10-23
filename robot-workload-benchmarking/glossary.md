@@ -177,3 +177,9 @@ lives in [`constants.json`](constants.json).
 - **workload tier** — one of a sequence of increasingly heavy stacks (default, next-generation, plus manipulation, plus on-demand large models) (C6-tiers-combined-runs-and-attribution).
 - **`nospectre_bhb`** — arm64 kernel flag that turns off the Spectre-BHB (branch history injection) mitigation, making every kernel entry from user space cheaper at a security cost (A7-middleware-containers-and-platform).
 - **swap off** — no memory page is moved out of RAM (no zram/disk swap); under memory pressure a process is OOM-killed instead of slowed (A7-middleware-containers-and-platform).
+- **IRQ / IRQ affinity** — a hardware interrupt that makes a core run a driver handler / the set of cores allowed to take it (`/proc/irq/<n>/smp_affinity_list`) (A7-middleware-containers-and-platform).
+- **per-core kernel thread** — a kernel thread bound to one core (`ksoftirqd/N`, `kworker/N:*`, `migration/N`); present even on isolated cores (A7-middleware-containers-and-platform).
+- **scheduler tick** — the periodic timer interrupt on each core (`CONFIG_HZ`, typically 100–1000 Hz) for time accounting and time-slice checks; not a thread; stopped by `nohz_full=` (A7-middleware-containers-and-platform).
+- **zram** — compressed swap stored in RAM; its configured size is a ceiling, not memory in use (A7-middleware-containers-and-platform).
+- **OOM killer** — kernel mechanism that ends the process with the highest `oom_score` (memory held, adjusted by `oom_score_adj`) when memory runs out; scoped to a container that has a memory limit (A7-middleware-containers-and-platform).
+- **Spectre-BHB (branch history injection)** — user code steers the branch history so a kernel indirect branch is speculatively mispredicted to a chosen gadget, leaking data via cache timing (A7-middleware-containers-and-platform).
