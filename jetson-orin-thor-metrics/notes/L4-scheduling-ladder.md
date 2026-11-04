@@ -1,6 +1,6 @@
 # L4 scheduling ladder: shared context → separate process → MPS → MPS + SM cap → MIG (deferred)
 
-**Source:** `JetsonProfiling/robot-kernels/L4-realmodel-cotenancy/KEY-LEARNINGS.md` (branch `dev`), the committed summary of the L4 real-model co-tenancy campaign on one Thor GPU  ·  **Status in source:** working synthesis; the book's §C.2 and later sections are being written from this data. Not a book section.
+**Source:** `robot-kernels/L4-realmodel-cotenancy/KEY-LEARNINGS.md` in the author's profiling repository (branch `dev`), the committed summary of the L4 real-model co-tenancy campaign on one Thor GPU  ·  **Status in source:** working synthesis; the book's §C.2 and later sections are being written from this data. Not a book section.
 
 ## In one sentence
 On one Thor GPU, the GPU-sharing discipline — not compute — decides whether a 100 Hz control loop holds: a shared context lets one π0.5 VLA blow the loop's p99 from 1.74 to 110.7 ms (64×) with 51% of ticks dropped; a separate process cuts that to ≈ 4.9% dropped (p99 17 ms); plain MPS does not help; MPS with the VLA capped to 25–35% of the SMs returns the loop to 0% dropped under the 10 ms deadline; and no discipline moves the ≈ 172 GB/s CPU-memory-load floor at which everything collapses.

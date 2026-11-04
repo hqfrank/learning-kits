@@ -1,0 +1,2 @@
+# Lines that tools/public-scan.sh may ignore: known false positives only, one extended regex per line,
+# each with a comment saying why. Keep this list short; prefer rewriting the content.

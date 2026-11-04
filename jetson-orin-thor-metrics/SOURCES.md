@@ -1,15 +1,15 @@
 # SOURCES — Jetson Orin (sm_87) and Thor (sm_110): a Measured Reference for Robotics Workloads
 
-This folder is a learning kit (rung 1: notes) for the campaign metrics reference written by V (Varada).
+This folder is a learning kit (rung 1: notes) for the campaign metrics reference written by its author (a colleague; not reproduced here).
 Nothing here is a new measurement. Every number traces to one of the sources below.
 
 ## Primary source
 
 **book.pdf** — "Jetson Orin (sm_87) and Thor (sm_110): a Measured Reference for Robotics Workloads.
 Capabilities, behaviour under interference, and deployed models — the campaign metrics reference, Docs A–C
-bound as one." 55 pages. Local copy: `/Users/qiahu/Documents/development/robotics/robotics_learning_notes/book.pdf`.
+bound as one." 55 pages. Not included in this repository.
 
-The PDF is built from `beyond-tops/metrics-report/book.tex` in the Brazil package **JetsonProfiling**
+The PDF is built from `metrics-report/book.tex` in the author's (non-public) profiling repository
 (branch `dev`). The LaTeX master says: "There is exactly one copy of every piece of prose." The book
 `\input`s the same content fragments the standalone docs use.
 
@@ -17,9 +17,9 @@ The PDF is built from `beyond-tops/metrics-report/book.tex` in the Brazil packag
 
 The shell tool was unavailable in the session that wrote these notes (`spawn EBADF` on every command), so
 `pdftotext` could not run. The notes were therefore written from the **LaTeX sources the PDF is built
-from**, read in full from `code.amazon.com` at branch `dev`:
+from**, read in full from that repository at branch `dev`:
 
-| Book part | Source file (under `JetsonProfiling/beyond-tops/metrics-report/`) |
+| Book part | Source file (under `metrics-report/`) |
 |---|---|
 | Title, structure | `book.tex` |
 | Platforms (Table 1) | `common/platforms.tex` |
@@ -72,7 +72,7 @@ number required correction after the verification pass.
 
 ## Supplementary source
 
-**KEY-LEARNINGS.md** — `JetsonProfiling/robot-kernels/L4-realmodel-cotenancy/KEY-LEARNINGS.md` (branch
+**KEY-LEARNINGS.md** — `robot-kernels/L4-realmodel-cotenancy/KEY-LEARNINGS.md` (same repository) (branch
 `dev`). The synthesized findings of the L4 real-model co-tenancy campaign on one Thor GPU. Doc C says its
 later sections (queueing decomposition, precision as a co-tenancy fix, MPS reservation) are "drafted from
 committed data but not yet written up"; this file is the committed summary those sections will draw on.
@@ -81,9 +81,9 @@ the book; where it gives a number as a range or a tilde, the note keeps the rang
 
 ## Secondary material consulted (not cited for numbers)
 
-- `JetsonProfiling/beyond-tops/metrics-report/briefs/brief-memory-hierarchy.md` — extraction brief for
+- `metrics-report/briefs/brief-memory-hierarchy.md` — extraction brief for
   A.5–A.7; used only to confirm the reading of the LaTeX tables.
-- `JetsonProfiling/common/measured_constants.md` — the campaign's own constants index ([M] in the book). The
+- `common/measured_constants.md` — the campaign's own constants index ([M] in the book). The
   book cites it for the sustained DRAM bandwidth (190 / 245 GB/s) and the retained-bandwidth fractions used in
   B.6; those two values are carried in the notes with the [M] label the book gives them.
 

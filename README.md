@@ -15,3 +15,14 @@ Each kit has `notes/`, `glossary.md`, `constants.json` (every constant with its 
 The quiz (`quiz/`) draws one question bank per note; wrong answers push the underlying knowledge point into more frequent review (Leitner boxes). Progress is stored in the browser only.
 
 Study aids, not primary sources. Numbers are quoted from the listed sources or labelled as estimates.
+
+## Contributing (humans and agents)
+
+The repo is public. Before anything is committed:
+
+1. **Quiz banks validate:** `node quiz/check-banks.js` must report 0 errors. New knowledge points go right after `knowledgePoints: {` and new questions right after `questions: [` in a bank file.
+2. **Public-safety scan passes:** `tools/public-scan.sh` (staged files) or `tools/public-scan.sh --all`. It matches every line against a denylist of names that must not appear here; the denylist itself is kept outside the repo at `~/.config/learning-kits/denylist.txt` (override with `LEARNING_KITS_DENYLIST`). Fix the content rather than the list; a true false positive goes into `.public-scan-allow` with a comment.
+3. Both run automatically from the pre-commit hook: `git config core.hooksPath .githooks` once per clone.
+
+Every number carries its source or the tag *illustrative*; constants live in each kit's `constants.json` and are loaded, not retyped. Story pages (`<kit>/stories/`) use the shared runtime in `stories/` and are checked with `stories/tools/shoot.py` before publishing.
+

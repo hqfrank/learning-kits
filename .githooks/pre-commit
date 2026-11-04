@@ -1,3 +1,5 @@
 #!/bin/sh
-# Refuse to commit if any quiz bank fails validation.
-cd "$(git rev-parse --show-toplevel)" && node quiz/check-banks.js >/dev/null || { echo "quiz banks invalid: run node quiz/check-banks.js"; exit 1; }
+# Refuse to commit if any quiz bank fails validation, or if a staged file matches the public-safety denylist.
+cd "$(git rev-parse --show-toplevel)" || exit 1
+node quiz/check-banks.js >/dev/null || { echo "quiz banks invalid: run node quiz/check-banks.js"; exit 1; }
+tools/public-scan.sh || exit 1
