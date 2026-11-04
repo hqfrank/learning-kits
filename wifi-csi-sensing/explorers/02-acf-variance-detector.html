@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en" data-generated="2026-11-04">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Window length and threshold trade detection delay against false alarms</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --line:#3a3f4a; --good:#49d17a; --bad:#ff7a7a; --warn:#ffd36b; --violet:#c9a2ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h3{font-size:15px}
+  .sub{color:var(--muted);max-width:80ch;margin:6px 0 0}
+  .banner{max-width:80ch;margin:10px 0 0;padding:8px 12px;border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-size:13px}
+  main{display:grid;grid-template-columns:330px 1fr;gap:18px;padding:18px 22px}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .panel>*{min-width:0}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range],select{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit}
+  .check label{display:flex;gap:8px;align-items:center;font-weight:600}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--accent);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover,button:focus-visible{background:#1d2a36}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .headline{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .metric .t{font-size:11px;color:var(--muted)}
+  .decision{font-size:22px;font-weight:800;padding:8px 14px;border-radius:10px;display:inline-block;margin-bottom:12px;border:1px solid var(--accent);color:var(--accent);background:#12202a}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-bottom:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  svg text{font:11px system-ui,sans-serif}
+  svg .mut{fill:var(--muted)}
+  .figrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:1100px){.figrow{grid-template-columns:1fr}}
+  .figrow>*{min-width:0}
+  .cap{color:var(--muted);font-size:12.5px;margin:-4px 0 10px}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:4px;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--good);border-color:var(--good)}
+  .tag.asm{color:var(--violet);border-color:var(--violet)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .why{margin-top:6px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .why p{margin:0 0 8px}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  td{overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+  .sr{position:absolute;left:-9999px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+  .seg-table td:nth-child(n+3){font-variant-numeric:tabular-nums}
+  .hit{color:var(--good)} .miss{color:var(--bad)} .fa{color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>A longer window and a stricter rule mean fewer false alarms and later decisions, and the ACF keeps its threshold when the room changes but variance does not</h1>
+  <p class="sub">A synthetic single-link CSI stream follows a scripted day: a walk near the device, small motion, a 4 s
+  walk, someone walking in the next room, and optionally a fan in the empty home. A sliding window computes one feature,
+  the lag-1 autocorrelation (ACF) or the variance, averaged over subcarriers (B2). A threshold and an "N windows in a row"
+  rule turn it into decisions (B3, C1). The page scores each scenario: detected or missed, time to detect, time to clear,
+  and false alarms. It then converts the false-alarm count to alarms per month (C1).</p>
+  <p class="banner">Synthetic stream, not a measurement. The scenario amplitudes, the slow shadowing term, the fan and the
+  noise floor are page assumptions <span class="tag asm">assumption</span>. Report rates and windows are illustrative values
+  from <code>constants.json</code> <span class="tag ill">illustrative</span>. A 4-minute stream cannot show that a budget of a
+  few false alarms per month is met (C2). It can only show the mechanism.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <h3 style="margin:0 0 8px">Preloaded cases <span class="tag ill">illustrative</span></h3>
+    <div class="cases" id="cases"></div>
+    <div class="ctrl">
+      <label for="rate">CSI report rate</label>
+      <select id="rate"><option value="inj">injected traffic, 100 Hz</option><option value="beacon">beacons, 10 Hz</option></select>
+      <div class="hint"><code>csi_rate_injected_illustrative</code>, <code>csi_rate_beacon_illustrative</code></div>
+    </div>
+    <div class="ctrl">
+      <label for="feat">Feature</label>
+      <select id="feat"><option value="acf">lag-1 ACF (self-normalised)</option><option value="var">variance (room-scaled)</option></select>
+    </div>
+    <div class="ctrl">
+      <label for="win">Window length <span class="val" id="win_v"></span></label>
+      <input id="win" type="range" min="0.5" max="8" step="0.5" value="4">
+      <div class="hint">The window advances by <span id="hop"></span> s (sliding windows, B3).</div>
+    </div>
+    <div class="ctrl" id="thrA_box">
+      <label for="thrA">ACF threshold <span class="val" id="thrA_v"></span></label>
+      <input id="thrA" type="range" min="0" max="1" step="0.01" value="0.3">
+      <div class="hint">Motion if the mean lag-1 ACF is above this.</div>
+    </div>
+    <div class="ctrl" id="thrV_box" hidden>
+      <label for="thrV">Variance threshold (log scale) <span class="val" id="thrV_v"></span></label>
+      <input id="thrV" type="range" min="0" max="1" step="any" value="0.52">
+      <div class="hint">10⁻⁶ to 10⁻¹, in amplitude² (direct path = 1).</div>
+    </div>
+    <div class="ctrl">
+      <label for="nrow">Positive windows needed in a row <span class="val" id="nrow_v"></span></label>
+      <input id="nrow" type="range" min="1" max="5" step="1" value="1">
+      <div class="hint">Fewer alarms, later decisions (C1).</div>
+    </div>
+    <hr>
+    <div class="ctrl">
+      <label for="sig">Room noise floor <span class="val" id="sig_v"></span></label>
+      <input id="sig" type="range" min="0.005" max="0.05" step="0.001" value="0.01">
+      <div class="hint">Amplitude noise σ. Changing the room changes the still-room variance (B2). Page assumption.</div>
+    </div>
+    <div class="ctrl">
+      <label for="spd">Walking speed <span class="val" id="spd_v"></span></label>
+      <input id="spd" type="range" min="0.2" max="1.5" step="0.05" value="1">
+      <div class="hint">Doppler up to 2v/λ at 5 GHz (A1). The ACF decays faster at higher speed (B2).</div>
+    </div>
+    <div class="ctrl check">
+      <label for="fan"><input id="fan" type="checkbox"> Fan running in the empty home (215–240 s)</label>
+      <div class="hint">Inanimate motion (C5).</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <svg id="tl" viewBox="0 0 900 360" role="img" aria-label="Timeline: scripted scenarios, one subcarrier's amplitude, the feature with its threshold, and the decisions"></svg>
+    <p class="cap">Top: the script (numbered bars; grey = nobody in this room). Second row: amplitude of one subcarrier. Third row: the feature (blue) and the threshold (dashed). Bottom row: decisions, green for a correct detection, red and labelled for a false alarm.</p>
+    <div class="tablewrap"><table class="seg-table" id="segs"><thead><tr><th>#</th><th>Scenario</th><th>Person in this room?</th><th>Result</th><th>Time to detect</th><th>Time to clear</th></tr></thead><tbody></tbody></table></div>
+    <div class="why" style="margin-top:12px"><h3>What dominates here</h3><div id="why_text"></div></div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters and sources</h3>
+  <p class="hint">Loaded from the inline params block (also <code>params.json</code>), copied from <code>../constants.json</code>.
+  <span class="tag pub">public</span> · <span class="tag ill">illustrative</span> round teaching value, never a measurement ·
+  <span class="tag asm">assumption</span> a choice this page makes to build the synthetic stream. <span id="tests-sum"></span></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Unit</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  <p class="hint"><strong>Sign convention.</strong> This page uses the mean-removed ACF, as in the motion statistic of Zhang et al. 2019 (WiDetect, cited in B2). A still room then gives a lag-1 ACF near 0, and motion raises it. Note B2 describes the opposite direction ("a still channel … close to 1"). That holds for the un-centred correlation of successive CSI reports. The two forms carry the same information with opposite signs. This difference is reported back for the note.</p>
+</section>
+
+<footer>
+  <span id="gen"></span> · Study aid for <em>wifi-csi-sensing</em> (rung 3), notes A1, B2, B3, C1, C5. Features: variance and lag-1 ACF
+  per subcarrier, averaged (B2). Scoring: event level per scenario, time to detect and to clear, false-alarm events = runs of
+  touching positive windows (C1). The synthetic stream is my model. No measured value from any study appears here.
+</footer>
+
+<script type="application/json" id="params">
+{
+ "wavelength_5g": {
+  "value": 5.5,
+  "unit": "cm",
+  "class": "public",
+  "source": "my arithmetic: speed_of_light / 5.5 GHz (mid 5 GHz band)"
+ },
+ "csi_rate_beacon_illustrative": {
+  "value": 10,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "round value for passive beacon-driven CSI; consistent with beacon_rate_default; internal I2/I7 report the same order"
+ },
+ "csi_rate_injected_illustrative": {
+  "value": 100,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "round nominal rate with injected traffic (pings or test frames); internal I7 reports the same order"
+ },
+ "window_short_illustrative": {
+  "value": 1,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "round analysis window used in early single-link work; internal I1/I2"
+ },
+ "window_long_illustrative": {
+  "value": 4,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "round analysis window used in later feature studies; internal I7"
+ },
+ "seconds_per_30_days": {
+  "value": 2592000,
+  "unit": "s",
+  "class": "public",
+  "source": "arithmetic: 30 x 86400"
+ },
+ "false_alarm_budget_illustrative": {
+  "value": 4,
+  "unit": "false alarms per home per month",
+  "class": "illustrative",
+  "source": "illustrative product-level false-alarm budget; internal I7"
+ },
+ "acf_vs_variance_illustrative": {
+  "value": {
+   "acf_tap1": 0.65,
+   "variance": 0.4
+  },
+  "unit": "TPR at 1% FPR",
+  "class": "illustrative",
+  "source": "illustrative gap between a self-normalised ACF feature and raw variance; internal I7"
+ },
+ "window_4s_vs_8s_gain_illustrative": {
+  "value": 1,
+  "unit": "TPR points",
+  "class": "illustrative",
+  "source": "illustrative: doubling the window adds about one point; internal I7"
+ },
+ "stream_length_assumption": {
+  "value": 240,
+  "unit": "s",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: length of the synthetic scripted stream"
+ },
+ "stream_subcarriers_assumption": {
+  "value": 8,
+  "unit": "subcarriers",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: a reduced subcarrier set after selection (B1 keeps a fraction); kept small so the page stays fast"
+ },
+ "hop_assumption": {
+  "value": 0.5,
+  "unit": "s",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: sliding-window hop (B3 sliding windows)"
+ },
+ "scatterers_assumption": {
+  "value": 8,
+  "unit": "moving scatterers per body",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: body as several scatterers with radial speeds spread up to the walking speed (my simplification of A1's Doppler bound)"
+ },
+ "fan_rate_assumption": {
+  "value": 2,
+  "unit": "Hz",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: fluctuation rate of a fan (inanimate motion, C5)"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function () {
+  "use strict";
+  const TAU = 2 * Math.PI;
+  function rng(seed) { let a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function gauss(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(TAU * r()); }
+
+  // The scripted day (C2-style scenario script). amp = moving-path amplitude, shade = depth of the slow
+  // shadowing of the static paths (envelope change), both relative to the direct path. Page assumptions.
+  const SCRIPT = [
+    { id: 1, t0: 30, t1: 60, label: "walk near the device", person: true, amp: 0.2, shade: 0.3, speed: "walk" },
+    { id: 2, t0: 90, t1: 110, label: "small motion (typing)", person: true, amp: 0.05, shade: 0, speed: 0.1 },
+    { id: 3, t0: 140, t1: 144, label: "short walk, 4 s", person: true, amp: 0.2, shade: 0.3, speed: "walk" },
+    { id: 4, t0: 170, t1: 200, label: "walk in the next room (through a wall)", person: false, amp: 0.04, shade: 0.06, speed: "walk" },
+    { id: 5, t0: 215, t1: 240, label: "fan running, nobody home", person: false, amp: 0.05, shade: 0, speed: "fan", optional: true }
+  ];
+  function script(fan) { return SCRIPT.filter(s => !s.optional || fan); }
+
+  // Synthetic amplitude stream, K subcarriers. Per subcarrier:
+  //   x_k(t) = (1 − shade(t)·u_k) · |1 + Σ_m (A(t)/√M)·exp(j(2π f_m t + φ_km))| + σ·n_k(t)
+  // f_m = (2v/λ)·u_m with u_m uniform in [−1, 1]: radial speeds of body parts up to v, Doppler up to 2v/λ (A1).
+  // shade(t) = shade·(1 + sin(2π t / 6 s))/2: a slow envelope change as the person moves about (my model).
+  // A fan is one scatterer at a fixed rate (fan_rate_assumption). 0.5 s cosine ramps at segment edges.
+  function stream(P, cfg) {
+    const fs = cfg.fs, T = P.stream_length_assumption.value, K = P.stream_subcarriers_assumption.value, M = P.scatterers_assumption.value;
+    const lam = P.wavelength_5g.value / 100, N = Math.round(T * fs), r = rng(cfg.seed || 12345);
+    const X = []; for (let k = 0; k < K; k++) X.push(new Float64Array(N));
+    const segs = script(cfg.fan).map(s => {
+      const nm = s.speed === "fan" ? 1 : M, v = s.speed === "walk" ? cfg.speed : s.speed;
+      const f = []; for (let m = 0; m < nm; m++) f.push(s.speed === "fan" ? P.fan_rate_assumption.value : (2 * v / lam) * (2 * r() - 1));
+      const ph = []; for (let k = 0; k < K; k++) { const row = []; for (let m = 0; m < nm; m++) row.push(TAU * r()); ph.push(row); }
+      const u = []; for (let k = 0; k < K; k++) u.push(0.5 + 0.5 * r());
+      return Object.assign({}, s, { f, ph, u, nm, phase0: TAU * r() });
+    });
+    for (let i = 0; i < N; i++) {
+      const t = i / fs;
+      for (let k = 0; k < K; k++) {
+        let re = 1, im = 0, gain = 1;
+        for (const s of segs) {
+          if (t < s.t0 || t > s.t1) continue;
+          const ramp = Math.min(1, (t - s.t0) / 0.5, (s.t1 - t) / 0.5), w = 0.5 - 0.5 * Math.cos(Math.PI * Math.max(0, ramp));
+          const A = s.amp * w / Math.sqrt(s.nm);
+          for (let m = 0; m < s.nm; m++) { const p = TAU * s.f[m] * t + s.ph[k][m]; re += A * Math.cos(p); im += A * Math.sin(p); }
+          gain *= 1 - s.shade * w * s.u[k] * 0.5 * (1 + Math.sin(TAU * t / 6 + s.phase0));
+        }
+        X[k][i] = gain * Math.hypot(re, im) + cfg.sigma * gauss(r);
+      }
+    }
+    return { fs, N, T, K, X, segs: script(cfg.fan) };
+  }
+
+  // B2: variance and lag-1 ACF of one series (mean removed). ACF = Σ(x_i−μ)(x_{i+1}−μ) / Σ(x_i−μ)².
+  function varAcf(x, a, b) {
+    const n = b - a; let mu = 0; for (let i = a; i < b; i++) mu += x[i]; mu /= n;
+    let s0 = 0, s1 = 0;
+    for (let i = a; i < b; i++) { const d = x[i] - mu; s0 += d * d; if (i + 1 < b) s1 += d * (x[i + 1] - mu); }
+    return { v: s0 / n, acf: s0 > 0 ? s1 / s0 : 0 };
+  }
+  // Sliding windows of W seconds every hop seconds; features averaged over subcarriers (B2).
+  function features(P, st, W) {
+    const n = Math.max(3, Math.round(W * st.fs)), hop = Math.max(1, Math.round(P.hop_assumption.value * st.fs));
+    const tEnd = [], v = [], acf = [];
+    for (let a = 0; a + n <= st.N; a += hop) {
+      let sv = 0, sa = 0;
+      for (let k = 0; k < st.K; k++) { const q = varAcf(st.X[k], a, a + n); sv += q.v; sa += q.acf; }
+      tEnd.push((a + n) / st.fs); v.push(sv / st.K); acf.push(sa / st.K);
+    }
+    return { tEnd, v, acf, W: n / st.fs };
+  }
+  // B3/C1: threshold, then require nrow positive windows in a row.
+  function decide(f, thr, nrow) {
+    const raw = f.map(x => x > thr), d = raw.slice();
+    for (let i = 0; i < raw.length; i++) { let all = true; for (let j = 0; j < nrow; j++) if (i - j < 0 || !raw[i - j]) { all = false; break; } d[i] = all; }
+    return d;
+  }
+  // C1 scoring. A decision belongs to a segment if its window end lies in [t0, t1 + W].
+  function score(P, segs, tEnd, d, W) {
+    const inSeg = (t, s) => t >= s.t0 && t <= s.t1 + W;
+    const person = segs.filter(s => s.person);
+    const rows = segs.map(s => {
+      let ttd = null, ttc = null, fa = 0, prev = false;
+      for (let i = 0; i < tEnd.length; i++) {
+        const t = tEnd[i];
+        if (s.person) {
+          if (ttd === null && t >= s.t0 && t <= s.t1 + W && d[i]) ttd = t - s.t0;
+          if (ttc === null && t > s.t1 && !d[i]) ttc = t - s.t1;
+        } else if (inSeg(t, s)) { if (d[i] && !prev) fa++; }
+        prev = d[i];
+      }
+      return { id: s.id, label: s.label, person: s.person, detected: ttd !== null, ttd, ttc: s.person && ttd !== null ? ttc : null, fa };
+    });
+    // false-alarm events: runs of touching positive decisions with no decision inside any person segment
+    let faEvents = 0, run = [], negWindows = 0, posW = 0, posHit = 0, negHit = 0;
+    const flush = () => { if (run.length && !run.some(t => person.some(s => inSeg(t, s)))) faEvents++; run = []; };
+    for (let i = 0; i < tEnd.length; i++) {
+      const t = tEnd[i], t0 = t - W;
+      const overlap = person.some(s => t0 < s.t1 && t > s.t0), inside = person.some(s => t0 >= s.t0 && t <= s.t1);
+      if (!overlap) { negWindows++; if (d[i]) negHit++; }
+      if (inside) { posW++; if (d[i]) posHit++; }
+      if (d[i]) run.push(t); else flush();
+    }
+    flush();
+    const hop = P.hop_assumption.value, stillSeconds = negWindows * hop;
+    return { rows, faEvents, tpr: posW ? posHit / posW : NaN, fpr: negWindows ? negHit / negWindows : NaN, stillSeconds,
+      faPerMonth: stillSeconds > 0 ? faEvents / stillSeconds * P.seconds_per_30_days.value : NaN,
+      events: person.length, detected: rows.filter(r => r.person && r.detected).length };
+  }
+  // C1 arithmetic: false windows per 30 days for a per-window FPR and a window length; budget → per-window FPR.
+  const falseWindowsPerMonth = (P, fpr, W) => fpr * P.seconds_per_30_days.value / W;
+  const budgetFpr = (P, perMonth, W) => perMonth * W / P.seconds_per_30_days.value;
+  const nyquist = fs => fs / 2;
+
+  function dftPower(x) { const N = x.length, out = []; for (let k = 0; k < N; k++) { let re = 0, im = 0; for (let n = 0; n < N; n++) { re += x[n] * Math.cos(TAU * k * n / N); im -= x[n] * Math.sin(TAU * k * n / N); } out.push(re * re + im * im); } return out; }
+
+  function selfTest(P, assert) {
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const r = rng(7);
+    // white noise: lag-1 ACF near 0
+    const wn = new Float64Array(20000); for (let i = 0; i < wn.length; i++) wn[i] = gauss(r);
+    ok(Math.abs(varAcf(wn, 0, wn.length).acf) < 0.03, "white noise ACF ~ 0");
+    // slow sinusoid: lag-1 ACF ~ cos(2π f / fs)
+    const fs = 100, f = 3, sn = new Float64Array(20000); for (let i = 0; i < sn.length; i++) sn[i] = Math.sin(TAU * f * i / fs);
+    ok(Math.abs(varAcf(sn, 0, sn.length).acf - Math.cos(TAU * f / fs)) < 0.01, "sinusoid ACF = cos(2 pi f/fs)");
+    // Parseval (B2): variance = Σ_{k≠0} |X_k|² / N²
+    const x = Array.from({ length: 64 }, () => gauss(r)), pw = dftPower(x), vv = varAcf(x, 0, 64).v;
+    ok(Math.abs(pw.slice(1).reduce((a, b) => a + b, 0) / (64 * 64) - vv) < 1e-9, "Parseval: variance = spectrum without DC");
+    // C1 arithmetic: 1% FPR at 1 s windows ≈ 26 000 false windows / month; budget 4 → ≈ 1.5e-6
+    const W1 = P.window_short_illustrative.value;
+    ok(Math.abs(falseWindowsPerMonth(P, 0.01, W1) - 25920) < 1, "1% FPR = about 26 000 per month");
+    ok(Math.abs(budgetFpr(P, P.false_alarm_budget_illustrative.value, W1) - 1.5e-6) < 0.05e-6, "budget 4 → FPR near 1.5e-6");
+    ok(nyquist(P.csi_rate_beacon_illustrative.value) === 5, "Nyquist at 10 Hz = 5 Hz");
+    // B2: the ACF is self-normalised — a still window gives ~0 in a quiet and a noisy room; variance scales as σ²
+    const q = stream(P, { fs: 100, sigma: 0.005, speed: 1, fan: false, seed: 3 }), n = stream(P, { fs: 100, sigma: 0.05, speed: 1, fan: false, seed: 3 });
+    const fq = features(P, q, 4), fn = features(P, n, 4), i10 = fq.tEnd.findIndex(t => t >= 10);
+    ok(Math.abs(fq.acf[i10]) < 0.15 && Math.abs(fn.acf[i10]) < 0.15, "still-room ACF ~ 0 in both rooms");
+    const ratio = fn.v[i10] / fq.v[i10];
+    ok(ratio > 70 && ratio < 130, "still-room variance scales with sigma^2 (x100)");
+    // B2: the ACF decays faster at higher speed (fast part only, no shadowing): compare 0.3 vs 1.2 m/s
+    const st3 = stream(P, { fs: 100, sigma: 0.002, speed: 0.3, fan: false, seed: 5 }), st12 = stream(P, { fs: 100, sigma: 0.002, speed: 1.2, fan: false, seed: 5 });
+    const mid = ff => { const a = ff.tEnd.findIndex(t => t >= 40), b = ff.tEnd.findIndex(t => t >= 58); let s = 0; for (let i = a; i < b; i++) s += ff.acf[i]; return s / (b - a); };
+    ok(mid(features(P, st3, 4)) > mid(features(P, st12, 4)), "ACF lower at higher walking speed");
+    // scoring on a hand-made sequence: decisions every 0.5 s, positive from 33 s to 61 s
+    const tE = [], dd = []; for (let t = 4; t <= 80; t += 0.5) { tE.push(t); dd.push(t >= 33 && t < 61.5); }
+    const sc = score(P, [{ id: 1, t0: 30, t1: 60, person: true, label: "x" }], tE, dd, 4);
+    ok(sc.rows[0].detected && Math.abs(sc.rows[0].ttd - 3) < 1e-9 && Math.abs(sc.rows[0].ttc - 1.5) < 1e-9 && sc.faEvents === 0, "scoring: TTD 3 s, TTC 1.5 s, no FA");
+    // a requirement of N in a row can only remove positives
+    const raw = [0.5, 0.1, 0.6, 0.7, 0.2, 0.9, 0.8, 0.95];
+    const d1 = decide(raw, 0.4, 1), d3 = decide(raw, 0.4, 3);
+    ok(d3.every((v, i) => !v || d1[i]) && d3.filter(Boolean).length === 1, "N-in-a-row removes positives");
+    return { passed, failed };
+  }
+  return { rng, gauss, SCRIPT, script, stream, varAcf, features, decide, score, falseWindowsPerMonth, budgetFpr, nyquist, selfTest };
+})();
+if (typeof module !== "undefined") module.exports = MODEL;
+/*MODEL-END*/
+</script>
+
+<script>
+/* ---- shared page helpers (UI only; the model block above is pure) ---- */
+const P = JSON.parse(document.getElementById("params").textContent);
+// The kit's page shooter (learning/stories/tools/shoot.py) steps story scenes via window.Story.
+// An explorer has no scenes; this empty stub lets the same tool check console, asserts and overflow.
+window.Story = window.Story || { scenes: {}, go() {} };
+const SHOT = /[?&]shot=1/.test(location.search);
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+function fmt(x, d = 2) {
+  if (x === null || x === undefined || !isFinite(x)) return "–";
+  const a = Math.abs(x);
+  if (a !== 0 && (a < 1e-3 || a >= 1e6)) return x.toExponential(d === 0 ? 1 : Math.min(d, 2));
+  return x.toFixed(d);
+}
+function polyline(svg, pts, attrs) {
+  const good = pts.filter(p => isFinite(p[0]) && isFinite(p[1]));
+  if (good.length < 2) return;
+  svg.appendChild(el("polyline", Object.assign({ fill: "none", points: good.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ") }, attrs)));
+}
+function classTag(c) {
+  const map = { public: "pub", illustrative: "ill", assumption: "asm" };
+  return '<span class="tag ' + (map[c] || "der") + '">' + c + "</span>";
+}
+function showVal(v) {
+  if (typeof v === "number") return String(v);
+  return JSON.stringify(v).replace(/"/g, "").replace(/,/g, ", ").replace(/:/g, ": ");
+}
+function renderSources() {
+  const tb = document.querySelector("#sources tbody");
+  for (const k of Object.keys(P)) {
+    if (k.startsWith("_")) continue;
+    const e = P[k], tr = document.createElement("tr");
+    const cells = [k, showVal(e.value), e.unit, classTag(e.class), e.source];
+    cells.forEach((c, i) => { const td = document.createElement("td"); if (i === 0) td.innerHTML = "<code>" + c + "</code>"; else if (i === 3) td.innerHTML = c; else td.textContent = c; tr.appendChild(td); });
+    tb.appendChild(tr);
+  }
+  $("gen").textContent = "Generated " + document.documentElement.dataset.generated;
+}
+function runSelfTests(selfTest) {
+  const r = selfTest(P, (cond, msg) => console.assert(cond, msg));
+  $("tests-sum").textContent = r.passed + " of " + (r.passed + r.failed) + " self-tests passed" + (r.failed ? " — see console" : "");
+  console.log("self-tests done: " + r.passed + " passed, " + r.failed + " failed");
+}
+let rafPending = false;
+function schedule(fn) { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; fn(); }); }
+function bindRange(id, fmtFn, onChange) {
+  const i = $(id), out = $(id + "_v");
+  const show = () => { out.textContent = fmtFn(+i.value); i.setAttribute("aria-valuetext", fmtFn(+i.value)); };
+  i.addEventListener("input", () => { show(); onChange(); });
+  show();
+  return show;
+}
+
+
+const thrV = t => 1e-6 * Math.pow(10, 5 * t), thrVinv = v => Math.log10(v / 1e-6) / 5;
+const CASES = [
+  { name: "Later studies: 100 Hz, 4 s window", set: { rate: "inj", feat: "acf", win: P.window_long_illustrative.value, thrA: 0.3, nrow: 1, sig: 0.01, fan: false } },
+  { name: "Early work: beacons, 1 s window", set: { rate: "beacon", feat: "acf", win: P.window_short_illustrative.value, thrA: 0.3, nrow: 1, sig: 0.01, fan: false } },
+  { name: "Variance tuned in a quiet room", set: { rate: "inj", feat: "var", win: 4, thrV: thrVinv(4e-4), nrow: 1, sig: 0.01, fan: false } },
+  { name: "… then moved to a noisy room", set: { rate: "inj", feat: "var", win: 4, thrV: thrVinv(4e-4), nrow: 1, sig: 0.04, fan: false } },
+  { name: "ACF in the same noisy room", set: { rate: "inj", feat: "acf", win: 4, thrA: 0.3, nrow: 1, sig: 0.04, fan: false } },
+  { name: "Fan in the empty home", set: { rate: "inj", feat: "acf", win: 4, thrA: 0.3, nrow: 1, sig: 0.01, fan: true } },
+  { name: "Low threshold, 3 in a row", set: { rate: "beacon", feat: "acf", win: 1, thrA: 0.15, nrow: 3, sig: 0.01, fan: false } }
+];
+const shows = {};
+let cacheKey = "", st = null, fcacheKey = "", F = null;
+function inputs() {
+  return { rate: $("rate").value, feat: $("feat").value, W: +$("win").value, thrA: +$("thrA").value, thrV: thrV(+$("thrV").value),
+    nrow: +$("nrow").value, sigma: +$("sig").value, speed: +$("spd").value, fan: $("fan").checked };
+}
+function compute(inp) {
+  const fs = inp.rate === "beacon" ? P.csi_rate_beacon_illustrative.value : P.csi_rate_injected_illustrative.value;
+  const key = [fs, inp.sigma, inp.speed, inp.fan].join("|");
+  if (key !== cacheKey) { st = MODEL.stream(P, { fs, sigma: inp.sigma, speed: inp.speed, fan: inp.fan, seed: 2024 }); cacheKey = key; fcacheKey = ""; }
+  const fk = key + "|" + inp.W;
+  if (fk !== fcacheKey) { F = MODEL.features(P, st, inp.W); fcacheKey = fk; }
+  const f = inp.feat === "acf" ? F.acf : F.v, thr = inp.feat === "acf" ? inp.thrA : inp.thrV;
+  const d = MODEL.decide(f, thr, inp.nrow), sc = MODEL.score(P, st.segs, F.tEnd, d, F.W);
+  return { fs, f, thr, d, sc };
+}
+function metric(k, v, t) { return '<div class="metric"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="t">' + t + "</div></div>"; }
+
+function drawTimeline(inp, r) {
+  const s = $("tl"); clear(s);
+  const x0 = 60, w = 820, T = P.stream_length_assumption.value, xt = t => x0 + t / T * w;
+  // script row
+  s.appendChild(el("text", { x: x0 - 6, y: 34, "text-anchor": "end", class: "mut" }, "script"));
+  for (const g of st.segs) {
+    s.appendChild(el("rect", { x: xt(g.t0), y: 20, width: Math.max(3, xt(g.t1) - xt(g.t0)), height: 20, fill: g.person ? "#5ec8ff" : "#7d8594", opacity: 0.85 }));
+    s.appendChild(el("text", { x: (xt(g.t0) + xt(g.t1)) / 2, y: 54, "text-anchor": "middle" }, String(g.id)));
+  }
+  // amplitude row (subcarrier 0), min/max per pixel
+  const a0 = 66, ah = 70, x = st.X[0]; let lo = Infinity, hi = -Infinity; for (let i = 0; i < st.N; i++) { lo = Math.min(lo, x[i]); hi = Math.max(hi, x[i]); }
+  const ya = v => a0 + ah - (v - lo) / (hi - lo || 1) * ah, per = st.N / w;
+  let dpath = "";
+  for (let px = 0; px < w; px++) { const i0 = Math.floor(px * per), i1 = Math.max(i0 + 1, Math.floor((px + 1) * per)); let mn = Infinity, mx = -Infinity; for (let i = i0; i < i1 && i < st.N; i++) { mn = Math.min(mn, x[i]); mx = Math.max(mx, x[i]); } dpath += "M" + (x0 + px) + " " + ya(mx).toFixed(1) + "V" + (ya(mn) + 0.6).toFixed(1); }
+  s.appendChild(el("path", { d: dpath, stroke: "#aeb6c4", "stroke-width": 1 }));
+  s.appendChild(el("text", { x: x0 - 6, y: a0 + ah / 2 + 4, "text-anchor": "end", class: "mut" }, "|H| sc 1"));
+  // feature row
+  const f0 = 150, fh = 130, isA = inp.feat === "acf";
+  const yf = isA ? v => f0 + fh - (Math.max(-0.3, Math.min(1, v)) + 0.3) / 1.3 * fh : v => f0 + fh - (Math.log10(Math.max(1e-6, Math.min(0.1, v))) + 6) / 5 * fh;
+  s.appendChild(el("rect", { x: x0, y: f0, width: w, height: fh, fill: "none", stroke: "#3a3f4a" }));
+  const ticks = isA ? [[-0.2, "−0.2"], [0, "0"], [0.5, "0.5"], [1, "1"]] : [[1e-6, "10⁻⁶"], [1e-4, "10⁻⁴"], [1e-2, "10⁻²"], [1e-1, "10⁻¹"]];
+  for (const [v, lab] of ticks) { s.appendChild(el("line", { x1: x0, x2: x0 + w, y1: yf(v), y2: yf(v), stroke: "#262b35" })); s.appendChild(el("text", { x: x0 - 6, y: yf(v) + 4, "text-anchor": "end", class: "mut" }, lab)); }
+  polyline(s, F.tEnd.map((t, i) => [xt(t), yf(r.f[i])]), { stroke: "#5ec8ff", "stroke-width": 1.6 });
+  s.appendChild(el("line", { x1: x0, x2: x0 + w, y1: yf(r.thr), y2: yf(r.thr), stroke: "#ffd36b", "stroke-dasharray": "6 4", "stroke-width": 1.5 }));
+  s.appendChild(el("text", { x: x0 + 4, y: f0 + 14 }, isA ? "lag-1 ACF (mean over subcarriers)" : "variance (mean over subcarriers, log)"));
+  s.appendChild(el("text", { x: x0 + w - 4, y: yf(r.thr) - 5, "text-anchor": "end" }, "threshold"));
+  // decision row
+  const d0 = 296, person = st.segs.filter(g => g.person), W = F.W;
+  s.appendChild(el("text", { x: x0 - 6, y: d0 + 13, "text-anchor": "end", class: "mut" }, "decision"));
+  const step = P.hop_assumption.value / T * w;
+  let run = [];
+  const flush = () => { if (run.length && !run.some(t => person.some(g => t >= g.t0 && t <= g.t1 + W))) s.appendChild(el("text", { x: xt((run[0] + run[run.length - 1]) / 2), y: d0 + 34, "text-anchor": "middle", fill: "#ff7a7a", "font-size": 15 }, "× false alarm")); run = []; };
+  r.d.forEach((on, i) => {
+    if (!on) { flush(); return; } const t = F.tEnd[i], good = person.some(g => t >= g.t0 && t <= g.t1 + W); run.push(t);
+    s.appendChild(el("rect", { x: xt(t) - step / 2, y: d0, width: Math.max(1.5, step), height: 18, fill: good ? "#49d17a" : "#ff7a7a" }));
+  });
+  flush();
+  for (let t = 0; t <= T; t += 30) s.appendChild(el("text", { x: xt(t), y: 352, "text-anchor": "middle", class: "mut" }, t + " s"));
+}
+
+function update() {
+  const inp = inputs();
+  $("thrA_box").hidden = inp.feat !== "acf"; $("thrV_box").hidden = inp.feat !== "var";
+  const r = compute(inp), sc = r.sc;
+  const budget = P.false_alarm_budget_illustrative.value;
+  $("headline").innerHTML =
+    metric("person scenarios detected", sc.detected + " of " + sc.events, "event level (C1)") +
+    metric("false-alarm events", String(sc.faEvents), "in " + fmt(sc.stillSeconds, 0) + " s with nobody in the room") +
+    metric("window TPR / FPR", fmt(sc.tpr, 2) + " / " + fmt(sc.fpr, 3), "windows fully inside / outside person scenarios") +
+    metric("alarms per month at this rate", sc.faEvents ? fmt(sc.faPerMonth, 0) : "0 seen", "budget " + budget + " per month (illustrative); 0 in minutes proves little");
+  drawTimeline(inp, r);
+  const tb = document.querySelector("#segs tbody"); tb.innerHTML = "";
+  for (const row of sc.rows) {
+    const tr = document.createElement("tr");
+    const res = row.person ? (row.detected ? '<span class="hit">detected</span>' : '<span class="miss">missed</span>') : (row.fa ? '<span class="fa">' + row.fa + " false alarm" + (row.fa > 1 ? "s" : "") + "</span>" : '<span class="hit">no alarm</span>');
+    tr.innerHTML = "<td>" + row.id + "</td><td>" + row.label + "</td><td>" + (row.person ? "yes" : "no") + "</td><td>" + res + "</td><td>" + (row.ttd !== null ? fmt(row.ttd, 1) + " s" : "–") + "</td><td>" + (row.ttc !== null ? fmt(row.ttc, 1) + " s" : "–") + "</td>";
+    tb.appendChild(tr);
+  }
+  const why = [];
+  const ttds = sc.rows.filter(x => x.ttd !== null).map(x => x.ttd);
+  const ttcs = sc.rows.filter(x => x.ttc !== null).map(x => x.ttc);
+  const rng = a => !a.length ? "–" : fmt(Math.min(...a), 1) === fmt(Math.max(...a), 1) ? fmt(a[0], 1) + " s" : fmt(Math.min(...a), 1) + "–" + fmt(Math.max(...a), 1) + " s";
+  why.push("<p><strong>Latency.</strong> Time to detect here is " + rng(ttds) + " and time to clear is " + rng(ttcs) + ", with a " + fmt(F.W, 1) + " s window and " + inp.nrow + " window(s) in a row. Strong motion dominates a window's statistics as soon as a small part of the window contains it, so onset can be caught before the window fills. Clearing has to wait until the motion has left the window, so time to clear grows with the window length (my explanation from this model; C1 asks for both delays). The notes found that a 4 s → 8 s window added only about " + P.window_4s_vs_8s_gain_illustrative.value + " TPR point (illustrative, B3). Past a few seconds the latency cost wins.</p>");
+  if (inp.feat === "var") why.push("<p><strong>Variance carries the room.</strong> The still-room variance is about σ² = " + fmt(inp.sigma * inp.sigma, 2) + ". A threshold set in one room is wrong in a room with a different noise floor or gain, and must be calibrated per room (B2).</p>");
+  else why.push("<p><strong>ACF is self-normalised.</strong> In a still room the mean-removed lag-1 ACF stays near 0 whatever the noise floor, so one threshold transfers between rooms. The notes give the ACF an illustrative " + P.acf_vs_variance_illustrative.value.acf_tap1 + " TPR against " + P.acf_vs_variance_illustrative.value.variance + " for variance at 1% FPR (B2). Motion raises it only if the stream is sampled fast enough: at " + r.fs + " Hz a " + fmt(inp.speed, 2) + " m/s walk has Doppler up to " + fmt(2 * inp.speed / (P.wavelength_5g.value / 100), 0) + " Hz against a Nyquist limit of " + r.fs / 2 + " Hz. " + (r.fs < 2 * 2 * inp.speed / (P.wavelength_5g.value / 100) ? "The fast part is aliased into noise, and only the slow envelope change is left for the ACF (A1 caution)." : "") + "</p>");
+  const wall = sc.rows.find(x => x.id === 4), fan = sc.rows.find(x => x.id === 5);
+  if (wall && wall.fa) why.push("<p><strong>Next room.</strong> The walk behind the wall fired " + wall.fa + " false alarm" + (wall.fa > 1 ? "s" : "") + ". One link cannot tell this room from the next. Comparing links across devices is the fix, see explorer 03 (B4).</p>");
+  if (fan && fan.fa) why.push("<p><strong>Fan.</strong> A periodic fan is highly self-correlated and changes the CSI like a person. Neither feature rejects it. This is the hardest false-alarm source for a strict budget (C5).</p>");
+  why.push("<p><strong>Budget.</strong> At one decision per second, a per-window FPR of 1% is about " + fmt(MODEL.falseWindowsPerMonth(P, 0.01, P.window_short_illustrative.value), 0) + " false windows per month. A budget of " + budget + " per month needs a per-window FPR near " + fmt(MODEL.budgetFpr(P, budget, P.window_short_illustrative.value), 1) + " (C1, my arithmetic). Merging touching windows into events and the in-a-row rule close part of that gap.</p>");
+  $("why_text").innerHTML = why.join("");
+  $("live").textContent = sc.detected + " of " + sc.events + " person scenarios detected, " + sc.faEvents + " false-alarm events.";
+}
+$("hop").textContent = P.hop_assumption.value;
+const fm = { win: v => v.toFixed(1) + " s", thrA: v => v.toFixed(2), thrV: v => fmt(thrV(v), 1), nrow: v => String(v), sig: v => v.toFixed(3), spd: v => v.toFixed(2) + " m/s" };
+for (const id of Object.keys(fm)) shows[id] = bindRange(id, fm[id], () => schedule(update));
+for (const id of ["rate", "feat", "fan"]) $(id).addEventListener("change", () => schedule(update));
+for (const c of CASES) {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+  b.addEventListener("click", () => { for (const k in c.set) { if (k === "fan") $(k).checked = c.set[k]; else $(k).value = c.set[k]; if (shows[k]) shows[k](); } update(); });
+  $("cases").appendChild(b);
+}
+renderSources();
+runSelfTests(MODEL.selfTest);
+update();
+</script>
+</body>
+</html>

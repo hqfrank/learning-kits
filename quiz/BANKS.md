@@ -121,3 +121,99 @@ the 0.5 ms clock-offset bound, 120 s warm-up / 300 s window, the 0.3-core foreig
 numbers (e.g. the audio message rate) are asked with their inputs shown in the prompt. This kit is
 public: no internal names, hosts, URLs, paths, or identifiers appear in any bank
 (verified by grep). Validated with `node quiz/check-banks.js` → 0 errors.
+
+## agentic-device-control — Agentic control of a consumer device
+
+| Topic | Section | KPs | Questions | Date |
+|---|---|---|---|---|
+| agentic-device-control | 00-why-cloud-initiated-device-agents | 6 | 15 | 2026-11-04 |
+| agentic-device-control | 01-the-message-path | 6 | 16 | 2026-11-04 |
+| agentic-device-control | 02-the-agent-graph | 6 | 16 | 2026-11-04 |
+| agentic-device-control | 03-the-orchestrator | 6 | 15 | 2026-11-04 |
+| agentic-device-control | 04-the-vision-specialist | 7 | 21 | 2026-11-04 |
+| agentic-device-control | 05-the-actuator | 6 | 15 | 2026-11-04 |
+| agentic-device-control | 06-the-react-loop | 6 | 16 | 2026-11-04 |
+| agentic-device-control | 07-cost-and-latency | 6 | 22 | 2026-11-04 |
+| agentic-device-control | 08-safety | 6 | 16 | 2026-11-04 |
+| agentic-device-control | 09-evaluation | 6 | 18 | 2026-11-04 |
+
+**Totals:** 10 banks (one per note, 00–09), 61 knowledge points, 170 questions
+(mcq 71, tf 60, multi 17, numeric 22).
+
+Notes: every knowledge point has 2–5 questions; every question cites its note section. Numbers were
+loaded from the kit's `constants.json` at generation time, not retyped. Each is either public (ReAct
+gains of 34 / 10 pp, the vendor's computer-use reference frame, screenshot token range and history
+defaults, prompt-caching breakpoints, lifetimes and price multipliers) or labelled illustrative (task
+time, tokens, limits, temperatures, evaluation counts). Derived numbers (coordinate scaling, cached-call
+cost, 0.9⁵, 40/50) are asked with their inputs in the prompt. tf runs at about 35 %, because this
+kit's notes are built around "Common confusions" and each confusion gets a true/false item. Notes
+08 and 02 have no numbers, so their banks have no numeric questions. Validated with
+`node quiz/check-banks.js` (0 errors); `tools/public-scan.sh` is clean.
+
+## wifi-csi-sensing — Wi-Fi sensing with channel state information
+
+| Topic | Section | KPs | Questions | Date |
+|---|---|---|---|---|
+| wifi-csi-sensing | A0-why-sense-with-wifi | 8 | 24 | 2026-11-04 |
+| wifi-csi-sensing | A1-csi-and-multipath | 8 | 26 | 2026-11-04 |
+| wifi-csi-sensing | A2-what-the-hardware-gives-you | 7 | 22 | 2026-11-04 |
+| wifi-csi-sensing | B1-preprocessing | 7 | 25 | 2026-11-04 |
+| wifi-csi-sensing | B2-features | 7 | 25 | 2026-11-04 |
+| wifi-csi-sensing | B3-classifiers-and-windows | 6 | 23 | 2026-11-04 |
+| wifi-csi-sensing | B4-multi-device-joint-detection | 7 | 22 | 2026-11-04 |
+| wifi-csi-sensing | B5-room-localisation-by-metric-learning | 6 | 22 | 2026-11-04 |
+| wifi-csi-sensing | C1-kpis | 6 | 23 | 2026-11-04 |
+| wifi-csi-sensing | C2-data-collection-campaigns | 6 | 21 | 2026-11-04 |
+| wifi-csi-sensing | C3-coexistence | 5 | 19 | 2026-11-04 |
+| wifi-csi-sensing | C4-sensing-endpoint-architecture | 5 | 19 | 2026-11-04 |
+| wifi-csi-sensing | C5-limits-and-open-problems | 6 | 21 | 2026-11-04 |
+
+**Totals:** 13 banks, 84 knowledge points, 292 questions (mcq 135, tf 78, multi 37, numeric 42).
+
+Notes: one bank per note; every knowledge point has at least 3 questions. Every question's `source`
+names the note section, and every numeric answer comes from the kit's `constants.json` (key cited in the
+source), as public values (802.11 subcarrier counts and spacing, beacon interval, delay resolution,
+Hampel constants, FaceNet margin) or values labelled illustrative. Derived numbers (Doppler bound 2 ÷
+0.055, field TPR 0.5 ÷ 0.9, N² links, the false-alarm budget arithmetic in C1, the beacon CSI traffic in
+C4) are asked with their inputs in the prompt. Choices were rewritten to similar lengths so the longest
+choice does not give the answer away. **Inconsistency in the source note, not fixed here:** B4 says
+adding device-to-device links gave a larger gain than going from one to four devices, but its
+illustrative `devices_tpr_illustrative` values give +0.20 against +0.25. The bank does not ask about
+the size of the two gains. Validated with `node quiz/check-banks.js` (0 errors);
+`tools/public-scan.sh` is clean.
+
+## device-log-anomaly-detection — Finding faults in a device fleet from logs and metrics
+
+| Topic | Section | KPs | Questions | Date |
+|---|---|---|---|---|
+| device-log-anomaly-detection | A0-why-fleets-need-log-analysis | 6 | 16 | 2026-11-04 |
+| device-log-anomaly-detection | A1-what-a-device-log-is | 7 | 17 | 2026-11-04 |
+| device-log-anomaly-detection | A2-fleet-metrics | 6 | 17 | 2026-11-04 |
+| device-log-anomaly-detection | B1-log-parsing-to-templates | 7 | 19 | 2026-11-04 |
+| device-log-anomaly-detection | B2-windows-and-count-vectors | 7 | 18 | 2026-11-04 |
+| device-log-anomaly-detection | B3-anomaly-detection-on-logs | 8 | 20 | 2026-11-04 |
+| device-log-anomaly-detection | B4-fleet-trend-detection | 7 | 18 | 2026-11-04 |
+| device-log-anomaly-detection | B5-from-anomaly-to-root-cause | 7 | 18 | 2026-11-04 |
+| device-log-anomaly-detection | B6-clustering-and-reporting | 7 | 18 | 2026-11-04 |
+| device-log-anomaly-detection | C1-the-ground-truth-problem | 6 | 17 | 2026-11-04 |
+| device-log-anomaly-detection | C2-template-engineering | 6 | 18 | 2026-11-04 |
+| device-log-anomaly-detection | C3-data-quality | 6 | 18 | 2026-11-04 |
+| device-log-anomaly-detection | C4-lessons | 7 | 19 | 2026-11-04 |
+| device-log-anomaly-detection | C5-from-service-to-tool | 7 | 18 | 2026-11-04 |
+
+**Totals:** 14 banks (one per note), 94 knowledge points, 251 questions
+(mcq 136, tf 67, multi 23, numeric 25).
+
+Notes: every knowledge point has 2–4 questions; every question cites its note section. Sources are
+the kit's notes, glossary and `constants.json` only. Numbers were loaded from `constants.json` at
+generation time, not retyped. They are either public (isolation-forest ψ = 256, t = 100, height
+limit 8, c(256) ≈ 10.24, the 0.5 and 0.82 scores; DeepLog g = 9; Drain's 5 data sets; He et al.'s
+HDFS 16,838 / 575,061 count vectors; IEEE 802.11 reason codes 2 and 15; the Phred factor 10 and
+score examples) or labelled illustrative (lines per device-day, family sizes and standard errors,
+ground-truth funnel and Wilson intervals, pilot tickets, flagged windows, time per case). Derived
+numbers (√2 SE growth, 2.93 % HDFS anomaly share, 93 windows, 83 % time saved, 6× speed-up, 100
+chance alarms) are asked with their inputs in the prompt. Two counts come from note text, not
+constants: the four-step retraining cascade (C2) and √2 (A2). B6 has no numeric question because its
+note states no number worth asking (its only number is an illustrative ticket volume). tf is about
+27 %, because each "Common confusions" item gets a true/false question. Validated with
+`node quiz/check-banks.js` (0 errors); `tools/public-scan.sh` is clean.

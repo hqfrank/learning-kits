@@ -1,0 +1,1082 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The night-shift mechanic — finding faults in a device fleet from lights and logbooks</title>
+<meta name="description" content="A visual story: a device fleet as cars at night that phone home their warning lights and keep a logbook in the glovebox. How metrics pick the devices, parsed logs tell what happened, and why an anomalous window is a lead, not a verdict.">
+<link rel="stylesheet" href="../../stories/story.css">
+<style>
+  /* palette meaning: sun = fleet metric (the light) · sky = the log (book, stamps, pages) · coral = odd / anomalous
+     leaf = normal (usual route, weighted fit, caught cases) · plum = the environment (the road) · stone = people (mechanic, work order) */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--ink-2);margin:10px 4px 0}
+  .legend i{display:inline-block;width:16px;height:12px;border-radius:4px;border:1.5px solid var(--navy);margin-right:6px;vertical-align:-1px}
+  .hero-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+  .hero h1{max-width:30ch;font-size:clamp(28px,3.4vw,40px)}
+  .hero .lede{font-size:clamp(16px,1.6vw,18px);margin-bottom:.6rem}
+  .cast .c svg{max-width:100%}
+  .kicker{line-height:1.6}
+  .stages{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  .stages li{background:var(--card);border:2px solid var(--ink);border-radius:14px;padding:8px 12px;box-shadow:0 3px 0 var(--ink);font:700 15px/1.35 var(--body)}
+  .stages li b.n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font:800 13px var(--display);margin-right:6px}
+  .stages li .read-note{font-size:13px;margin-left:4px}
+  @keyframes ping{0%{offset-distance:0%;opacity:0}10%{opacity:1}88%{opacity:1}100%{offset-distance:100%;opacity:0}}
+  .ping{animation:ping 3.2s linear infinite;offset-rotate:0deg}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+  .blink{animation:blink 1.4s ease-in-out infinite}
+  @keyframes scribble{0%{transform:scaleX(0)}70%,100%{transform:scaleX(1)}}
+  .scrib{animation:scribble 2.6s var(--ease) infinite;transform-box:fill-box;transform-origin:left center}
+  /* still mode (reduced motion, motion off, screenshots): a representative frame, not frame 0 */
+  .st-still .ping{animation:none;offset-distance:var(--od,50%);opacity:1}
+  .st-still .blink{animation:none;opacity:1}
+  .st-still .scrib{animation:none;transform:none}
+  .grow{transform-box:fill-box;transform-origin:left center}
+  .js .st-scene .grow[data-s]:not(.is-on){transform:scaleX(0);opacity:1}
+  .growy{transform-box:fill-box;transform-origin:center bottom}
+  .js .st-scene .growy[data-s]:not(.is-on){transform:scaleY(0);opacity:1}
+  .st-scene .lit.is-lit,.st-scene .is-lit .lit{stroke:var(--coral)!important;stroke-width:4!important}
+  .readout{font:700 16px/1.5 var(--body);margin:10px 0 0}
+  .readout b{font-family:var(--mono);color:var(--coral-d)}
+  .readout .sun{color:var(--sun-d)} .readout .leaf{color:var(--leaf-d)}
+  details{margin-top:10px;font-size:15px;color:var(--ink-2)} summary{cursor:pointer;font-weight:700;color:var(--ink)}
+  code{font:600 .92em var(--mono);background:var(--card-2);padding:1px 5px;border-radius:5px}
+  .breaks li{margin:4px 0}
+  .st-foot td{overflow-wrap:anywhere}
+  .rule{background:#FFF4DE;border:2px solid var(--ink);border-radius:16px;padding:12px 14px;margin:0}
+  .rule b{color:var(--leaf-d)}
+  .twocol{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start;margin-top:14px}
+  @media (max-width:860px){.twocol{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<a class="skip" href="#s1">Skip to the first scene</a>
+<noscript><p class="wrap" style="background:#FFF4DE;padding:10px;border-radius:10px">This story draws its pictures with JavaScript. The written version is in <a href="../notes/A0-why-fleets-need-log-analysis.md">the notes</a>.</p></noscript>
+
+<!-- the cast: drawn once, reused with <use>. Outlines are presentation attributes inside each symbol. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <marker id="ah-ink" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1D2A44"/></marker>
+  <marker id="ah-leaf" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1D7660"/></marker>
+  <marker id="ah-coral" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="16" markerHeight="16" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#B33F1D"/></marker>
+  <symbol id="i-car" viewBox="0 0 120 64">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M8 46 V35 Q8 29 16 28 L32 26 L44 13 Q47 10 52 10 H80 Q86 10 89 14 L100 27 L108 29 Q114 31 114 37 V46 Z" style="fill:var(--c,#E9E1D0)"/>
+    <path d="M49 15 H65 V27 H38 Z" fill="#A7C8D6"/><path d="M70 15 H84 L94 27 H70 Z" fill="#A7C8D6"/>
+    <circle cx="30" cy="47" r="10" fill="#2E3646"/><circle cx="92" cy="47" r="10" fill="#2E3646"/>
+   </g>
+   <circle cx="30" cy="47" r="4" fill="#C9C1AE"/><circle cx="92" cy="47" r="4" fill="#C9C1AE"/>
+   <circle cx="108" cy="35" r="3.2" fill="#FFFDF8" stroke="#141C2E" stroke-width="1.6"/>
+   <path d="M60 31 V40" stroke="#141C2E" stroke-width="1.6"/>
+  </symbol>
+  <symbol id="i-lamp" viewBox="0 0 40 40">
+   <circle cx="20" cy="20" r="16" fill="#F2C64A" stroke="#141C2E" stroke-width="2.5"/>
+   <path d="M20 10 V23" stroke="#141C2E" stroke-width="4" stroke-linecap="round"/><circle cx="20" cy="29.5" r="2.6" fill="#141C2E"/>
+  </symbol>
+  <symbol id="i-book" viewBox="0 0 60 76">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="4" y="8" width="52" height="64" rx="6" fill="#5E9FB8"/><rect x="12" y="16" width="38" height="50" rx="3" fill="#FFFDF8"/></g>
+   <g fill="#EFE5D4" stroke="#141C2E" stroke-width="1.8"><circle cx="16" cy="8" r="3.5"/><circle cx="26" cy="8" r="3.5"/><circle cx="36" cy="8" r="3.5"/><circle cx="46" cy="8" r="3.5"/></g>
+   <path d="M18 28 H44 M18 37 H38 M18 46 H44 M18 55 H34" stroke="#5E9FB8" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-page" viewBox="0 0 84 132">
+   <rect x="2" y="2" width="80" height="128" rx="8" fill="#FFFDF8" stroke="#141C2E" stroke-width="2.5"/>
+   <path d="M14 32 H66 M14 47 H54 M14 62 H70 M14 77 H50 M14 92 H62" stroke="#5E9FB8" stroke-width="3.5" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-page-f" viewBox="0 0 84 132">
+   <rect x="2" y="2" width="80" height="128" rx="8" fill="#FFFDF8" stroke="#141C2E" stroke-width="2.5"/>
+   <path d="M14 32 H66 M14 47 H54 M14 92 H62" stroke="#5E9FB8" stroke-width="3.5" stroke-linecap="round"/>
+   <path d="M14 62 H70 M14 77 H50" stroke="#EE6A45" stroke-width="5" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-stamp" viewBox="0 0 60 70">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <circle cx="30" cy="12" r="9" fill="#2C6A82"/><rect x="25" y="19" width="10" height="16" fill="#A7C8D6"/>
+    <rect x="8" y="34" width="44" height="18" rx="4" fill="#5E9FB8"/><rect x="11" y="52" width="38" height="9" rx="2" fill="#1D2A44"/>
+   </g>
+   <path d="M12 66 H48" stroke="#5E9FB8" stroke-width="3" stroke-dasharray="5 3" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-tally" viewBox="0 0 56 60">
+   <rect x="3" y="3" width="50" height="54" rx="6" fill="#FFFDF8" stroke="#141C2E" stroke-width="2.5"/>
+   <g stroke="#141C2E" stroke-width="2"><rect x="11" y="24" width="8" height="26" fill="#5E9FB8"/><rect x="24" y="16" width="8" height="34" fill="#5E9FB8"/><rect x="37" y="34" width="8" height="16" fill="#EE6A45"/></g>
+  </symbol>
+  <symbol id="i-q" viewBox="0 0 44 56">
+   <rect x="3" y="3" width="38" height="50" rx="6" fill="#FFFDF8" stroke="#141C2E" stroke-width="2.5"/>
+   <path d="M14 21 Q14 12 22 12 Q30 12 30 20 Q30 25 23 28 V33" fill="none" stroke="#1D2A44" stroke-width="4" stroke-linecap="round"/><circle cx="23" cy="42" r="3" fill="#1D2A44"/>
+  </symbol>
+  <symbol id="i-route" viewBox="0 0 70 50">
+   <path d="M12 38 L35 14 L58 38" fill="none" stroke="#3AA88D" stroke-width="5" stroke-linecap="round"/><path d="M35 14 L58 14" fill="none" stroke="#EE6A45" stroke-width="3" stroke-dasharray="4 3"/>
+   <g fill="#FFFDF8" stroke="#141C2E" stroke-width="2.5"><circle cx="12" cy="38" r="7"/><circle cx="35" cy="14" r="7"/><circle cx="58" cy="38" r="7"/><circle cx="58" cy="14" r="5"/></g>
+  </symbol>
+  <symbol id="i-road" viewBox="0 0 120 40" preserveAspectRatio="none">
+   <rect x="2" y="6" width="116" height="30" rx="6" fill="#D9BCD0" stroke="#141C2E" stroke-width="2.5"/>
+   <path d="M10 21 H110" stroke="#FFFDF8" stroke-width="3" stroke-dasharray="10 8"/>
+   <ellipse cx="38" cy="28" rx="11" ry="4.5" fill="#7E3A6C" stroke="#141C2E" stroke-width="1.8"/><ellipse cx="86" cy="14" rx="8" ry="3.5" fill="#7E3A6C" stroke="#141C2E" stroke-width="1.8"/>
+  </symbol>
+  <symbol id="i-mech" viewBox="0 0 66 100">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="12" y="54" width="40" height="43" rx="14" style="fill:var(--c,#8C8670)"/>
+    <rect x="22" y="60" width="20" height="15" rx="3" fill="#B8B29C"/>
+    <circle cx="32" cy="38" r="14" style="fill:var(--skin,#D49A6A)"/>
+    <path d="M17 33 Q18 19 32 19 Q46 19 47 33 Z" fill="#3A4660"/><path d="M44 30 H57 Q59 33 56 35 H45" fill="#3A4660"/>
+    <path d="M54 66 L62 50" stroke-width="4"/><circle cx="62" cy="47" r="4.5" fill="#C9C1AE"/>
+   </g>
+   <circle cx="27" cy="40" r="1.9" fill="#141C2E"/><circle cx="37" cy="40" r="1.9" fill="#141C2E"/>
+   <ellipse cx="22.5" cy="45" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/><ellipse cx="41.5" cy="45" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/>
+   <path d="M28 46 Q32 49 36 46" fill="none" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-order" viewBox="0 0 50 66">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="3" y="6" width="44" height="57" rx="6" fill="#8C8670"/><rect x="9" y="13" width="32" height="44" rx="3" fill="#FFFDF8"/><rect x="17" y="2" width="16" height="9" rx="3" fill="#C9C1AE"/></g>
+   <path d="M14 24 H36 M14 32 H32 M14 40 H36" stroke="#55607A" stroke-width="2.2" stroke-linecap="round"/><path d="M15 49 l4 4 8 -8" fill="none" stroke="#1D7660" stroke-width="3" stroke-linecap="round"/>
+  </symbol>
+ </defs>
+</svg>
+
+<!-- ================================ HERO: the answer as a picture ================================ -->
+<header class="hero wrap">
+ <div class="hero-top">
+  <div>
+   <div class="kicker">Device-log anomaly detection · story 1</div>
+   <h1><span class="lbl-k">The lights pick the cars, the logbook tells what happened, and an odd page is a lead, not a verdict.</span><span class="lbl-e">Fleet metrics pick the devices, parsed logs tell what happened, and an anomalous window is a lead, not a verdict.</span></h1>
+  </div>
+  <div class="st-switch" data-view-switch role="group" aria-label="Label style">
+   <button data-view="kitchen" aria-pressed="true">Garage view</button><button data-view="eng" aria-pressed="false">Engineer view</button>
+  </div>
+ </div>
+ <p class="lede">Picture the fleet as <b>cars out at night</b>. A car phones home only when a <b>warning light</b> comes on, and it keeps a <b>logbook</b> in the glovebox. The night mechanic never sees a car. The job: <b>use the lights to choose which logbooks to read, then read them fast</b>, without taking every odd page for a broken car. Flip to <b>Engineer view</b> for the real names.</p>
+ <figure class="panel" style="padding:10px 10px 4px">
+  <svg id="hero" data-wide viewBox="0 0 1000 410" role="img" aria-labelledby="hero-t"><title id="hero-t">Cars on two roads at night. Most send nothing; two have an amber warning light on and send pings to a depot board. The board shows the share of cars with the light on, rising over the last days. An arrow says "pick these cars" and leads to the mechanic's bench, where an open logbook shows one page marked odd, and one work order leaves the bench.</title></svg>
+  <figcaption class="legend"><span><i style="background:var(--sun)"></i><span class="lbl-k">warning light</span><span class="lbl-e">fleet metric</span></span><span><i style="background:var(--sky)"></i><span class="lbl-k">logbook</span><span class="lbl-e">device log</span></span><span><i style="background:var(--coral)"></i><span class="lbl-k">odd page</span><span class="lbl-e">anomalous window</span></span><span><i style="background:var(--leaf)"></i><span class="lbl-k">normal</span><span class="lbl-e">normal behaviour</span></span><span><i style="background:var(--plum)"></i><span class="lbl-k">the road</span><span class="lbl-e">home network</span></span><span><i style="background:var(--stone)"></i><span class="lbl-k">mechanic</span><span class="lbl-e">engineer</span></span><span>Picture, not data: the shape of the pipeline in <a href="../notes/A0-why-fleets-need-log-analysis.md">A0</a>, not one fleet.</span></figcaption>
+ </figure>
+ <ol class="stages" aria-label="The four stages">
+  <li><b class="n">1</b><span class="lbl-k">The lights pick the cars</span><span class="lbl-e">Metrics pick the devices</span> <a class="read-note" href="../notes/B4-fleet-trend-detection.md">B4</a></li>
+  <li><b class="n">2</b><span class="lbl-k">Read each line's stamp</span><span class="lbl-e">Parse lines into templates</span> <a class="read-note" href="../notes/B1-log-parsing-to-templates.md">B1</a></li>
+  <li><b class="n">3</b><span class="lbl-k">Find the odd pages</span><span class="lbl-e">Score the windows</span> <a class="read-note" href="../notes/B3-anomaly-detection-on-logs.md">B3</a></li>
+  <li><b class="n">4</b><span class="lbl-k">One work order per fault</span><span class="lbl-e">One ticket per cluster</span> <a class="read-note" href="../notes/B6-clustering-and-reporting.md">B6</a></li>
+ </ol>
+ <div class="cast" aria-label="The cast">
+  <div class="c" data-ref="car"><svg viewBox="0 0 120 64" role="img" aria-label="car"><use href="#i-car"/></svg><b>The cars</b><span>the device fleet</span></div>
+  <div class="c" data-ref="lamp"><svg viewBox="0 0 40 40" role="img" aria-label="warning light"><use href="#i-lamp"/></svg><b>Warning light</b><span>a fleet metric, sent only when the event happens</span></div>
+  <div class="c" data-ref="book"><svg viewBox="0 0 60 76" role="img" aria-label="logbook"><use href="#i-book"/></svg><b>The logbook</b><span>the device log, in a ring buffer</span></div>
+  <div class="c" data-ref="stamp"><svg viewBox="0 0 60 70" role="img" aria-label="rubber stamp"><use href="#i-stamp"/></svg><b>Rubber stamp</b><span>a template: fixed words + blanks</span></div>
+  <div class="c" data-ref="tally"><svg viewBox="0 0 56 60" role="img" aria-label="tally page"><use href="#i-tally"/></svg><b>Page tally</b><span>a window's count vector</span></div>
+  <div class="c" data-ref="q"><svg viewBox="0 0 44 56" role="img" aria-label="question card"><use href="#i-q"/></svg><b>Random questions</b><span>an isolation forest</span></div>
+  <div class="c" data-ref="route"><svg viewBox="0 0 70 50" role="img" aria-label="route map"><use href="#i-route"/></svg><b>The usual route</b><span>the workflow of transition edges</span></div>
+  <div class="c" data-ref="road"><svg viewBox="0 0 120 40" role="img" aria-label="road"><use href="#i-road"/></svg><b>The road</b><span>the home network: router, provider</span></div>
+  <div class="c" data-ref="mech"><svg viewBox="0 0 66 100" role="img" aria-label="mechanic"><use href="#i-mech"/></svg><b>Night mechanic</b><span>the engineer who decides</span></div>
+  <div class="c" data-ref="order"><svg viewBox="0 0 50 66" role="img" aria-label="work order"><use href="#i-order"/></svg><b>Work order</b><span>a ticket, with evidence</span></div>
+ </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================================ 1. the book that tears out its own pages ================================ -->
+<section class="scene" id="s1" data-title="1 · The vanishing page">
+ <h2><span class="num">1</span>The logbook tears out its own pages</h2>
+ <p class="sub">The logbook has a fixed number of pages. Watch what happens to the page that shows the fault. Step through.</p>
+ <figure class="st-scene panel" id="s-book" data-dwell="3200" aria-label="Scene: a ring buffer overwrites the fault">
+  <svg data-wide viewBox="0 0 1000 320" role="img" aria-label="A car and its logbook with room for six pages. New pages push out the oldest; the page with the fault is torn out before the mechanic asks for the book."></svg>
+  <ol class="st-cap">
+   <li><b>Fixed pages.</b> A car writes about {{lines_per_device_day}} lines a day <span class="tag ill">illustrative</span>, and a buffer of a few megabytes holds only hours of them. Page 3 shows the fault. <a class="read-note" href="../notes/A1-what-a-device-log-is.md">A1</a></li>
+   <li><b>The book is full, so the oldest page goes.</b> Each new page overwrites the oldest one. That is a <span class="lbl-k">self-tearing logbook</span><span class="lbl-e">ring buffer</span>.</li>
+   <li><b>The fault page goes too.</b> Nobody has asked for the book yet. Most diagnostic tools run only on demand, after a customer complains.</li>
+   <li><b>The mechanic asks, too late.</b> The book arrives without page 3. Lost evidence is the normal case, and it is the argument for reading the book on the device. <a class="read-note" href="../notes/A0-why-fleets-need-log-analysis.md">A0</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 2. three cars or a fleet change ================================ -->
+<section class="scene" id="s2" data-title="2 · Three cars or a trend?">
+ <h2><span class="num">2</span>Three cars, or a fleet change?</h2>
+ <p class="sub">Every car sends its lights, and they are cheap, <b>therefore</b> they choose which logbooks to read. <b>But</b> a share from a small family of cars is noisy.</p>
+ <div class="st-predict" id="p-lot">
+  <p class="q">Last week no car showed a rare light. Today 3 % of a {{small_family_devices}}-car family shows it, and 3 % of a {{large_family_devices}}-car family. Which is more likely a real change?</p>
+  <div class="opts">
+   <button class="btn" data-choice="small" data-why="Three cars in {{small_family_devices}} could be three unlucky households. The 95 % range is about ±{{@halfSmall}} points, so it reaches down to 0 %.">The small family</button>
+   <button class="btn" data-choice="large" data-right data-why="Same 3 %, but its standard error is {{rare_share_large_family_se}} points instead of {{rare_share_small_family_se}}. A jump that size from {{large_family_devices}} cars is a fleet change.">The large family</button>
+   <button class="btn" data-choice="same" data-why="The share is the same; its noise is not. The standard error of a share shrinks with the square root of the number of cars.">Both the same: 3 % is 3 %</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <div class="grid2">
+  <figure class="panel">
+   <svg id="lot" viewBox="0 0 600 390" role="img" aria-label="A car park of 100 car icons, 3 with the light on, and a 95 percent range for the share of cars with the light on."></svg>
+   <figcaption><span class="tag ill">illustrative</span> The {{small_family_devices}}-car family with {{rare_reason_devices}} lit cars from <a href="../notes/A2-fleet-metrics.md">A2</a>. The band is 3 % ± 1.96 standard errors.</figcaption>
+  </figure>
+  <div>
+   <div class="ctl"><label for="nLot">Cars active today (n) <output id="nLot-v">100</output></label><input id="nLot" data-k="lg" type="range" min="2" max="4" step="0.05" value="2" aria-describedby="lot-read"></div>
+   <p class="readout" id="lot-read" aria-live="polite"></p>
+   <details><summary>The model</summary>The share of cars with the light on is a sample proportion, p̂ = lit cars ÷ active cars. Its standard error is √(p̂(1 − p̂)/n). Halve n and the error grows by √2. That is why the trend test in scene 3 weighs each day by its cars (<a href="../notes/A2-fleet-metrics.md">A2</a>).</details>
+  </div>
+ </div>
+</section>
+
+<!-- ================================ 3. is the light getting worse ================================ -->
+<section class="scene" id="s3" data-title="3 · Is it getting worse?">
+ <h2><span class="num">3</span>Is the light getting worse?</h2>
+ <p class="sub">One light, one family, eight weeks. The question is a slope. <b>But</b> some days rest on many cars and some on very few.</p>
+ <figure class="st-scene panel" id="s-trend" data-dwell="3600" aria-label="Scene: weighted trend test">
+  <svg data-wide viewBox="0 0 1000 420" role="img" aria-label="Fifty-six daily shares of cars with the light on, with the cars on the road per day below. An equal-weight line, then a weighted line, a slope test against a threshold, a p-value to score ladder, and a grid of ten thousand tests with about one hundred chance alarms."></svg>
+  <ol class="st-cap">
+   <li><b>One dot per day.</b> Each dot is the day's share of cars with the light on, over {{trend_series_length/weeks}} weeks. The bars below are the cars on the road that day. Weekends and outages leave few cars. <a class="read-note" href="../notes/B4-fleet-trend-detection.md">B4</a></li>
+   <li><b>Equal weights mislead.</b> A plain line (ordinary least squares) gives a near-empty day the same say as a full one. The noise is not the same every day, so its error bar is wrong.</li>
+   <li><b>Weigh each day by its cars.</b> Weighted least squares: weight = cars ÷ (p(1 − p)). Big dots pull hard; small dots barely pull. The slope may move a little; the error bar is what changes.</li>
+   <li><b>Ask a useful question.</b> Not "is the slope zero?" With enough cars it never is. Test against <i>s</i>, the smallest slope worth a look. Here the weighted slope clears <i>s</i>: p = {{@p}}.</li>
+   <li><b>Turn p into a score.</b> score = −10 · log₁₀ p. p = 0.01 gives {{score_examples/p_0.01}}; p = 10⁻⁵ gives {{score_examples/p_1e-5}}. This light scores {{@score}}. It is confidence that the slope exceeds <i>s</i>, not severity.</li>
+   <li><b>But the test runs on every light, every day.</b> {{monitored_series}} tests a day at p &lt; 0.01 give about {{multiple_testing_false_alarms}} alarms by chance alone <span class="tag ill">illustrative</span>. Rank by score and control the false-discovery rate.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 4. rubber stamps ================================ -->
+<section class="scene" id="s4" data-title="4 · Rubber stamps">
+ <h2><span class="num">4</span>Every line was printed by a rubber stamp</h2>
+ <p class="sub">The lights picked the cars, <b>therefore</b> the mechanic now opens their logbooks. Millions of different lines turn out to come from a few hundred stamps.</p>
+ <figure class="st-scene panel" id="s-stamp" data-dwell="3600" aria-label="Scene: log parsing into templates">
+  <svg data-wide viewBox="0 0 1000 350" role="img" aria-label="A raw log line; the stamp that made it, with blanks; the blank values lifted out as parameters; then a drawer of one hundred stamps where a miner trained on normal books found twenty, almost all from the normal half."></svg>
+  <ol class="st-cap">
+   <li><b>One line from the logbook.</b> Fixed words from the code, plus values the car filled in as it ran. This is a public Wi-Fi supplicant event. <a class="read-note" href="../notes/A1-what-a-device-log-is.md">A1</a></li>
+   <li><b>Which stamp made it?</b> Blank out the values and the stamp is left: the <span class="lbl-k">stamp</span><span class="lbl-e">template</span>. Each stamp gets an ID. A few hundred stamps (an illustrative {{templates_per_component_set}}) stand for millions of distinct lines. <a class="read-note" href="../notes/B1-log-parsing-to-templates.md">B1</a></li>
+   <li><b>The blanks are evidence.</b> An address, reason code {{ieee80211_reason_deauth_leaving}} (the station is leaving, in the IEEE 802.11 table), a flag. The book becomes a strip of stamp IDs, each with its values.</li>
+   <li><b>But learn the stamps from normal books and you miss the error stamps.</b> Of an illustrative {{component_print_statements}} stamps, about half sit on error paths. A miner fed normal books found {{miner_templates_found}}, almost all on normal paths. Read the stamps from the code instead. <a class="read-note" href="../notes/C2-template-engineering.md">C2</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 5. the odd page ================================ -->
+<section class="scene" id="s5" data-title="5 · The odd page">
+ <h2><span class="num">5</span>Tally each page, then play twenty questions</h2>
+ <p class="sub">Nobody labelled which pages are faults, <b>therefore</b> the method learns what normal pages look like and looks for the page that is easiest to single out.</p>
+ <figure class="st-scene panel" id="s-odd" data-dwell="3600" aria-label="Scene: windows, count vectors and an isolation tree">
+  <svg data-wide viewBox="0 0 1000 420" role="img" aria-label="Overlapping one-hour pages on a timeline; tallies of five stamps for a normal page and the odd page; pages as dots in a plane; three random cuts isolate the odd dot while a typical dot still shares its box with many others."></svg>
+  <ol class="st-cap">
+   <li><b>Cut the book into pages.</b> Each page is {{window_example/window}} h of lines and a new page starts every {{window_example/step}} h, so pages overlap: {{window_example/windows}} pages a day <span class="tag ill">illustrative</span>. <a class="read-note" href="../notes/B2-windows-and-count-vectors.md">B2</a></li>
+   <li><b>Tally the stamps on each page.</b> The <span class="lbl-k">tally</span><span class="lbl-e">count vector</span> keeps how often each stamp appears and drops the order. The odd page has too many drops and restarts.</li>
+   <li><b>Each page becomes a dot.</b> Two stamps here, so a flat picture; a real tally has one axis per stamp. Most pages crowd together.</li>
+   <li><b>Random questions.</b> Pick a stamp and a random cut-off: "more than {{@cut1}} drops?" The odd page stands alone after {{story_odd_page_questions}} questions. <a class="read-note" href="../notes/B3-anomaly-detection-on-logs.md">B3</a></li>
+   <li><b>A typical page takes longer.</b> After the same questions it still shares a box with {{@leftCount}} pages. A forest of {{iforest_trees_default}} random trees, each on {{iforest_subsample_size_default}} pages, averages the games: about {{iforest_c_256}} questions is typical.</li>
+  </ol>
+ </figure>
+ <div class="st-predict" id="p-score">
+  <p class="q">The forest gives the odd page a score of {{iforest_score_3_splits_psi256}}. What does {{iforest_score_3_splits_psi256}} mean?</p>
+  <div class="opts">
+   <button class="btn" data-choice="prob" data-why="No. The score is a normalised path length: how few random questions it took. It says nothing about the chance of a defect.">An {{iforest_score_3_splits_psi256}} chance the car is broken</button>
+   <button class="btn" data-choice="easy" data-right data-why="Yes. {{story_odd_page_questions}} questions on average against about {{iforest_c_256}} for a typical page. A score of {{iforest_score_at_average_path}} means typical; near 1 means very easy to single out.">It was easy to single out</button>
+   <button class="btn" data-choice="share" data-why="No. How many pages get flagged is a threshold you choose (the contamination), not part of the score.">That share of pages is normal</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <div class="grid2 st-gated" data-gate="p-score" id="score-live">
+  <figure class="panel">
+   <svg id="meter" viewBox="0 0 600 190" role="img" aria-label="A row of question cards, one per question asked, and a score meter from 0 to 1 with the typical score 0.5 marked."></svg>
+   <figcaption><span class="tag pub">public</span> Score formula and defaults from Liu, Ting and Zhou (2008); the picture is one page.</figcaption>
+  </figure>
+  <div>
+   <div class="ctl"><label for="hQ">Average questions to single the page out <output id="hQ-v">3</output></label><input id="hQ" data-k="h" type="range" min="1" max="16" step="0.25" value="3" aria-describedby="score-read"></div>
+   <p class="readout" id="score-read" aria-live="polite"></p>
+   <details><summary>The formula</summary>s = 2<sup>−E(h)/c(ψ)</sup>, where E(h) is the average number of questions over the forest and c(ψ) is the average for a typical point among ψ = {{iforest_subsample_size_default}}: c = {{iforest_c_256}}. At E(h) = c the score is {{iforest_score_at_average_path}}. Which scores raise an alarm is a threshold you set (<a href="../notes/B3-anomaly-detection-on-logs.md">B3</a>).</details>
+  </div>
+ </div>
+</section>
+
+<!-- ================================ 6. where the car left its route ================================ -->
+<section class="scene" id="s6" data-title="6 · Off the usual route">
+ <h2><span class="num">6</span>Where did the car leave its usual route?</h2>
+ <p class="sub">A score says <b>which page</b> is odd. <b>But</b> a tally has no order, so it cannot say <b>what happened</b>. The order of the stamps can.</p>
+ <figure class="st-scene panel" id="s-route" data-dwell="3600" aria-label="Scene: transition edges and the usual route">
+  <svg data-wide viewBox="0 0 1000 410" role="img" aria-label="Stamps from three pens interleaved on one page; the same stamps sorted into one row per pen; the usual route mined from many cars, with thick common edges; the odd car leaves the route by restarting after a drop."></svg>
+  <ol class="st-cap">
+   <li><b>The page as written.</b> Three <span class="lbl-k">pens</span><span class="lbl-e">threads</span> write at once, so neighbouring lines come from unrelated writers. Reading pairs straight down the page invents routes that never happen. <a class="read-note" href="../notes/B5-from-anomaly-to-root-cause.md">B5</a></li>
+   <li><b>One row per pen, in time order.</b> Partition by process and thread, then sort by time. Now each stamp's neighbour is its real successor.</li>
+   <li><b>The usual route, from many cars.</b> Count which stamp follows which; thick means common. After a drop, a car usually rejoins. One car in one short test cannot teach this; the fleet can.</li>
+   <li><b>Here this car left the route.</b> After a drop it restarts instead of rejoining: an edge's share changed. The blank says reason={{ieee80211_reason_4way_handshake_timeout}}, a 4-way handshake timeout. That is a lead for the engineer to test, not a verdict.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 7. the road, not the car ================================ -->
+<section class="scene" id="s7" data-title="7 · The road, not the car">
+ <h2><span class="num">7</span>The road, not the car</h2>
+ <p class="sub">The method found odd pages and named where they left the route. <b>But</b> is an odd page a broken car?</p>
+ <div class="st-predict" id="p-road">
+  <p class="q">An illustrative pilot turns {{pilot_tickets}} odd logbooks into work orders. How many of them were the road, not the car?</p>
+  <div class="opts">
+   <button class="btn" data-choice="0" data-why="Odd is not broken. An old router, a full access point or a provider outage all make a healthy car write odd pages.">None: odd book, broken car</button>
+   <button class="btn" data-choice="1" data-why="More than that. In this illustrative pilot, {{pilot_environmental}} of {{pilot_tickets}} were the household's network.">About 1</button>
+   <button class="btn" data-choice="4" data-right data-why="{{pilot_environmental}} of {{pilot_tickets}} were the road: the household's access point, not the device. Hence the rule below.">{{pilot_environmental}} of {{pilot_tickets}}</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <div class="twocol st-gated" data-gate="p-road">
+  <figure class="panel">
+   <svg id="road" viewBox="0 0 600 250" role="img" aria-label="A healthy car on a road full of potholes, writing odd pages."></svg>
+   <figcaption><span class="lbl-k">A bad road</span><span class="lbl-e">An environmental anomaly</span>: an old router with a deprecated security mode, an access point out of capacity, a provider outage, a captive portal (<a href="../notes/C4-lessons.md">C4</a>).</figcaption>
+  </figure>
+  <p class="rule"><b>The rule:</b> before a work order, get a <b>second, independent signal</b>. A light <i>and</i> an odd page, or an odd page <i>and</i> other cars on <i>other</i> roads doing the same. The mechanic still decides; the method removes the search, not the judgement. <a class="read-note" href="../notes/C4-lessons.md">C4</a></p>
+ </div>
+ <h3 style="margin-top:28px">And how good is the detector?</h3>
+ <p class="sub">Test it on cars whose fault you already know. A hand-built set is small, <b>therefore</b> report the rate with its range.</p>
+ <div class="grid2">
+  <figure class="panel">
+   <svg id="wil" viewBox="0 0 600 250" role="img" aria-label="One square per known fault, filled when the detector caught it, and the 95 percent Wilson interval on the detection rate."></svg>
+   <figcaption><span class="tag ill">illustrative</span> Default: {{ground_truth_detected}} of {{ground_truth_usable}} usable cases caught (<a href="../notes/C1-the-ground-truth-problem.md">C1</a>). Wilson score interval, 95 %.</figcaption>
+  </figure>
+  <div>
+   <div class="ctl"><label for="wN">Known faults tested (n) <output id="wN-v">10</output></label><input id="wN" data-k="n" type="range" min="5" max="100" step="1" value="10"></div>
+   <div class="ctl"><label for="wK">Caught by the detector (k) <output id="wK-v">6</output></label><input id="wK" data-k="k" type="range" min="0" max="10" step="1" value="6"></div>
+   <p class="readout" id="wil-read" aria-live="polite"></p>
+   <details><summary>Why Wilson, and why false alarms too</summary>The simple normal interval misbehaves near 0 % and 100 % and with few cases; the Wilson interval does not. A detector that flags everything catches 100 %, so the detection rate means nothing without the false-alarm rate next to it (<a href="../notes/C1-the-ground-truth-problem.md">C1</a>).</details>
+  </div>
+ </div>
+</section>
+
+<section class="scene" id="s8" data-title="Your turn">
+ <h2>Your turn</h2>
+ <p class="sub">Move the real knobs, then check what stuck. Open question to take with you: which signal would have caught the faults your detector missed?</p>
+ <div class="next">
+  <a href="../explorers/01-isolation-forest-on-count-vectors.html"><b>Twenty-questions sandbox</b><span>Isolation forest on count vectors: trees, contamination, scores (explorer 01).</span></a>
+  <a href="../explorers/02-fleet-trend-wls-vs-ols.html"><b>Is it getting worse?</b><span>Fleet trend: cars per day, slope, noise; weighted vs plain fit (explorer 02).</span></a>
+  <a href="../explorers/03-log-windowing.html"><b>How big a page?</b><span>Window length vs sparsity vs detection delay (explorer 03).</span></a>
+  <a href="../../quiz/"><b>Quiz yourself</b><span>Spaced-repetition questions for every note.</span></a>
+  <a href="../README.md"><b>Read the notes</b><span>14 notes: the data, the methods, when to believe them.</span></a>
+ </div>
+</section>
+
+<footer class="st-foot">
+ <h3>Where the garage breaks</h3>
+ <ul class="breaks">
+  <li>No person writes the logbook: dozens of software components print into it at once, at hundreds of thousands of lines a day.</li>
+  <li>Nobody sees the warning light. A metric is a record sent to the cloud when an event happens; a car with no event sends nothing, and a car that stopped reporting looks the same (<a href="../notes/C3-data-quality.md">C3</a>).</li>
+  <li>"The road" is each household's own network, not a road that many cars share. Cars "on other roads" means devices on other access points.</li>
+  <li>The twenty questions are random and blind, not clever, and the forest averages {{iforest_trees_default}} such games.</li>
+  <li>The mechanic never gets the car, only an uploaded copy of the book, and only if it was uploaded before the pages were torn out.</li>
+ </ul>
+ <h3>Numbers on this page</h3>
+ <div class="tbl"><table id="src"><thead><tr><th>What</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+ <p>Every number is public with a citation or labelled illustrative; none is a measurement from any fleet. Kit entries are copied verbatim from <a href="../constants.json">constants.json</a>; <code>story_*</code> entries are picture values for this page. Kit: <a href="../README.md">device-log anomaly detection</a> · <a href="../SOURCES.md">sources</a> · <a href="../glossary.md">glossary</a>.</p>
+</footer>
+</main>
+
+<script type="application/json" id="params">
+{
+ "iforest_subsample_size_default": {
+  "value": 256,
+  "unit": "points per tree",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3 (psi = 256); scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (max_samples='auto' = min(256, n_samples))"
+ },
+ "iforest_trees_default": {
+  "value": 100,
+  "unit": "trees",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3 (t = 100); scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (n_estimators=100)"
+ },
+ "iforest_c_256": {
+  "value": 10.24,
+  "unit": "splits",
+  "class": "public",
+  "source": "my arithmetic from c(n) = 2H(n-1) - 2(n-1)/n in Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf Eq. 1"
+ },
+ "iforest_score_at_average_path": {
+  "value": 0.5,
+  "unit": "score",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §2: E(h(x)) -> c(n) gives s -> 0.5"
+ },
+ "iforest_score_3_splits_psi256": {
+  "value": 0.82,
+  "unit": "score",
+  "class": "public",
+  "source": "my arithmetic: 2^(-3/10.24), from Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf Eq. 2"
+ },
+ "phred_factor": {
+  "value": 10,
+  "unit": "score points per decade of p",
+  "class": "public",
+  "source": "Ewing & Green, Genome Research 8:186-194, 1998: Q = -10 log10 P"
+ },
+ "score_examples": {
+  "value": {
+   "p_0.1": 10,
+   "p_0.01": 20,
+   "p_1e-5": 50,
+   "p_1e-10": 100
+  },
+  "unit": "score",
+  "class": "public",
+  "source": "my arithmetic from score = -10 log10(p)"
+ },
+ "z_95_two_sided": {
+  "value": 1.96,
+  "unit": "standard deviations",
+  "class": "public",
+  "source": "standard normal quantile; NIST/SEMATECH e-Handbook §7.2.4.1"
+ },
+ "ieee80211_reason_deauth_leaving": {
+  "value": 3,
+  "unit": "reason code",
+  "class": "public",
+  "source": "IEEE Std 802.11 reason-code table; wpa_supplicant ieee802_11_defs.h (WLAN_REASON_DEAUTH_LEAVING)"
+ },
+ "ieee80211_reason_4way_handshake_timeout": {
+  "value": 15,
+  "unit": "reason code",
+  "class": "public",
+  "source": "IEEE Std 802.11 reason-code table; wpa_supplicant ieee802_11_defs.h (WLAN_REASON_4WAY_HANDSHAKE_TIMEOUT)"
+ },
+ "lines_per_device_day": {
+  "value": 500000,
+  "unit": "lines",
+  "class": "illustrative",
+  "source": "illustrative (order of magnitude endorsed by the kit brief)",
+  "used_in": "A0, A1"
+ },
+ "small_family_devices": {
+  "value": 100,
+  "unit": "active devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2, C3"
+ },
+ "rare_reason_devices": {
+  "value": 3,
+  "unit": "devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2, C3"
+ },
+ "rare_share_small_family_se": {
+  "value": 1.7,
+  "unit": "percentage points",
+  "class": "illustrative",
+  "source": "my arithmetic: sqrt(0.03*0.97/100), from illustrative inputs",
+  "used_in": "A2"
+ },
+ "large_family_devices": {
+  "value": 10000,
+  "unit": "active devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2"
+ },
+ "rare_share_large_family_se": {
+  "value": 0.17,
+  "unit": "percentage points",
+  "class": "illustrative",
+  "source": "my arithmetic: sqrt(0.03*0.97/10000), from illustrative inputs",
+  "used_in": "A2"
+ },
+ "templates_per_component_set": {
+  "value": 400,
+  "unit": "templates",
+  "class": "illustrative",
+  "source": "illustrative ('a few hundred')",
+  "used_in": "B1, C2"
+ },
+ "component_print_statements": {
+  "value": 100,
+  "unit": "print statements",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B1"
+ },
+ "component_error_warning_share": {
+  "value": 50,
+  "unit": "% of print statements",
+  "class": "illustrative",
+  "source": "illustrative ('about half')",
+  "used_in": "B1"
+ },
+ "miner_templates_found": {
+  "value": 20,
+  "unit": "templates",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B1"
+ },
+ "window_example": {
+  "value": {
+   "day": 24,
+   "window": 1,
+   "step": 0.25,
+   "windows": 93
+  },
+  "unit": "h / count",
+  "class": "illustrative",
+  "source": "illustrative inputs; windows = (24-1)/0.25 + 1, my arithmetic",
+  "used_in": "B2"
+ },
+ "trend_series_length": {
+  "value": {
+   "weeks": 8,
+   "daily_points": 56
+  },
+  "unit": "weeks / days",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B4"
+ },
+ "score_cap": {
+  "value": 100,
+  "unit": "score",
+  "class": "illustrative",
+  "source": "illustrative cap (p = 1e-10)",
+  "used_in": "B4"
+ },
+ "monitored_series": {
+  "value": 10000,
+  "unit": "series per day",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B4"
+ },
+ "multiple_testing_false_alarms": {
+  "value": 100,
+  "unit": "series per day",
+  "class": "illustrative",
+  "source": "my arithmetic: 10 000 x 0.01, illustrative inputs",
+  "used_in": "B4"
+ },
+ "ground_truth_usable": {
+  "value": 10,
+  "unit": "cases",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C1"
+ },
+ "ground_truth_detected": {
+  "value": 6,
+  "unit": "cases",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C1"
+ },
+ "detection_rate_wilson95_6of10": {
+  "value": [
+   31,
+   83
+  ],
+  "unit": "%",
+  "class": "illustrative",
+  "source": "my arithmetic: Wilson score interval for 6/10 (illustrative counts)",
+  "used_in": "C1"
+ },
+ "detection_rate_wilson95_60of100": {
+  "value": [
+   50,
+   69
+  ],
+  "unit": "%",
+  "class": "illustrative",
+  "source": "my arithmetic: Wilson score interval for 60/100 (illustrative counts)",
+  "used_in": "C1"
+ },
+ "pilot_tickets": {
+  "value": 10,
+  "unit": "tickets",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C1, C4"
+ },
+ "pilot_environmental": {
+  "value": 4,
+  "unit": "tickets",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C1, C4"
+ }
+}
+</script>
+<script type="application/json" id="params-story">
+{
+ "story_book_pages": {"value": 6, "unit": "pages", "class": "illustrative", "source": "story 1 scene 1: picture capacity of the logbook; a real buffer holds hours of lines (A1)"},
+ "story_trend_series": {"value": {"weekday_cars": 1000, "weekend_cars": 300, "outage_cars": 40, "start_share": 0.02, "slope_per_day": 0.0002, "seed": 11}, "unit": "cars / share / share per day", "class": "illustrative", "source": "story 1 scene 3: a seeded synthetic 56-day series drawn for the picture"},
+ "story_trend_threshold": {"value": 0.05, "unit": "percentage points per week", "class": "illustrative", "source": "story 1 scene 3: picture value for the practical threshold s (B4)"},
+ "story_odd_page_questions": {"value": 3, "unit": "splits", "class": "illustrative", "source": "B3 worked example input (an average of 3 splits); its score 0.82 is iforest_score_3_splits_psi256"},
+ "story_tally": {"value": {"normal": [12, 12, 12, 1, 0], "odd": [12, 6, 4, 9, 7]}, "unit": "stamps per page", "class": "illustrative", "source": "story 1 scene 5: picture tallies for five stamps (status, ping, web check, drop, restart)"},
+ "story_route_shares": {"value": {"rejoin_usual": 0.9, "restart_usual": 0.1, "rejoin_odd": 0.25, "restart_odd": 0.75}, "unit": "share of transitions after a drop", "class": "illustrative", "source": "story 1 scene 6: picture edge shares (B5 distribution anomaly)"},
+ "story_miner_error_found": {"value": 2, "unit": "templates", "class": "illustrative", "source": "story 1 scene 4: of the miner's finds, how many the picture places on error paths (B1: error paths are the ones a miner most often misses)"}
+}
+</script>
+
+<script>
+/* ===================== drawing: builds every SVG, fills {{placeholders}}; story.js then runs the scenes ===================== */
+const NS = "http://www.w3.org/2000/svg", NAVY = "#141C2E";
+const P = Object.assign(JSON.parse(document.getElementById("params").textContent), JSON.parse(document.getElementById("params-story").textContent));
+const V = key => { const [k, sub] = key.split("/"); const o = P[k]; if (!o) { console.error("missing param " + k); return NaN; }
+  const v = sub === undefined ? o.value : o.value[sub]; if (v === undefined) console.error("missing param " + key); return v; };
+const COMP = {};  // values computed by the page (shown as {{@name}})
+const C = {coral:"#EE6A45", coralD:"#B33F1D", sun:"#F2C64A", sunD:"#8A6800", sky:"#5E9FB8", skyD:"#2C6A82", leaf:"#3AA88D", leafD:"#1D7660",
+  plum:"#B4669D", plumD:"#7E3A6C", stone:"#8C8670", ink:"#1D2A44", ink2:"#55607A", card:"#FFFAF2", card2:"#EFE5D4", line:"#DCCDB4", skyT:"#E3EFF4"};
+const SKIN = ["#F4CDA7", "#D49A6A", "#8E5B3B", "#E8B98F"];
+function el(t, a = {}, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+function tx(p, x, y, s, a = {}) { const t = el("text", Object.assign({x, y}, a), p); t.textContent = s; return t; }
+function dual(p, x, y, k, e, a = {}) { const g = el("g", {}, p); const c = a.class || ""; tx(g, x, y, k, Object.assign({}, a, {class: ("lbl-k " + c).trim()})); tx(g, x, y, e, Object.assign({}, a, {class: ("lbl-e " + c).trim()})); return g; }
+function use(p, id, x, y, w, h, style = "", a = {}) { return el("use", Object.assign({href: "#" + id, x, y, width: w, height: h, style}, a), p); }
+const OL = {stroke: NAVY, "stroke-width": 2.5, "stroke-linejoin": "round"};
+const MID = {"text-anchor": "middle"};
+const svgOf = id => document.querySelector(`#${id} svg`) || document.getElementById(id);  // runs before story.js wraps wide svgs
+const fmt = v => typeof v === "number" ? (Math.abs(v) >= 10000 ? v.toLocaleString("en-US").replace(/,/g, "\u202F") : String(v)) : Array.isArray(v) ? v.join("–") : String(v);
+function seeded(seed) { let s = seed; const r = () => (s = (s * 16807) % 2147483647) / 2147483647; return {r, g: () => { const u = r() || 1e-9, v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }}; }
+
+/* ---------------- HERO ---------------- */
+(() => {
+ const s = document.getElementById("hero");
+ el("rect", {x: 0, y: 0, width: 1000, height: 410, fill: "#F3E6D0"}, s);
+ el("circle", Object.assign({cx: 966, cy: 30, r: 15, fill: "#FFF4DE"}, OL), s);
+ el("path", {d: "M972 18 a14 14 0 1 0 6 22 a11 11 0 1 1 -6 -22z", fill: "#EFE5D4"}, s);
+ // the fleet on two roads
+ dual(s, 190, 40, "The fleet, out at night", "The device fleet, in homes", Object.assign({"font-weight": 800, "font-size": 17}, MID));
+ const lit = [[1, 0], [2, 1]];  // [car index, road]
+ const lamps = [];
+ for (let r = 0; r < 2; r++) {
+  const ry = 164 + r * 132;
+  use(s, "i-road", 14, ry - 8, 356, 40, "", {"data-ref": "road"});
+  for (let i = 0; i < 3; i++) { const x = 26 + i * 116, y = ry - 50, g = el("g", {"data-ref": "car"}, s);
+   use(g, "i-car", x, y, 104, 56);
+   if (lit.some(([a, b]) => a === i && b === r)) { const lg = el("g", {"data-ref": "lamp"}, s); use(lg, "i-lamp", x + 38, y - 40, 30, 30, "", {class: "blink st-loop"}); lamps.push([x + 53, y - 26]); }
+  }
+ }
+ dual(s, 190, 360, "Most cars send nothing tonight", "Metrics are event-triggered: most devices send nothing", Object.assign({"font-size": 14, "font-weight": 700, fill: C.ink2}, MID));
+ // the depot board: share of cars with the light on, per day
+ const bg = el("g", {"data-ref": "lamp"}, s);
+ el("rect", Object.assign({x: 412, y: 70, width: 236, height: 262, rx: 14, fill: C.card}, OL), bg);
+ dual(bg, 530, 98, "Depot board", "Fleet metrics store", Object.assign({"font-weight": 800, "font-size": 16}, MID));
+ dual(bg, 530, 118, "share of cars with the light on", "share of devices with the metric", Object.assign({"font-size": 12, fill: C.ink2}, MID));
+ const bars = [1.0, 1.2, 0.9, 1.1, 1.0, 1.3, 1.1, 1.2, 1.0, 1.6, 2.0, 2.4, 2.9, 3.4];
+ el("line", {x1: 428, y1: 300, x2: 634, y2: 300, stroke: NAVY, "stroke-width": 2}, bg);
+ bars.forEach((v, i) => el("rect", {x: 432 + i * 14.4, y: 300 - v * 46, width: 10, height: v * 46, rx: 2, fill: C.sun, stroke: NAVY, "stroke-width": 1.5}, bg));
+ tx(bg, 432, 320, "14 days", {"font-size": 12, fill: C.ink2}); tx(bg, 634, 320, "illustrative", {"font-size": 11, "font-weight": 700, fill: C.sunD, "text-anchor": "end"});
+ lamps.forEach(([x0, y0], j) => { for (let i = 0; i < 3; i++) el("circle", {r: 6, fill: C.sun, stroke: NAVY, "stroke-width": 1.5, class: "ping st-loop",
+   style: `offset-path:path('M${x0} ${y0} Q${380} ${y0 - 60 - j * 30} ${470 + j * 60} 146');animation-delay:${-(i * 1.07 + j * 0.5)}s;--od:${20 + i * 28}%`}, s); });
+ // arrow: the board picks which cars' logbooks to read
+ el("path", {d: "M650 214 H690", fill: "none", stroke: NAVY, "stroke-width": 3, "marker-end": "url(#ah-ink)"}, s);
+ dual(s, 668, 196, "pick", "choose", Object.assign({"font-size": 13, "font-weight": 800, fill: C.ink}, MID));
+ dual(s, 668, 240, "these cars", "devices", Object.assign({"font-size": 13, "font-weight": 800, fill: C.ink}, MID));
+ // the bench: mechanic, open logbook with an odd page, one work order
+ dual(s, 846, 62, "The night mechanic", "The engineer", Object.assign({"font-weight": 800, "font-size": 17}, MID));
+ const mg = el("g", {"data-ref": "mech"}, s);
+ use(mg, "i-mech", 700, 170, 76, 116, `--skin:${SKIN[2]}`);
+ el("rect", Object.assign({x: 690, y: 284, width: 300, height: 14, rx: 4, fill: "#A07850"}, OL), s);
+ el("rect", {x: 704, y: 298, width: 10, height: 50, fill: "#A07850", stroke: NAVY, "stroke-width": 2}, s);
+ el("rect", {x: 966, y: 298, width: 10, height: 50, fill: "#A07850", stroke: NAVY, "stroke-width": 2}, s);
+ const bk = el("g", {"data-ref": "book"}, s);
+ el("rect", Object.assign({x: 782, y: 128, width: 100, height: 150, rx: 8, fill: "#FFFDF8"}, OL), bk);
+ el("rect", Object.assign({x: 884, y: 128, width: 100, height: 150, rx: 8, fill: "#FFFDF8"}, OL), bk);
+ el("rect", {x: 884, y: 128, width: 100, height: 150, rx: 8, fill: "none", stroke: C.coral, "stroke-width": 5}, bk);
+ for (let j = 0; j < 7; j++) {
+  el("rect", {x: 794, y: 142 + j * 18, width: [52, 70, 44, 62, 70, 48, 58][j], height: 9, rx: 4, fill: C.sky, class: "scrib st-loop", style: `animation-delay:${-j * 0.33}s`}, bk);
+  const odd = j === 3 || j === 4 || j === 5;
+  el("rect", {x: 896, y: 142 + j * 18, width: [60, 44, 70, 66, 70, 52, 40][j], height: 9, rx: 4, fill: odd ? C.coral : C.sky}, bk);
+ }
+ tx(s, 934, 120, "odd page", Object.assign({"font-size": 14, "font-weight": 800, fill: C.coralD}, MID));
+ tx(s, 832, 120, "normal page", Object.assign({"font-size": 13, "font-weight": 700, fill: C.ink2}, MID));
+ const og = el("g", {"data-ref": "order"}, s);
+ use(og, "i-order", 900, 318, 42, 56);
+ el("path", {d: "M884 300 Q870 330 896 342", fill: "none", stroke: NAVY, "stroke-width": 2.5, "marker-end": "url(#ah-ink)"}, s);
+ dual(s, 870, 396, "one work order, with the evidence", "one ticket, with the evidence", Object.assign({"font-size": 14, "font-weight": 700, fill: C.ink2}, MID));
+})();
+
+/* ---------------- SCENE 1: the self-tearing logbook (ring buffer) ---------------- */
+(() => {
+ const s = svgOf("s-book"), cap = V("story_book_pages"), FAULT = 3, PX = i => 230 + i * 100, PY = 104, W = cap * 100 + 10;
+ const base = el("g", {"data-s": "0"}, s);
+ use(base, "i-car", 14, 170, 140, 75);
+ use(base, "i-book", 64, 118, 40, 50);
+ dual(base, 84, 272, "the car", "the device", Object.assign({"font-size": 14, "font-weight": 700, fill: C.ink2}, MID));
+ el("rect", {x: 215, y: 92, width: W, height: 156, rx: 14, fill: "none", stroke: C.skyD, "stroke-width": 2, "stroke-dasharray": "7 6"}, base);
+ dual(base, 215 + W / 2, 80, `The logbook has room for ${cap} pages`, "The ring buffer has a fixed size", Object.assign({"font-size": 15, "font-weight": 800, fill: C.skyD}, MID));
+ tx(base, 215 + W / 2, 272, "oldest page  ←                →  newest page", Object.assign({"font-size": 13, fill: C.ink2}, MID));
+ const page = (g, i, n) => { const f = n === FAULT; use(g, f ? "i-page-f" : "i-page", PX(i), PY, 84, 132);
+  tx(g, PX(i) + 42, PY + 124, "p. " + n, Object.assign({"font-size": 12, "font-weight": 700, fill: C.ink2}, MID));
+  if (f) { el("circle", {cx: PX(i) + 76, cy: PY + 6, r: 11, fill: C.coral, stroke: NAVY, "stroke-width": 2}, g); tx(g, PX(i) + 76, PY + 11, "!", Object.assign({"font-weight": 800, "font-size": 15, fill: "#fff"}, MID)); } };
+ const first = [1, 2, FAULT + 1, FAULT + 2];  // first page still in the book at steps 1..4
+ first.forEach((f0, k) => { const g = el("g", {class: "st-at", "data-s": String(k + 1)}, s); for (let i = 0; i < cap; i++) page(g, i, f0 + i); });
+ // torn-out pages: a still ghost per step, plus a token that flies out once when the step is entered
+ const ghost = (k, n, label, col) => { const g = el("g", {class: "st-at", "data-s": String(k)}, s);
+  use(g, n === FAULT ? "i-page-f" : "i-page", 0, 0, 46, 72, "", {transform: "translate(118 6) rotate(-14 23 36)", opacity: .85});
+  tx(g, 176, 30, label, {"font-size": 14, "font-weight": 800, fill: col}); return g; };
+ ghost(2, 1, "torn out: p. 1", C.ink2);
+ ghost(3, FAULT, `torn out: p. ${FAULT}, the fault`, C.coralD);
+ for (const [k, n] of [[2, 1], [3, FAULT]]) use(s, n === FAULT ? "i-page-f" : "i-page", 0, 0, 46, 72, "", {class: "st-tok", "data-s": String(k), style: `offset-path:path('M${PX(0)} ${PY} Q170 10 118 6');--dur:1000ms`});
+ // step 4: the mechanic asks; the book arrives without the fault page
+ const s4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ use(s4, "i-mech", 880, 128, 76, 116, `--skin:${SKIN[2]}`);
+ el("path", Object.assign({d: "M836 20 H990 V66 H930 L918 80 L914 66 H836 Z", fill: "#FFFDF8"}, OL), s4);
+ dual(s4, 913, 49, "Send me your book!", "Upload the log!", Object.assign({"font-size": 14, "font-weight": 800}, MID));
+ el("path", {d: `M${215 + W + 4} 170 H874`, fill: "none", stroke: NAVY, "stroke-width": 2.5, "marker-end": "url(#ah-ink)"}, s4);
+ dual(s4, 215 + W / 2, 302, `The book arrives without p. ${FAULT}.`, "The uploaded log no longer holds the fault.", Object.assign({"font-size": 15, "font-weight": 800, fill: C.coralD}, MID));
+})();
+
+/* ---------------- SCENE 2: share of cars and sample size (live) ---------------- */
+const LOT_P = V("rare_reason_devices") / V("small_family_devices"), Z95 = V("z_95_two_sided");
+const lotModel = st => { const n = Math.round(10 ** st.lg), se = Math.sqrt(LOT_P * (1 - LOT_P) / n), half = Z95 * se;
+ return {n, se, half, lo: LOT_P - half, up: LOT_P + half, noise: LOT_P - half <= 0, perIcon: n / 100}; };
+COMP.halfSmall = (100 * lotModel({lg: Math.log10(V("small_family_devices"))}).half).toFixed(1);
+(() => {
+ const s = document.getElementById("lot");
+ el("rect", {x: 0, y: 0, width: 600, height: 390, rx: 16, fill: "#F3E6D0"}, s);
+ dual(s, 20, 28, "The car park: 100 icons", "The family: 100 icons", {"font-weight": 800, "font-size": 16});
+ tx(s, 580, 28, "", {id: "lot-per", "text-anchor": "end", "font-size": 14, "font-weight": 700, fill: C.ink2});
+ const litAt = [23, 57, 81, 12, 66, 38].slice(0, V("rare_reason_devices"));
+ for (let i = 0; i < 100; i++) { const c = i % 10, r = Math.floor(i / 10);
+  use(s, "i-car", 22 + c * 57, 42 + r * 24, 46, 25, litAt.includes(i) ? `--c:${C.sun}` : ""); }
+ const X = v => 50 + 500 * v / 0.08;
+ tx(s, 20, 302, "share with the light on, 95 % range", {"font-size": 13, "font-weight": 700, fill: C.ink2});
+ el("line", {x1: X(0), y1: 350, x2: X(0.08), y2: 350, stroke: NAVY, "stroke-width": 2}, s);
+ for (let v = 0; v <= 0.08001; v += 0.02) { el("line", {x1: X(v), y1: 350, x2: X(v), y2: 357, stroke: NAVY, "stroke-width": 2}, s); tx(s, X(v), 375, Math.round(v * 100) + " %", Object.assign({"font-size": 12, fill: C.ink2}, MID)); }
+ el("rect", {id: "lot-band", y: 322, height: 20, rx: 10, fill: C.sun, opacity: .75, stroke: NAVY, "stroke-width": 2}, s);
+ el("circle", {id: "lot-dot", cx: X(LOT_P), cy: 332, r: 7, fill: "#fff", stroke: NAVY, "stroke-width": 2.5}, s);
+ el("path", {d: `M${X(0)} 312 V346`, stroke: C.leafD, "stroke-width": 3}, s);
+ tx(s, X(0) + 6, 318, "last week ≈ 0 %", {"font-size": 12, "font-weight": 700, fill: C.leafD});
+ window.drawLot = o => { const b = document.getElementById("lot-band"), a = X(Math.max(0, o.lo)), z = X(Math.min(0.08, o.up));
+  b.setAttribute("x", a); b.setAttribute("width", Math.max(4, z - a));
+  b.setAttribute("stroke", o.noise ? C.coralD : NAVY);
+  document.getElementById("lot-per").textContent = o.perIcon === 1 ? "1 icon = 1 car" : `1 icon = ${fmt(Math.round(o.perIcon))} cars`; };
+})();
+
+/* ---------------- SCENE 3: weighted trend test ---------------- */
+function Phi(z) { const t = 1 / (1 + 0.3275911 * Math.abs(z) / Math.SQRT2), y = t * (0.254829592 + t * (-0.284496736 + t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+ const erf = 1 - y * Math.exp(-z * z / 2); return z >= 0 ? 0.5 * (1 + erf) : 0.5 * (1 - erf); }
+const scoreOf = p => Math.min(V("score_cap"), -V("phred_factor") * Math.log10(Math.max(p, 1e-300)));
+function fitLine(pts, wOf) { let W = 0, St = 0, Sp = 0; for (const d of pts) { const w = wOf(d); W += w; St += w * d.t; Sp += w * d.p; }
+ const tm = St / W, pm = Sp / W; let Stt = 0, Stp = 0; for (const d of pts) { const w = wOf(d); Stt += w * (d.t - tm) ** 2; Stp += w * (d.t - tm) * (d.p - pm); }
+ const b = Stp / Stt; return {a: pm - b * tm, b, Stt}; }
+const TREND = (() => {
+ const S = V("story_trend_series"), N = V("trend_series_length/daily_points"), rnd = seeded(S.seed), days = [];
+ for (let t = 0; t < N; t++) { const n = (t === 19 || t === 47) ? S.outage_cars : (t % 7 >= 5 ? S.weekend_cars : S.weekday_cars);
+  const pt = S.start_share + S.slope_per_day * t; let k = Math.round(n * Math.max(0, pt + rnd.g() * Math.sqrt(pt * (1 - pt) / n)));
+  if (t === 19) k = 3; if (t === 47) k = 0;  // two near-empty outage days, drawn wild on purpose
+  days.push({t, n, k, p: k / n}); }
+ const ols = fitLine(days, () => 1);
+ const pbar = days.reduce((a, d) => a + d.k, 0) / days.reduce((a, d) => a + d.n, 0);   // pooled share in the variance (B4 caution)
+ const wls = fitLine(days, d => d.n / (pbar * (1 - pbar)));
+ const se = Math.sqrt(1 / wls.Stt), sDay = V("story_trend_threshold") / 700, z = (wls.b - sDay) / se, p = 1 - Phi(z);
+ return {days, ols, wls, se, sDay, z, p, score: scoreOf(p), toWeek: b => b * 700};
+})();
+COMP.p = TREND.p >= 0.001 ? TREND.p.toFixed(3) : (() => { const e = Math.floor(Math.log10(TREND.p)), m = TREND.p / 10 ** e;
+ const sup = String(e).replace(/-/g, "⁻").replace(/\d/g, d => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d]); return `${m.toFixed(1)} × 10${sup}`; })();
+COMP.score = Math.round(TREND.score);
+(() => {
+ const s = svgOf("s-trend"), N = TREND.days.length, X = t => 90 + t * 600 / (N - 1), Y = p => 290 - (p / 0.08) * 230;
+ const base = el("g", {"data-s": "0"}, s);
+ dual(base, 90, 36, "Share of cars with the light on, per day", "Daily share of devices with the metric, p̂ₜ", {"font-size": 15, "font-weight": 800});
+ tx(base, 690, 36, "illustrative series", {"text-anchor": "end", "font-size": 12, "font-weight": 700, fill: C.sunD});
+ for (let v = 0; v <= 0.08001; v += 0.02) { el("line", {x1: 90, y1: Y(v), x2: 690, y2: Y(v), stroke: C.line, "stroke-width": 1.5}, base); tx(base, 82, Y(v) + 4, Math.round(v * 100) + " %", {"text-anchor": "end", "font-size": 12, fill: C.ink2}); }
+ for (let w = 0; w < 8; w++) tx(base, X(w * 7 + 3), 306, "wk " + (w + 1), Object.assign({"font-size": 11, fill: C.ink2}, MID));
+ const eq = el("g", {class: "st-at", "data-s": "1 2"}, s), sz = el("g", {class: "st-at", "data-s": "3 4 5 6"}, s);
+ TREND.days.forEach(d => { el("circle", {cx: X(d.t), cy: Y(d.p), r: 4.5, fill: C.sun, stroke: NAVY, "stroke-width": 1.5}, eq);
+  el("circle", {cx: X(d.t), cy: Y(d.p), r: 2 + 7 * Math.sqrt(d.n / 1000), fill: C.sun, stroke: NAVY, "stroke-width": 1.5, opacity: .9}, sz); });
+ const line = (f, a) => el("path", Object.assign({d: `M${X(0)} ${Y(f.a)} L${X(N - 1)} ${Y(f.a + f.b * (N - 1))}`, fill: "none"}, a), s);
+ line(TREND.ols, {stroke: C.ink2, "stroke-width": 3, "stroke-dasharray": "8 6", "data-s": "2"});
+ line(TREND.wls, {stroke: C.leafD, "stroke-width": 4.5, "data-s": "3"});
+ const yo = Y(TREND.ols.a + TREND.ols.b * 50), yw = Y(TREND.wls.a + TREND.wls.b * 50), up = yo < yw;
+ const yTop = Math.min(yo, yw) - 14, yBot = Math.max(yo, yw) + 24;
+ dual(el("g", {"data-s": "2"}, s), X(50), up ? yTop : yBot, "plain fit", "OLS", Object.assign({"font-size": 13, "font-weight": 800, fill: C.ink2}, MID));
+ dual(el("g", {"data-s": "3"}, s), X(50), up ? yBot : yTop, "weighted fit", "WLS", Object.assign({"font-size": 13, "font-weight": 800, fill: C.leafD}, MID));
+ // bottom panel, steps 1-4: cars on the road per day
+ const cars = el("g", {class: "st-at", "data-s": "1 2 3 4"}, s);
+ tx(cars, 82, 334, "cars", {"text-anchor": "end", "font-size": 12, "font-weight": 700, fill: C.ink2});
+ TREND.days.forEach(d => el("rect", {x: X(d.t) - 4, y: 392 - d.n / 1000 * 64, width: 8, height: d.n / 1000 * 64, fill: "#C9C1AE", stroke: NAVY, "stroke-width": 1}, cars));
+ const out = TREND.days.find(d => d.t === 19);
+ tx(cars, X(out.t), 412, `outage: ${out.n} cars`, Object.assign({"font-size": 12, "font-weight": 700, fill: C.coralD}, MID));
+ // step 4: the slope test against the practical threshold s
+ const ins = el("g", {"data-s": "4"}, s), bw = TREND.toWeek(TREND.wls.b), sw = TREND.toWeek(TREND.se), sT = V("story_trend_threshold");
+ const maxS = Math.max(0.3, bw + 2.5 * sw), SX = v => 752 + 214 * v / maxS;
+ el("rect", Object.assign({x: 730, y: 56, width: 256, height: 236, rx: 14, fill: C.card}, OL), ins);
+ dual(ins, 858, 82, "How steep, per week?", "WLS slope per week", Object.assign({"font-size": 15, "font-weight": 800}, MID));
+ el("line", {x1: SX(0), y1: 190, x2: SX(maxS), y2: 190, stroke: NAVY, "stroke-width": 2}, ins);
+ for (const v of [0, 0.1, 0.2, 0.3].filter(v => v <= maxS)) { el("line", {x1: SX(v), y1: 190, x2: SX(v), y2: 196, stroke: NAVY, "stroke-width": 2}, ins); tx(ins, SX(v), 212, v.toFixed(1), Object.assign({"font-size": 12, fill: C.ink2}, MID)); }
+ tx(ins, 858, 228, "percentage points per week", Object.assign({"font-size": 11, fill: C.ink2}, MID));
+ el("rect", {x: SX(0), y: 100, width: SX(sT) - SX(0), height: 84, fill: C.card2}, ins);
+ el("line", {x1: SX(sT), y1: 100, x2: SX(sT), y2: 190, stroke: NAVY, "stroke-width": 2.5, "stroke-dasharray": "5 4"}, ins);
+ tx(ins, SX(sT) + 5, 114, "s", {"font-size": 15, "font-weight": 800, "font-style": "italic"});
+ dual(ins, SX(sT) + 5, 178, "← not worth a look", "← below s: ignore", {"font-size": 11, fill: C.ink2});
+ el("rect", {x: SX(bw - 1.96 * sw), y: 140, width: SX(bw + 1.96 * sw) - SX(bw - 1.96 * sw), height: 16, rx: 8, fill: C.leaf, stroke: NAVY, "stroke-width": 2}, ins);
+ el("circle", {cx: SX(bw), cy: 148, r: 6, fill: "#fff", stroke: NAVY, "stroke-width": 2}, ins);
+ tx(ins, SX(bw), 132, "this light, 95 %", Object.assign({"font-size": 12, "font-weight": 700, fill: C.leafD}, MID));
+ tx(ins, 858, 256, `one-sided p = ${COMP.p}`, Object.assign({"font-size": 14, "font-weight": 800}, MID));
+ tx(el("g", {"data-s": "5"}, s), 858, 280, `score = ${COMP.score}`, Object.assign({"font-size": 15, "font-weight": 800, fill: C.leafD}, MID));
+ // step 5: p -> score ladder
+ const lad = el("g", {class: "st-at", "data-s": "5"}, s), LX = v => 90 + 600 * v / 100;
+ el("line", {x1: LX(0), y1: 360, x2: LX(100), y2: 360, stroke: NAVY, "stroke-width": 3}, lad);
+ tx(lad, 82, 340, "score", {"text-anchor": "end", "font-size": 12, "font-weight": 700, fill: C.ink2});
+ const pTxt = k => { const v = k.slice(2); const m = v.match(/^1e-(\d+)$/); return m ? "10" + ("-" + m[1]).replace(/-/g, "⁻").replace(/\d/g, d => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d]) : v; };
+ for (const [k, v] of Object.entries(V("score_examples"))) { el("line", {x1: LX(v), y1: 352, x2: LX(v), y2: 368, stroke: NAVY, "stroke-width": 2.5}, lad);
+  tx(lad, LX(v), 344, "p = " + pTxt(k), Object.assign({"font-size": 12, fill: C.ink2}, MID)); tx(lad, LX(v), 386, v, Object.assign({"font-size": 14, "font-weight": 800}, MID)); }
+ el("path", {d: `M${LX(TREND.score)} 392 l-8 12 h16 z`, fill: C.leaf, stroke: NAVY, "stroke-width": 2}, lad);
+ tx(lad, LX(TREND.score), 418, "this light", Object.assign({"font-size": 12, "font-weight": 700, fill: C.leafD}, MID));
+ // step 6: many lights, many tests, chance alarms
+ const grid = el("g", {class: "st-at", "data-s": "6"}, s), per = V("monitored_series") / 1000, hits = Math.round(V("multiple_testing_false_alarms") / per);
+ const rr = seeded(5), hot = new Set(); while (hot.size < hits) hot.add(Math.floor(rr.r() * 1000));
+ for (let i = 0; i < 1000; i++) el("rect", {x: 90 + (i % 100) * 6, y: 330 + Math.floor(i / 100) * 6, width: 5, height: 5, fill: hot.has(i) ? C.coral : "#E2D6C2"}, grid);
+ tx(grid, 90, 406, `${fmt(V("monitored_series"))} lights tested today; 1 square = ${per} lights; coral = alarms by chance alone (illustrative)`, {"font-size": 12, "font-weight": 700, fill: C.ink2});
+ console.assert(TREND.wls.b > TREND.sDay, "scene 3: the weighted slope clears s");
+ console.assert(Math.round(scoreOf(0.01)) === V("score_examples/p_0.01") && Math.round(scoreOf(1e-5)) === V("score_examples/p_1e-5"), "scene 3: score = -10 log10 p");
+})();
+
+/* ---------------- SCENE 4: rubber stamps (templates and parameters) ---------------- */
+(() => {
+ const s = svgOf("s-stamp"), X0 = 92, MONO = "SF Mono,Menlo,Consolas,monospace", rc = V("ieee80211_reason_deauth_leaving");
+ const probe = tx(s, 0, -50, "0123456789".repeat(4), {"font-size": 16, style: "font-family:" + MONO, "font-weight": 700}); const CW = (probe.getComputedTextLength() / 40) || 9.6; probe.remove();
+ const raw = [["CTRL-EVENT-DISCONNECTED", 0], [" bssid=", 0], ["aa:bb:cc:dd:ee:ff", 1], [" reason=", 0], [String(rc), 1], [" locally_generated=", 0], ["1", 1]];
+ const base = el("g", {"data-s": "0"}, s);
+ dual(base, X0, 28, "One line from the logbook", "One raw log line (wpa_supplicant event)", {"font-size": 14, "font-weight": 800, fill: C.skyD});
+ el("rect", {x: X0 - 14, y: 40, width: 76 * CW + 28, height: 50, rx: 10, fill: C.skyT, stroke: C.skyD, "stroke-width": 2}, base);
+ let c = 0; const pos = [];
+ raw.forEach(([t, isP]) => { pos.push(X0 + c * CW); tx(base, X0 + c * CW, 72, t.replace(/ /g, "\u00A0"), {"font-size": 16, style: "font-family:" + MONO, "font-weight": 600}); c += t.length; });
+ // step 2: the stamp = constant words + blanks
+ const s2 = el("g", {"data-s": "2"}, s);
+ use(s2, "i-stamp", 14, 108, 54, 63);
+ dual(s2, X0, 120, "The stamp that made it: fixed words + blanks", "The template: constant text + <*> slots", {"font-size": 14, "font-weight": 800, fill: C.skyD});
+ el("rect", {x: X0 - 14, y: 132, width: 66 * CW + 28, height: 50, rx: 10, fill: "#FFFDF8", stroke: C.skyD, "stroke-width": 2.5, "stroke-dasharray": "7 5"}, s2);
+ c = 0; const slotX = [];
+ raw.forEach(([t, isP]) => { const x = X0 + c * CW;
+  if (isP) { slotX.push(x); el("rect", {x: x - 2, y: 145, width: 3 * CW + 4, height: 26, rx: 6, fill: C.skyT, stroke: C.sky, "stroke-width": 2}, s2); tx(s2, x, 164, "<*>", {"font-size": 16, style: "font-family:" + MONO, "font-weight": 700, fill: C.skyD}); c += 3; }
+  else { tx(s2, x, 164, t.replace(/ /g, "\u00A0"), {"font-size": 16, style: "font-family:" + MONO, "font-weight": 600, fill: C.skyD}); c += t.length; } });
+ const idx = X0 + 66 * CW + 30;
+ el("rect", {x: idx, y: 140, width: 92, height: 34, rx: 17, fill: C.skyD, stroke: NAVY, "stroke-width": 2}, s2);
+ dual(s2, idx + 46, 162, "stamp #17", "ID 17", Object.assign({"font-size": 14, "font-weight": 800, fill: "#fff"}, MID));
+ // step 3: the blanks lift out as parameters; the book becomes a strip of IDs
+ const s3 = el("g", {class: "st-at", "data-s": "3"}, s);
+ const params = raw.filter(r => r[1]).map(r => r[0]), px = [X0, X0 + 260, X0 + 620];
+ dual(s3, X0, 212, "The blanks, lifted out", "Parameters", {"font-size": 14, "font-weight": 800, fill: C.ink2});
+ params.forEach((p, i) => { const w = p.length * CW + 24; el("rect", {x: px[i], y: 222, width: w, height: 32, rx: 8, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2}, s3);
+  tx(s3, px[i] + 12, 244, p, {"font-size": 16, style: "font-family:" + MONO, "font-weight": 700}); });
+ tx(s3, px[1] + 48, 244, `reason ${rc}: the station is leaving`, {"font-size": 13, "font-weight": 700, fill: C.ink2});
+ [0, 2, 4].forEach((ri, i) => el("circle", {r: 6, fill: C.sky, stroke: NAVY, "stroke-width": 1.5, class: "st-tok", "data-s": "3", style: `offset-path:path('M${pos[ri] + 20} 84 Q${(pos[ri] + px[i]) / 2} 200 ${px[i] + 20} 230');--dur:900ms;--d:${i * 160}ms`}, s));
+ dual(s3, X0, 292, "The logbook becomes:", "The log becomes a sequence of template IDs:", {"font-size": 14, "font-weight": 800, fill: C.ink2});
+ [4, 17, 4, 9, 17, 23, 4, 12, 17, 4].forEach((id, i) => { const x = X0 + 330 + i * 58; el("rect", {x, y: 274, width: 50, height: 28, rx: 14, fill: id === 17 ? C.skyD : C.sky, stroke: NAVY, "stroke-width": 2}, s3);
+  tx(s3, x + 25, 293, "#" + id, Object.assign({"font-size": 13, "font-weight": 800, fill: "#fff"}, MID)); });
+ tx(s3, X0 + 330, 326, "illustrative IDs", {"font-size": 11, "font-weight": 700, fill: C.sunD});
+ // step 4: the stamp drawer; a miner trained on normal books misses the error stamps
+ const s4 = el("g", {class: "st-at", "data-s": "4"}, s), tot = V("component_print_statements"), errN = Math.round(tot * V("component_error_warning_share") / 100);
+ const found = V("miner_templates_found"), foundErr = V("story_miner_error_found"), cols = 20, rows = Math.ceil(tot / cols), half = Math.round(cols * (tot - errN) / tot);
+ const DX = X0, DY = 228, PIT = 22;
+ dual(s4, DX, 212, "normal paths", "normal-path print statements", {"font-size": 13, "font-weight": 800, fill: C.skyD});
+ dual(s4, DX + half * PIT, 212, "error & warning paths", "error / warning print statements", {"font-size": 13, "font-weight": 800, fill: C.coralD});
+ const rf = seeded(3), pick = (lo, hi, n) => { const set = new Set(); while (set.size < n) { const c0 = lo + Math.floor(rf.r() * (hi - lo)), r0 = Math.floor(rf.r() * rows); set.add(r0 * cols + c0); } return set; };
+ const fN = pick(0, half, found - foundErr), fE = pick(half, cols, foundErr);
+ for (let i = 0; i < rows * cols && i < tot; i++) { const c0 = i % cols, r0 = Math.floor(i / cols), err = c0 >= half, hit = fN.has(i) || fE.has(i);
+  el("rect", {x: DX + c0 * PIT, y: DY + r0 * PIT, width: 18, height: 18, rx: 4, fill: hit ? C.sky : "#FFFDF8", stroke: err ? C.coral : C.skyD, "stroke-width": 2, "stroke-dasharray": hit ? "" : "3 2"}, s4); }
+ el("line", {x1: DX + half * PIT - 3, y1: DY - 4, x2: DX + half * PIT - 3, y2: DY + rows * PIT, stroke: NAVY, "stroke-width": 2}, s4);
+ const RX = DX + cols * PIT + 30;
+ el("rect", Object.assign({x: RX - 8, y: 216, width: 18, height: 18, rx: 4, fill: C.sky}, {stroke: C.skyD, "stroke-width": 2}), s4);
+ dual(s4, RX + 18, 230, `= found by the miner (${found} of ${tot})`, `= mined from normal logs (${found} of ${tot})`, {"font-size": 14, "font-weight": 700});
+ dual(s4, RX - 8, 262, "Mostly from the normal half.", "Error paths are rare in normal logs.", {"font-size": 14, "font-weight": 800, fill: C.coralD});
+ dual(s4, RX - 8, 284, "The error stamps are the ones you need.", "Those are the templates detection needs.", {"font-size": 14, "font-weight": 700, fill: C.coralD});
+ dual(s4, RX - 8, 316, "Fix: take every stamp from the maker's catalogue (the code).", "Fix: extract templates from source code.", {"font-size": 14, "font-weight": 800, fill: C.leafD});
+ tx(s4, RX - 8, 338, "illustrative counts", {"font-size": 11, "font-weight": 700, fill: C.sunD});
+})();
+
+/* ---------------- SCENE 5: pages, tallies, random questions (isolation tree) ---------------- */
+(() => {
+ const s = svgOf("s-odd"), WE = V("window_example"), T = V("story_tally");
+ // left, step 1: overlapping pages on a 2 h zoom of the day
+ const g1 = el("g", {"data-s": "1"}, s), HX = h => 30 + h * 220;
+ dual(g1, 30, 30, "Cut the book into overlapping pages", "Sliding windows over the parsed stream", {"font-size": 15, "font-weight": 800, fill: C.skyD});
+ for (let i = 0; i * WE.step <= 1.0001; i++) { const h0 = i * WE.step, on = i === 2;
+  el("rect", {x: HX(h0), y: 46 + i * 15, width: HX(h0 + WE.window) - HX(h0), height: 11, rx: 5, fill: on ? C.sky : C.skyT, stroke: C.skyD, "stroke-width": on ? 2.5 : 1.5}, g1);
+  if (on) tx(g1, HX(h0 + WE.window) + 6, 46 + i * 15 + 10, "one page", {"font-size": 12, "font-weight": 800, fill: C.skyD}); }
+ const rl = seeded(9); for (let i = 0; i < 70; i++) el("line", {x1: HX(rl.r() * 2), y1: 132, x2: HX(rl.r() * 2) + 0.01, y2: 142, stroke: C.sky, "stroke-width": 2}, g1);
+ el("line", {x1: HX(0), y1: 148, x2: HX(2), y2: 148, stroke: NAVY, "stroke-width": 2}, g1);
+ for (const h of [0, 0.5, 1, 1.5, 2]) { el("line", {x1: HX(h), y1: 148, x2: HX(h), y2: 154, stroke: NAVY, "stroke-width": 2}, g1); tx(g1, HX(h), 168, h + " h", Object.assign({"font-size": 12, fill: C.ink2}, MID)); }
+ // left, step 2: tallies (count vectors) of a normal page and the odd page
+ const g2 = el("g", {"data-s": "2"}, s), names = [["status", "status"], ["ping", "ping"], ["web", "HTTP"], ["drop", "disc."], ["restart", "bounce"]];
+ const tally = (x0, vals, title, odd) => { dual(g2, x0, 198, title[0], title[1], {"font-size": 14, "font-weight": 800, fill: odd ? C.coralD : C.ink});
+  el("line", {x1: x0, y1: 340, x2: x0 + 200, y2: 340, stroke: NAVY, "stroke-width": 2}, g2);
+  vals.forEach((v, j) => { const hot = odd && v > T.normal[j] + 2; el("rect", {x: x0 + 6 + j * 39, y: 340 - v * 10, width: 28, height: v * 10, rx: 3, fill: hot ? C.coral : C.sky, stroke: NAVY, "stroke-width": 1.8, class: "growy", "data-s": "2"}, s);
+   dual(g2, x0 + 20 + j * 39, 356, names[j][0], names[j][1], Object.assign({"font-size": 10.5, fill: C.ink2}, MID)); });
+  tx(g2, x0, 380, "[" + vals.join(" ") + "]", {"font-size": 14, style: "font-family:SF Mono,Menlo,monospace", "font-weight": 700, fill: odd ? C.coralD : C.ink}); };
+ tally(30, T.normal, ["a normal page", "a normal window"], false);
+ tally(262, T.odd, ["the odd page", "the anomalous window"], true);
+ tx(g2, 462, 406, "illustrative tallies", {"text-anchor": "end", "font-size": 11, "font-weight": 700, fill: C.sunD});
+ // right, steps 3-5: pages as dots, random cuts
+ const PX = v => 575 + v * 38, PY = v => 380 - v * 27, g3 = el("g", {"data-s": "3"}, s);
+ el("rect", {x: PX(0), y: PY(10), width: PX(10) - PX(0), height: PY(0) - PY(10), fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2}, g3);
+ dual(g3, (PX(0) + PX(10)) / 2, 404, "drop stamps on the page →", "count of the disconnect template →", Object.assign({"font-size": 12, "font-weight": 700, fill: C.ink2}, MID));
+ dual(g3, 0, 0, "restart stamps →", "count of the bounce template →", Object.assign({"font-size": 12, "font-weight": 700, fill: C.ink2, transform: `translate(562 ${PY(5)}) rotate(-90)`}, MID));
+ const rd = seeded(21), pts = [];
+ for (let i = 0; i < 40; i++) pts.push([Math.min(4.4, Math.max(0.3, 2.2 + rd.g())), Math.min(2.9, Math.max(0.3, 1.6 + 0.8 * rd.g()))]);
+ pts.push([5.4, 3.8]);
+ const ODD = [8.6, 7.2], CUT = [4.8, 3.0, 7.0];
+ const sh = (x0, y0, x1, y1, fill, k) => el("rect", {x: PX(x0), y: PY(y1), width: PX(x1) - PX(x0), height: PY(y0) - PY(y1), fill, opacity: .16, "data-s": k}, s);
+ sh(CUT[2], CUT[1], 10, 10, C.coral, "4");
+ sh(0, 0, CUT[0], 10, C.leaf, "5");
+ pts.forEach(([x, y]) => el("circle", {cx: PX(x), cy: PY(y), r: 5, fill: C.sky, stroke: NAVY, "stroke-width": 1.5}, g3));
+ el("circle", {cx: PX(ODD[0]), cy: PY(ODD[1]), r: 8, fill: C.coral, stroke: NAVY, "stroke-width": 2}, g3);
+ tx(g3, PX(ODD[0]), PY(ODD[1]) - 14, "odd page", Object.assign({"font-size": 12, "font-weight": 800, fill: C.coralD}, MID));
+ const cut = (d, i, lx, ly) => { el("path", {d, pathLength: 1, class: "draw", fill: "none", stroke: NAVY, "stroke-width": 3, "data-s": "4", style: `transition-delay:${i * 450}ms`}, s);
+  const q = el("g", {"data-s": "4"}, s); el("circle", {cx: lx, cy: ly, r: 11, fill: NAVY}, q); tx(q, lx, ly + 4, "Q" + (i + 1), Object.assign({"font-size": 10, "font-weight": 800, fill: "#fff"}, MID)); };
+ cut(`M${PX(CUT[0])} ${PY(0)} V${PY(10)}`, 0, PX(CUT[0]), PY(10) - 14);
+ cut(`M${PX(CUT[0])} ${PY(CUT[1])} H${PX(10)}`, 1, PX(10) + 14, PY(CUT[1]));
+ cut(`M${PX(CUT[2])} ${PY(CUT[1])} V${PY(10)}`, 2, PX(CUT[2]), PY(10) - 14);
+ const typ = pts.slice(0, 40).reduce((b, p) => Math.hypot(p[0] - 2.2, p[1] - 1.6) < Math.hypot(b[0] - 2.2, b[1] - 1.6) ? p : b);
+ el("circle", {cx: PX(typ[0]), cy: PY(typ[1]), r: 10, fill: "none", stroke: C.leafD, "stroke-width": 3, "data-s": "5"}, s);
+ COMP.cut1 = String(CUT[0]);
+ COMP.leftCount = pts.filter(p => p[0] < CUT[0]).length - 1;
+ const r4 = el("g", {"data-s": "4"}, s), r5 = el("g", {"data-s": "5"}, s);
+ tx(r4, 548, 44, `odd page: ${V("story_odd_page_questions")} questions → score ${V("iforest_score_3_splits_psi256")}`, {"font-size": 14, "font-weight": 800, fill: C.coralD});
+ tx(r5, 548, 66, `typical page: ≈ ${V("iforest_c_256")} questions → score ${V("iforest_score_at_average_path")}`, {"font-size": 14, "font-weight": 800, fill: C.leafD});
+ console.assert(pts.filter(p => p[0] >= CUT[0] && p[1] >= CUT[1] && p[0] >= CUT[2]).length === 0, "scene 5: the odd page is alone after three cuts");
+ console.assert(pts.filter(p => p[0] >= CUT[0] && p[1] >= CUT[1]).length >= 1, "scene 5: two cuts are not enough");
+ console.assert(WE.windows === (WE.day - WE.window) / WE.step + 1, "scene 5: 93 windows a day");
+})();
+
+/* ---------------- SCENE 5b: questions -> score (live) ---------------- */
+const scoreModel = st => { const c = V("iforest_c_256"), sc = 2 ** (-st.h / c); return {h: st.h, c, s: sc, easier: st.h < c}; };
+(() => {
+ const s = document.getElementById("meter");
+ el("rect", {x: 0, y: 0, width: 600, height: 190, rx: 16, fill: "#F3E6D0"}, s);
+ dual(s, 20, 26, "Questions asked before the page stood alone", "Path length h(x), averaged over the forest", {"font-size": 14, "font-weight": 800});
+ for (let i = 0; i < 16; i++) use(s, "i-q", 20 + i * 35, 38, 30, 38, "", {id: "q" + i});
+ const MX = v => 40 + 520 * v;
+ el("rect", {x: MX(0), y: 120, width: 520, height: 22, rx: 11, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2}, s);
+ el("rect", {id: "m-fill", x: MX(0), y: 120, height: 22, rx: 11, fill: C.coral, stroke: NAVY, "stroke-width": 2}, s);
+ const half = V("iforest_score_at_average_path");
+ el("line", {x1: MX(half), y1: 112, x2: MX(half), y2: 150, stroke: C.leafD, "stroke-width": 3}, s);
+ tx(s, MX(half), 106, `${half} = typical page`, Object.assign({"font-size": 12, "font-weight": 800, fill: C.leafD}, MID));
+ for (const v of [0, 1]) tx(s, MX(v), 166, v, Object.assign({"font-size": 13, fill: C.ink2}, MID));
+ tx(s, 300, 182, "anomaly score s", Object.assign({"font-size": 12, "font-weight": 700, fill: C.ink2}, MID));
+ window.drawMeter = o => { for (let i = 0; i < 16; i++) document.getElementById("q" + i).style.opacity = i < Math.round(o.h) ? 1 : 0.15;
+  const f = document.getElementById("m-fill"); f.setAttribute("width", Math.max(22, 520 * o.s)); f.setAttribute("fill", o.easier ? C.coral : C.leaf); };
+})();
+
+/* ---------------- SCENE 6: pens, rows, the usual route ---------------- */
+(() => {
+ const s = svgOf("s-route"), RS = V("story_route_shares"), rc = V("ieee80211_reason_4way_handshake_timeout");
+ const EV = [["A", "searching", "scanning"], ["B", "tick", "clock tick"], ["A", "joining", "associating"], ["C", "check", "HTTP test"], ["A", "on the road", "connected"], ["B", "tick", "clock tick"],
+  ["C", "ok", "HTTP ok"], ["A", "dropped", "disconnect"], ["B", "tick", "clock tick"], ["A", "restart", "net bounce"], ["C", "check", "HTTP test"], ["A", "searching", "scanning"]];
+ const CX = i => 132 + i * 70, ROW = {A: 22, B: 66, C: 110}, DASH = {A: "", B: "6 3", C: "2 3"};
+ const chip = (g, i, y, e) => { el("rect", {x: CX(i), y, width: 64, height: 30, rx: 8, fill: C.skyT, stroke: NAVY, "stroke-width": 2, "stroke-dasharray": DASH[e[0]]}, g);
+  el("circle", {cx: CX(i) + 2, cy: y + 2, r: 8, fill: NAVY}, g); tx(g, CX(i) + 2, y + 6, e[0], Object.assign({"font-size": 10, "font-weight": 800, fill: "#fff"}, MID));
+  dual(g, CX(i) + 33, y + 20, e[1], e[2], Object.assign({"font-size": 10.5, "font-weight": 700}, MID)); };
+ const g1 = el("g", {class: "st-at", "data-s": "1"}, s);
+ dual(g1, 10, 60, "one page,", "one window,", {"font-size": 12, "font-weight": 700, fill: C.ink2}); dual(g1, 10, 76, "as written", "interleaved", {"font-size": 12, "font-weight": 700, fill: C.ink2});
+ EV.forEach((e, i) => chip(g1, i, ROW.B, e));
+ for (let i = 0; i < EV.length - 1; i++) el("path", {d: `M${CX(i) + 64} ${ROW.B + 15} H${CX(i + 1)}`, stroke: C.coralD, "stroke-width": 2}, g1);
+ tx(g1, CX(1) + 32, ROW.B + 50, "↑ “tick follows searching”: a route that never happens", {"font-size": 12, "font-weight": 700, fill: C.coralD});
+ const g2 = el("g", {"data-s": "2"}, s);
+ [["A", "pen A", "thread A · Wi-Fi"], ["B", "pen B", "thread B · clock"], ["C", "pen C", "thread C · web check"]].forEach(([k, a, b]) => dual(g2, 8, ROW[k] + 20, a, b, {"font-size": 11.5, "font-weight": 800, fill: C.ink2}));
+ EV.forEach((e, i) => chip(g2, i, ROW[e[0]], e));
+ const aIdx = EV.map((e, i) => e[0] === "A" ? i : -1).filter(i => i >= 0);
+ for (let j = 0; j < aIdx.length - 1; j++) el("path", {d: `M${CX(aIdx[j]) + 64} ${ROW.A + 15} H${CX(aIdx[j + 1]) - 2}`, stroke: C.leafD, "stroke-width": 2.5, "marker-end": "url(#ah-leaf)"}, g2);
+ // steps 3-4: the usual route (workflow graph) and where this car left it
+ const g3 = el("g", {"data-s": "3"}, s), NW = 128, NH = 40;
+ dual(g3, 10, 190, "The usual route, counted over many cars (pen A)", "Workflow: transition edges counted over many devices (thread A)", {"font-size": 14, "font-weight": 800, fill: C.leafD});
+ tx(g3, 990, 190, "illustrative shares", {"text-anchor": "end", "font-size": 11, "font-weight": 700, fill: C.sunD});
+ const N = {search: [160, 250, "searching", "scanning"], join: [330, 250, "joining", "associating"], on: [500, 250, "on the road", "connected"],
+  drop: [670, 250, "dropped", "disconnected"], rejoin: [585, 352, "rejoined", "reconnect success"], restart: [860, 250, "full restart", "network bounce"]};
+ const frac = v => { for (let d = 2; d <= 10; d++) { const n = Math.round(v * d); if (Math.abs(n / d - v) < 1e-9) return `${n} in ${d}`; } return v.toFixed(2); };
+ const ew = v => 2 + 12 * v;
+ const E = {sj: "M224 250 H264", jo: "M394 250 H434", od: "M564 250 H604", dr: "M734 250 H794", dj: "M670 270 C670 330 664 352 651 352", jn: "M521 352 C500 352 500 304 500 272"};
+ for (const k of ["sj", "jo", "od"]) el("path", {d: E[k], fill: "none", stroke: C.leaf, "stroke-width": 8, "marker-end": "url(#ah-leaf)"}, g3);
+ el("path", {d: E.dj, fill: "none", stroke: C.leaf, "stroke-width": ew(RS.rejoin_usual), "marker-end": "url(#ah-leaf)"}, g3);
+ el("path", {d: E.jn, fill: "none", stroke: C.leaf, "stroke-width": ew(RS.rejoin_usual), "marker-end": "url(#ah-leaf)"}, g3);
+ el("path", {d: E.dr, fill: "none", stroke: C.leaf, "stroke-width": ew(RS.restart_usual), "marker-end": "url(#ah-leaf)"}, g3);
+ tx(g3, 688, 320, "usually " + frac(RS.rejoin_usual), {"font-size": 12, "font-weight": 800, fill: C.leafD});
+ tx(g3, 764, 236, frac(RS.restart_usual), Object.assign({"font-size": 12, "font-weight": 800, fill: C.leafD}, MID));
+ for (const [x, y, a, b] of Object.values(N)) { el("rect", Object.assign({x: x - NW / 2, y: y - NH / 2, width: NW, height: NH, rx: 20, fill: "#FFFDF8"}, OL), g3);
+  dual(g3, x, y + 5, a, b, Object.assign({"font-size": 13, "font-weight": 800}, MID)); }
+ const g4 = el("g", {"data-s": "4"}, s);
+ el("path", {d: E.dr, fill: "none", stroke: C.coral, "stroke-width": ew(RS.restart_odd), "marker-end": "url(#ah-coral)"}, g4);
+ el("path", {d: E.dj, fill: "none", stroke: C.coralD, "stroke-width": 3, "stroke-dasharray": "6 5"}, g4);
+ tx(g4, 764, 216, "this car: " + frac(RS.restart_odd), Object.assign({"font-size": 13, "font-weight": 800, fill: C.coralD}, MID));
+ tx(g4, 688, 338, "this car: " + frac(RS.rejoin_odd), {"font-size": 12, "font-weight": 800, fill: C.coralD});
+ el("rect", {x: 800, y: 290, width: 190, height: 54, rx: 10, fill: "#FFF4DE", stroke: C.coralD, "stroke-width": 2.5}, g4);
+ tx(g4, 895, 312, `blank: reason=${rc}`, Object.assign({"font-size": 14, "font-weight": 800, style: "font-family:SF Mono,Menlo,monospace", fill: C.coralD}, MID));
+ tx(g4, 895, 332, "4-way handshake timeout", Object.assign({"font-size": 12, "font-weight": 700, fill: C.ink}, MID));
+ [7, 9].forEach(i => el("rect", {x: CX(i) - 4, y: ROW.A - 4, width: 72, height: 38, rx: 10, fill: "none", stroke: C.coral, "stroke-width": 4}, g4));
+ el("circle", {r: 7, fill: C.coral, stroke: NAVY, "stroke-width": 2, class: "st-tok", "data-s": "4", style: `offset-path:path('${E.dr}');--dur:900ms`}, s);
+ console.assert(frac(RS.rejoin_usual) === "9 in 10" && frac(RS.restart_odd) === "3 in 4", "scene 6: edge shares render as fractions");
+})();
+
+/* ---------------- SCENE 7: the road, and the detection rate with its range (live) ---------------- */
+(() => {
+ const s = document.getElementById("road");
+ el("rect", {x: 0, y: 0, width: 600, height: 250, rx: 16, fill: "#F3E6D0"}, s);
+ el("rect", Object.assign({x: 20, y: 170, width: 560, height: 56, rx: 10, fill: "#D9BCD0"}, OL), s);
+ el("path", {d: "M34 198 H566", stroke: "#FFFDF8", "stroke-width": 4, "stroke-dasharray": "18 14"}, s);
+ for (const [x, y, rx] of [[110, 212, 26], [300, 186, 18], [470, 214, 30], [540, 184, 14]]) el("ellipse", {cx: x, cy: y, rx, ry: rx / 3, fill: C.plumD, stroke: NAVY, "stroke-width": 2}, s);
+ use(s, "i-car", 190, 92, 170, 91);
+ el("path", Object.assign({d: "M380 26 H560 V120 H420 L396 142 L402 120 H380 Z", fill: "#FFFDF8"}, OL), s);
+ for (let j = 0; j < 4; j++) el("rect", {x: 396, y: 42 + j * 18, width: [120, 90, 140, 56][j], height: 9, rx: 4, fill: j === 1 || j === 2 ? C.coral : C.sky}, s);
+ tx(s, 548, 112, "odd pages", {"text-anchor": "end", "font-size": 13, "font-weight": 800, fill: C.coralD});
+ dual(s, 275, 76, "healthy car", "healthy device", Object.assign({"font-size": 14, "font-weight": 800, fill: C.leafD}, MID));
+ dual(s, 300, 244, "a bad road: the household's own network", "environment: router, access point, provider", Object.assign({"font-size": 13, "font-weight": 800, fill: C.plumD}, MID));
+})();
+const wilModel = st => { const n = st.n, k = Math.min(st.k, n), z = Z95, p = k / n, d = 1 + z * z / n;
+ const ctr = (p + z * z / (2 * n)) / d, hw = z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d;
+ return {n, k, p, lo: Math.max(0, ctr - hw), up: Math.min(1, ctr + hw)}; };
+(() => {
+ const s = document.getElementById("wil");
+ el("rect", {x: 0, y: 0, width: 600, height: 250, rx: 16, fill: "#F3E6D0"}, s);
+ dual(s, 20, 24, "Known faults: caught (filled) or missed", "Ground-truth cases: detected or missed", {"font-size": 14, "font-weight": 800});
+ for (let i = 0; i < 100; i++) el("rect", {id: "w" + i, x: 22 + (i % 20) * 28, y: 36 + Math.floor(i / 20) * 26, width: 22, height: 20, rx: 5, "stroke-width": 2}, s);
+ const AX = v => 40 + 520 * v;
+ el("line", {x1: AX(0), y1: 210, x2: AX(1), y2: 210, stroke: NAVY, "stroke-width": 2}, s);
+ for (let v = 0; v <= 1.0001; v += 0.25) { el("line", {x1: AX(v), y1: 210, x2: AX(v), y2: 216, stroke: NAVY, "stroke-width": 2}, s); tx(s, AX(v), 232, Math.round(v * 100) + " %", Object.assign({"font-size": 12, fill: C.ink2}, MID)); }
+ el("line", {x1: AX(0.5), y1: 172, x2: AX(0.5), y2: 212, stroke: C.ink2, "stroke-width": 2, "stroke-dasharray": "4 4"}, s);
+ tx(s, AX(0.5) + 6, 180, "another method: 50 %", {"font-size": 11, "font-weight": 700, fill: C.ink2});
+ el("rect", {id: "w-band", y: 188, height: 18, rx: 9, fill: C.leaf, opacity: .8, stroke: NAVY, "stroke-width": 2}, s);
+ el("circle", {id: "w-dot", cy: 197, r: 6, fill: "#fff", stroke: NAVY, "stroke-width": 2}, s);
+ window.drawWil = o => { for (let i = 0; i < 100; i++) { const r = document.getElementById("w" + i);
+   r.style.display = i < o.n ? "" : "none"; r.setAttribute("fill", i < o.k ? C.leaf : "#FFFDF8"); r.setAttribute("stroke", i < o.k ? NAVY : C.stone); r.setAttribute("stroke-dasharray", i < o.k ? "" : "3 2"); }
+  const b = document.getElementById("w-band"); b.setAttribute("x", AX(o.lo)); b.setAttribute("width", Math.max(4, AX(o.up) - AX(o.lo))); document.getElementById("w-dot").setAttribute("cx", AX(o.p)); };
+})();
+
+/* ---------------- sources table from both params blocks ---------------- */
+(() => { const tb = document.querySelector("#src tbody");
+ for (const [k, o] of Object.entries(P)) { if (k.startsWith("_")) continue;
+  const v = Array.isArray(o.value) ? o.value.join("–") : typeof o.value === "object" ? Object.entries(o.value).map(([a, b]) => `${a} ${Array.isArray(b) ? "[" + b.join(", ") + "]" : b}`).join(", ") : fmt(o.value);
+  const tr = document.createElement("tr"); tr.innerHTML = `<td><code>${k}</code></td><td>${v} ${o.unit}</td><td><span class="tag ${o.class === "public" ? "pub" : "ill"}">${o.class}</span></td><td>${o.source}</td>`; tb.appendChild(tr); } })();
+
+/* ---------------- fill {{key}}, {{key/sub}}, {{@computed}} in text and attributes (no number is retyped) ---------------- */
+(() => {
+ const rep = str => str.replace(/\{\{(@?)([\w.\-]+)(?:\/([\w.\-]+))?\}\}/g, (m, at, k, sub) => {
+  if (at) { if (!(k in COMP)) { console.error("missing computed " + k); return m; } return COMP[k]; }
+  const o = P[k]; if (!o) { console.error("missing param " + k); return m; }
+  const v = sub === undefined ? o.value : o.value[sub]; if (v === undefined) { console.error("missing param " + m); return m; } return fmt(v); });
+ const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => n.parentNode && /^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+ for (let n; (n = w.nextNode());) if (n.nodeValue.includes("{{")) n.nodeValue = rep(n.nodeValue);
+ for (const a of ["data-why", "aria-label"]) document.querySelectorAll(`[${a}*="{{"]`).forEach(e => e.setAttribute(a, rep(e.getAttribute(a))));
+ // slider defaults come from the params, not from the markup
+ const set = (id, v) => { const i = document.getElementById(id); i.value = v; };
+ set("nLot", Math.log10(V("small_family_devices"))); set("hQ", V("story_odd_page_questions"));
+ set("wN", V("ground_truth_usable")); set("wK", V("ground_truth_detected"));
+})();
+</script>
+<script src="../../stories/story.js"></script>
+<script>
+/* live figures: one pure model each, bound after story.js */
+Story.bind(document.getElementById("s2"), lotModel, o => {
+ document.getElementById("nLot-v").textContent = fmt(o.n);
+ drawLot(o);
+ document.getElementById("lot-read").innerHTML = `3 % of <b>${fmt(o.n)}</b> cars: standard error <b>${(100 * o.se).toFixed(o.se < 0.005 ? 2 : 1)} points</b>, 95 % range <b>${(100 * Math.max(0, o.lo)).toFixed(1)}–${(100 * o.up).toFixed(1)} %</b>.<br>` +
+  (o.noise ? `The range reaches 0 %: <span class="lbl-k">a few unlucky households</span><span class="lbl-e">small-sample noise</span> could do this.` : `The range stays clear of 0 %: this looks like a fleet change.`);
+});
+Story.bind(document.getElementById("s5"), scoreModel, o => {
+ document.getElementById("hQ-v").textContent = o.h;
+ drawMeter(o);
+ document.getElementById("score-read").innerHTML = `${o.h} questions on average → score <b>${o.s.toFixed(2)}</b>. ` +
+  (o.easier ? `Easier to single out than a typical page (${o.c}).` : `No easier than a typical page: it looks normal.`);
+});
+const wK = document.getElementById("wK");
+Story.bind(document.getElementById("s7"), st => { wK.max = st.n; return wilModel(st); }, o => {
+ if (+wK.value > o.n) wK.value = o.n;
+ document.getElementById("wN-v").textContent = o.n; document.getElementById("wK-v").textContent = o.k;
+ drawWil(o);
+ const lo = Math.round(100 * o.lo), up = Math.round(100 * o.up);
+ document.getElementById("wil-read").innerHTML = `Caught <b>${o.k} of ${o.n}</b> = ${Math.round(100 * o.p)} %, but the 95 % range is <b>${lo}–${up} %</b>.<br>` +
+  (o.lo < 0.5 && o.up > 0.5 ? `That range includes 50 %: it supports "the method works", not "better than a 50 % method".` : `The range clears 50 %.`);
+});
+/* self-tests reproducing the page's own claims */
+const close = (a, b, d) => Math.abs(a - b) <= d;
+console.assert(close(100 * lotModel({lg: 2}).se, V("rare_share_small_family_se"), 0.05), "A2: SE is 1.7 points at 100 cars");
+console.assert(close(100 * lotModel({lg: 4}).se, V("rare_share_large_family_se"), 0.005), "A2: SE is 0.17 points at 10 000 cars");
+console.assert(lotModel({lg: 2}).noise && !lotModel({lg: 4}).noise, "A2: 3 of 100 is within noise, 3 % of 10 000 is not");
+console.assert(close(scoreModel({h: V("story_odd_page_questions")}).s, V("iforest_score_3_splits_psi256"), 0.005), "B3: 3 questions score 0.82");
+console.assert(close(scoreModel({h: V("iforest_c_256")}).s, V("iforest_score_at_average_path"), 1e-9), "B3: c(256) questions score 0.5");
+const w6 = wilModel({n: V("ground_truth_usable"), k: V("ground_truth_detected")}), w60 = wilModel({n: 100, k: 60});
+console.assert(Math.round(100 * w6.lo) === V("detection_rate_wilson95_6of10")[0] && Math.round(100 * w6.up) === V("detection_rate_wilson95_6of10")[1], "C1: Wilson 6/10 is 31-83 %");
+console.assert(Math.round(100 * w60.lo) === V("detection_rate_wilson95_60of100")[0] && Math.round(100 * w60.up) === V("detection_rate_wilson95_60of100")[1], "C1: Wilson 60/100 is 50-69 %");
+</script>
+</body>
+</html>

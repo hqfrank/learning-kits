@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Per-step reliability compounds; recovery and caching decide the cost — agent task explorer</title>
+<style>
+  :root{--bg:#0f1115;--panel:#1a1d24;--ink:#eef1f6;--muted:#aeb6c4;--accent:#5ec8ff;--ok:#49d17a;--bad:#ff7a7a;--warn:#ffd36b;--line:#3a3f4a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 6px}
+  .sub{color:var(--muted);max-width:78ch;margin:4px 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:2px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 14px;padding:10px 12px}
+  legend{color:var(--muted);font-size:12.5px;padding:0 4px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover,button:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:1px}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:128px;flex:1 1 128px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:0 5px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:5px;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-top:10px}
+  .why{margin-top:12px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why p{margin:0 0 6px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:8px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  .tablewrap{overflow-x:auto}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  figure{margin:0}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>A 90 % step is a 59 % task: per-step reliability compounds, recovery breaks the product, and caching sets the bill</h1>
+  <p class="sub">An agent task needs several correct steps (taps, routes). If each step succeeds with probability <em>p</em> and
+  nothing recovers a wrong step, the task succeeds with probability <em>p</em><sup>n</sup> (note 09). The ReAct loop (note 06) lets
+  the agent see a wrong screen and try again, which costs one more step and one more model call. The step limit caps that, and
+  prompt caching (note 07) sets what each call costs. Move the sliders; every default is an illustrative value from the kit's
+  <code>constants.json</code>. Nothing on this page is a measurement.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <fieldset>
+      <legend>Preloaded cases (illustrative, from the notes)</legend>
+      <div class="cases" id="cases"></div>
+    </fieldset>
+    <div class="ctrl">
+      <label for="p">Per-step success <em>p</em> <span class="val" id="p_v"></span></label>
+      <input id="p" type="range" min="0.5" max="1" step="0.01">
+      <div class="hint">Chance one step does the right thing first time (a tap lands, a route is correct).</div>
+    </div>
+    <div class="ctrl">
+      <label for="n">Correct steps the task needs <em>n</em> <span class="val" id="n_v"></span></label>
+      <input id="n" type="range" min="1" max="15" step="1">
+    </div>
+    <div class="ctrl">
+      <label for="r">Share of wrong steps the loop recovers <em>r</em> <span class="val" id="r_v"></span></label>
+      <input id="r" type="range" min="0" max="1" step="0.05">
+      <div class="hint">0 = no recovery (note 09's p<sup>n</sup>). 1 = every wrong step is seen on the next screenshot and retried (note 06). A recovered step still costs a step.</div>
+    </div>
+    <div class="ctrl">
+      <label for="L">Step limit <em>L</em> <span class="val" id="L_v"></span></label>
+      <input id="L" type="range" min="1" max="40" step="1">
+      <div class="hint">Maximum model-driven steps in the run (note 06 iteration limit). A run that has not finished by then fails.</div>
+    </div>
+    <div class="ctrl">
+      <label for="tok">Input tokens per step <span class="val" id="tok_v"></span></label>
+      <input id="tok" type="range" min="1000" max="20000" step="500">
+      <div class="hint">One vision call: stable prefix + history + new screenshot (note 07); one screenshot alone is about 1 000–1 800 tokens (public, <code>cu_tokens_per_screenshot</code>).</div>
+    </div>
+    <div class="ctrl">
+      <label for="cache"><input id="cache" type="checkbox"> Prompt caching on</label>
+      <label for="hit">Cached share of each call's input <span class="val" id="hit_v"></span></label>
+      <input id="hit" type="range" min="0" max="1" step="any">
+      <div class="hint">Cached part is read at the cache-read multiplier; the rest is written at the 5 min cache-write multiplier (public prices, note 07).</div>
+    </div>
+    <div class="ctrl">
+      <label for="orch">Orchestrator calls per task <span class="val" id="orch_v"></span></label>
+      <input id="orch" type="range" min="0" max="10" step="1">
+      <div class="hint">Strong tier, fixed tokens per call (note 07). Specialist steps use the fast tier.</div>
+    </div>
+    <div class="ctrl">
+      <label for="N">Runs in an evaluation <span class="val" id="N_v"></span></label>
+      <input id="N" type="range" min="10" max="500" step="10">
+      <div class="hint">How many runs you would need to see the predicted success rate (note 09, Wilson interval).</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <figure class="panel st-scene" id="outputs" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <h2>Where runs end: steps used, by outcome</h2>
+    <svg id="dist" viewBox="0 0 720 250" role="img" aria-labelledby="dist_t"><title id="dist_t">Probability of each number of steps used, split by outcome</title></svg>
+    <h2 style="margin-top:14px">What one evaluation could show</h2>
+    <svg id="wil" viewBox="0 0 720 130" role="img" aria-labelledby="wil_t"><title id="wil_t">Predicted completion probability and the 95 % Wilson interval an evaluation of N runs would report</title></svg>
+    <div class="why">
+      <p id="why1"></p><p id="why2"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </figure>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h2>Parameters &amp; sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = cited public documentation, value as published.
+  <span class="tag ill">illustrative</span> = a round teaching number, never a measurement. <span class="tag der">derived</span> = computed on this page.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  <p class="hint">Self-tests: <span id="tests-sum">not run</span>.</p>
+</section>
+
+<footer>
+  Generated 2026-11-04 · Study aid for <em>agentic-device-control</em> (rung 3). Sources: notes 06, 07, 09 and <code>constants.json</code>;
+  Wilson 1927 (<a href="https://doi.org/10.1080/01621459.1927.10502953">doi</a>); prompt-caching multipliers and prices from the public
+  vendor documentation as recorded in <code>constants.json</code>. Model simplifications: every step is one fast-tier call with the same
+  token count and cached share; orchestrator calls are a fixed count; output tokens are ignored (note 07: input dominates); the first
+  call's full-prefix cache write is ignored. This is a study aid; numbers are from the listed sources or labelled illustrative/derived.
+</footer>
+
+<script type="application/json" id="params">
+{
+ "per_step_success_illustrative": {
+  "value": 0.9,
+  "unit": "probability",
+  "class": "illustrative",
+  "source": "illustrative; with 5 steps and no recovery gives 0.59 by my arithmetic"
+ },
+ "steps_without_recovery_illustrative": {
+  "value": 5,
+  "unit": "steps",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "react_iteration_limit_illustrative": {
+  "value": 20,
+  "unit": "iterations per specialist turn",
+  "class": "illustrative",
+  "source": "illustrative inner-loop limit"
+ },
+ "vision_call_tokens_illustrative": {
+  "value": {
+   "total": 7000,
+   "stable_prefix": 3000,
+   "history": 2500,
+   "new_screenshot": 1500
+  },
+  "unit": "input tokens",
+  "class": "illustrative",
+  "source": "illustrative split used in the 07 caching arithmetic; new_screenshot chosen inside cu_tokens_per_screenshot"
+ },
+ "cu_tokens_per_screenshot": {
+  "value": [
+   1000,
+   1800
+  ],
+  "unit": "input tokens",
+  "class": "public",
+  "source": "Anthropic computer-use tool documentation, 'Manage screenshot history'"
+ },
+ "orchestrator_call_tokens_illustrative": {
+  "value": 4000,
+  "unit": "input tokens",
+  "class": "illustrative",
+  "source": "illustrative, 07 budget table"
+ },
+ "task_model_calls_illustrative": {
+  "value": 5,
+  "unit": "calls",
+  "class": "illustrative",
+  "source": "illustrative: 2 orchestrator + 3 vision calls in the 07 budget table"
+ },
+ "task_input_tokens_illustrative": {
+  "value": 30000,
+  "unit": "tokens",
+  "class": "illustrative",
+  "source": "illustrative: 29 000 in the 07 budget table, rounded"
+ },
+ "cache_read_multiplier": {
+  "value": 0.1,
+  "unit": "x base input price",
+  "class": "public",
+  "source": "Anthropic prompt-caching documentation, price table notes (standard multiplier)"
+ },
+ "cache_write_5m_multiplier": {
+  "value": 1.25,
+  "unit": "x base input price",
+  "class": "public",
+  "source": "Anthropic prompt-caching documentation, price table (5m writes column ÷ input column)"
+ },
+ "price_tier_pair_input": {
+  "value": {
+   "fast": 1,
+   "strong": 3
+  },
+  "unit": "USD per million input tokens",
+  "class": "public",
+  "source": "Anthropic prompt-caching documentation, price table (one same-generation fast/strong pair)"
+ },
+ "eval_runs_illustrative": {
+  "value": 50,
+  "unit": "runs",
+  "class": "illustrative",
+  "source": "illustrative evaluation size"
+ },
+ "eval_successes_illustrative": {
+  "value": 40,
+  "unit": "runs",
+  "class": "illustrative",
+  "source": "illustrative; 95 % Wilson interval 0.670-0.888 by my arithmetic"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+var MODEL = (function(){
+  "use strict";
+  // Note 09: a task of n steps with no recovery succeeds with probability p^n.
+  function task_success_no_recovery_pn(p, n){ return Math.pow(p, n); }
+
+  // Notes 06 + 09: step-by-step outcome model. Each step succeeds with p. A wrong step is
+  // recovered (seen on the next observation, retried) with probability r, else the run fails.
+  // The run ends at n successes, at a fatal wrong step, or at the step limit L.
+  // Dynamic programme over (successes so far) after each step. Returns the distribution of
+  // steps used by outcome, the completion probability and E[steps used].
+  function task_outcome_with_recovery(p, n, L, r){
+    const q = 1 - p;
+    let alive = new Array(n).fill(0); alive[0] = 1;
+    const succ = new Array(L + 1).fill(0), fatal = new Array(L + 1).fill(0);
+    for (let t = 1; t <= L; t++){
+      const next = new Array(n).fill(0);
+      for (let s = 0; s < n; s++){
+        const a = alive[s]; if (!a) continue;
+        if (s + 1 === n) succ[t] += a * p; else next[s + 1] += a * p;
+        next[s] += a * q * r;
+        fatal[t] += a * q * (1 - r);
+      }
+      alive = next;
+    }
+    const pLimit = alive.reduce((x, y) => x + y, 0);
+    let pComplete = 0, pFatal = 0, expSteps = L * pLimit;
+    for (let t = 1; t <= L; t++){ pComplete += succ[t]; pFatal += fatal[t]; expSteps += t * (succ[t] + fatal[t]); }
+    return {succ, fatal, pLimit, pComplete, pFatal, expSteps};
+  }
+
+  // Note 07: cost of one call in base-input-token units. Cached share read at readMult,
+  // the rest written at writeMult (prefix advanced each turn). Caching off: 1x on every token.
+  function cached_call_cost_07(tokens, hit, cachingOn, readMult, writeMult){
+    return cachingOn ? tokens * (hit * readMult + (1 - hit) * writeMult) : tokens;
+  }
+
+  // Note 07: expected task cost. Specialist steps on the fast tier, orchestrator calls on the
+  // strong tier; USD per million input tokens from the public price table.
+  function task_cost_07(expSteps, stepTokens, orchCalls, orchTokens, hit, cachingOn, readMult, writeMult, price){
+    const uStep = cached_call_cost_07(stepTokens, hit, cachingOn, readMult, writeMult);
+    const uOrch = cached_call_cost_07(orchTokens, hit, cachingOn, readMult, writeMult);
+    const usdSteps = expSteps * uStep * price.fast / 1e6;
+    const usdOrch = orchCalls * uOrch * price.strong / 1e6;
+    return {uStep, uOrch, usdSteps, usdOrch, usd: usdSteps + usdOrch,
+            inputTokens: expSteps * stepTokens + orchCalls * orchTokens};
+  }
+
+  // Note 09 / Wilson 1927: 95 % score interval for k successes in N runs.
+  function wilson_interval_09(k, N, z){
+    z = z || 1.959964;
+    if (N <= 0) return [0, 1];
+    const ph = k / N, z2 = z * z, den = 1 + z2 / N;
+    const c = (ph + z2 / (2 * N)) / den;
+    const h = z * Math.sqrt(ph * (1 - ph) / N + z2 / (4 * N * N)) / den;
+    return [Math.max(0, c - h), Math.min(1, c + h)];
+  }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const near = (a, b, t) => Math.abs(a - b) <= t;
+    const p = P.per_step_success_illustrative.value, n = P.steps_without_recovery_illustrative.value;
+    // 1. note 09: p = 0.9, n = 5, no recovery gives 0.59 (constants.json source string).
+    ok(near(task_success_no_recovery_pn(p, n), 0.59, 0.005), "T1 p^n = 0.59");
+    // 2. DP with r = 0 reproduces p^n for any limit >= n.
+    ok(near(task_outcome_with_recovery(p, n, 20, 0).pComplete, Math.pow(p, n), 1e-12), "T2 DP r=0 equals p^n");
+    // 3. DP with limit = n reproduces p^n even with recovery (no room to retry).
+    ok(near(task_outcome_with_recovery(p, n, n, 1).pComplete, Math.pow(p, n), 1e-12), "T3 L=n equals p^n");
+    // 4. full recovery, huge limit: completion -> 1, E[steps] -> n/p (negative binomial mean).
+    const big = task_outcome_with_recovery(p, n, 400, 1);
+    ok(near(big.pComplete, 1, 1e-9) && near(big.expSteps, n / p, 1e-6), "T4 negative-binomial mean n/p");
+    // 5. probabilities sum to 1.
+    const any = task_outcome_with_recovery(0.7, 6, 12, 0.5);
+    ok(near(any.pComplete + any.pFatal + any.pLimit, 1, 1e-12), "T5 outcomes sum to 1");
+    // 6. note 07: 7000 tokens, 5500 cached at 0.1x, 1500 written at 1.25x = 2425 units (~35 %).
+    const v = P.vision_call_tokens_illustrative.value, rd = P.cache_read_multiplier.value, wr = P.cache_write_5m_multiplier.value;
+    const hit = (v.stable_prefix + v.history) / v.total;
+    const u = cached_call_cost_07(v.total, hit, true, rd, wr);
+    ok(near(u, 2425, 1e-6), "T6 cached call = 2425 units");
+    ok(near(u / v.total, 0.35, 0.01), "T7 cached call is about 35 % of uncached");
+    ok(cached_call_cost_07(v.total, hit, false, rd, wr) === v.total, "T8 caching off = 1x");
+    // 9. note 07 budget table: 3 vision + 2 orchestrator calls, uncached = 29 000 tokens, about 30 000.
+    const o = P.orchestrator_call_tokens_illustrative.value;
+    const c = task_cost_07(3, v.total, 2, o, 0, false, rd, wr, P.price_tier_pair_input.value);
+    ok(c.inputTokens === 29000 && near(c.inputTokens, P.task_input_tokens_illustrative.value, 1000), "T9 budget table 29 000 tokens");
+    ok(3 + 2 === P.task_model_calls_illustrative.value, "T10 budget table = 5 calls");
+    // 11. my arithmetic: 21 000 fast-tier tokens at $1/M + 8 000 strong-tier at $3/M = $0.045.
+    ok(near(c.usd, 0.045, 1e-9), "T11 budget table $0.045");
+    // 12. note 09: 40/50 -> 95 % Wilson 0.670-0.888.
+    const w = wilson_interval_09(P.eval_successes_illustrative.value, P.eval_runs_illustrative.value);
+    ok(near(w[0], 0.670, 0.0015) && near(w[1], 0.888, 0.0015), "T12 Wilson 40/50");
+    // 13. caching with nothing cached costs MORE than no caching (writes at 1.25x).
+    ok(cached_call_cost_07(1000, 0, true, rd, wr) > 1000, "T13 zero-hit caching costs more");
+    return {passed, failed};
+  }
+  return {task_success_no_recovery_pn, task_outcome_with_recovery, cached_call_cost_07, task_cost_07, wilson_interval_09, selfTest};
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = MODEL;
+/*MODEL-END*/
+
+if (typeof window !== "undefined") (function(){
+  const $ = id => document.getElementById(id);
+  const P = JSON.parse($("params").textContent);
+  const V = k => P[k].value;
+  const fmt = (x, d) => Number(x).toFixed(d);
+  const pct = (x, d) => (x < 1 && x >= 0.9995 && d === undefined) ? "> 99.9 %" : (x * 100).toFixed(d === undefined ? 1 : d) + " %";
+  const usd = x => "$" + (x < 0.1 ? x.toFixed(4) : x.toFixed(3));
+  const vt = V("vision_call_tokens_illustrative");
+  const defHit = (vt.stable_prefix + vt.history) / vt.total;
+  const base = {p: V("per_step_success_illustrative"), n: V("steps_without_recovery_illustrative"),
+    L: V("react_iteration_limit_illustrative"), r: 1, tok: vt.total, cache: true, hit: defHit, orch: 2, N: V("eval_runs_illustrative")};
+  const CASES = [
+    {name: "No recovery (note 09)", set: {r: 0}},
+    {name: "Recover every wrong step (note 06)", set: {r: 1}},
+    {name: "Recovery, tight step limit", set: {r: 1, L: base.n + 1}, note: "step limit n + 1, chosen on this page"},
+    {name: "Budget table, caching off (note 07)", set: {p: 1, n: 3, r: 1, cache: false}},
+    {name: "Budget table, caching on (note 07)", set: {p: 1, n: 3, r: 1, cache: true}}
+  ];
+  const ids = ["p", "n", "r", "L", "tok", "hit", "orch", "N"];
+  function apply(st){
+    const s = Object.assign({}, base, st);
+    ids.forEach(k => $(k).value = s[k]); $("cache").checked = s.cache; update();
+  }
+  CASES.forEach((c, i) => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = c.name; b.dataset.i = i;
+    if (c.note) b.title = c.note;
+    b.addEventListener("click", () => { apply(c.set); mark(i); }); $("cases").appendChild(b);
+  });
+  function mark(i){ [...$("cases").children].forEach((b, j) => b.setAttribute("aria-pressed", String(j === i))); }
+
+  function renderSources(){
+    const tb = $("sources").querySelector("tbody");
+    for (const [k, o] of Object.entries(P)){
+      const val = Array.isArray(o.value) ? o.value.join("–") : (typeof o.value === "object" ? Object.entries(o.value).map(([a, b]) => a + " " + b).join(", ") : o.value);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>${k}</code></td><td>${val} ${o.unit || ""}</td><td>${o.class}</td><td>${o.source}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  const metric = (k, v, t) => `<div class="metric"><div class="k">${k}<span class="tag ${t}">${t === "der" ? "derived" : t}</span></div><div class="v">${v}</div></div>`;
+
+  function drawDist(o, L, n){
+    const W = 720, H = 250, pl = 50, pr = 16, pt = 30, pb = 44, pw = W - pl - pr, ph = H - pt - pb;
+    const cols = [];
+    for (let t = 1; t <= L; t++) cols.push({t, s: o.succ[t], f: o.fatal[t], l: t === L ? o.pLimit : 0});
+    const mx = Math.max(1e-9, ...cols.map(c => c.s + c.f + c.l));
+    const bw = pw / L;
+    let s = `<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#3a1f22"/><line x1="0" y1="0" x2="0" y2="6" stroke="#ff7a7a" stroke-width="3"/></pattern></defs>`;
+    s += `<line x1="${pl}" y1="${pt + ph}" x2="${pl + pw}" y2="${pt + ph}" stroke="#3a3f4a"/>`;
+    for (let g = 0; g <= 4; g++){
+      const y = pt + ph - ph * g / 4;
+      s += `<line x1="${pl}" y1="${y}" x2="${pl + pw}" y2="${y}" stroke="#262a33"/><text x="${pl - 6}" y="${y + 4}" fill="#aeb6c4" font-size="11" text-anchor="end">${fmt(mx * g / 4 * 100, mx < 0.1 ? 1 : 0)}%</text>`;
+    }
+    cols.forEach((c, i) => {
+      const x = pl + i * bw + bw * 0.12, w = bw * 0.76;
+      let y = pt + ph;
+      const seg = (v, fill, stroke) => { if (v <= 0) return; const h = ph * v / mx; y -= h; s += `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${fill}" ${stroke ? `stroke="${stroke}" stroke-width="1.5"` : ""}/>`; };
+      seg(c.s, "#49d17a"); seg(c.f, "url(#hatch)"); seg(c.l, "#2a2510", "#ffd36b");
+      if (L <= 20 || c.t % 5 === 0 || c.t === 1) s += `<text x="${x + w / 2}" y="${pt + ph + 14}" fill="#aeb6c4" font-size="11" text-anchor="middle">${c.t}</text>`;
+    });
+    const ex = pl + (o.expSteps - 0.5) * bw;
+    s += `<line x1="${ex}" y1="${pt - 4}" x2="${ex}" y2="${pt + ph}" stroke="#5ec8ff" stroke-dasharray="5 3"/><text x="${Math.min(ex + 4, W - 150)}" y="${pt + 6}" fill="#5ec8ff" font-size="11">E[steps] = ${fmt(o.expSteps, 2)}</text>`;
+    if (n <= L){ const nx = pl + (n - 1) * bw + bw / 2; s += `<text x="${nx}" y="${pt + ph + 28}" fill="#eef1f6" font-size="11" text-anchor="middle">▲ n</text>`; }
+    s += `<text x="${pl + pw / 2}" y="${H - 4}" fill="#aeb6c4" font-size="11" text-anchor="middle">steps used in the run (limit L = ${L} is the last bar)</text>`;
+    const ly = 14;
+    s += `<rect x="${pl}" y="${ly - 9}" width="11" height="11" fill="#49d17a"/><text x="${pl + 15}" y="${ly}" fill="#eef1f6" font-size="11">finished (solid)</text>`;
+    s += `<rect x="${pl + 120}" y="${ly - 9}" width="11" height="11" fill="url(#hatch)"/><text x="${pl + 135}" y="${ly}" fill="#eef1f6" font-size="11">unrecovered wrong step (hatched)</text>`;
+    s += `<rect x="${pl + 335}" y="${ly - 9}" width="11" height="11" fill="#2a2510" stroke="#ffd36b"/><text x="${pl + 350}" y="${ly}" fill="#eef1f6" font-size="11">hit step limit (outlined)</text>`;
+    $("dist").innerHTML = `<title id="dist_t">Probability of each number of steps used, split by outcome</title>` + s;
+  }
+
+  function drawWilson(pc, N){
+    const W = 720, H = 130, pl = 40, pr = 20, pw = W - pl - pr, X = v => pl + pw * v;
+    const k = Math.round(pc * N), w = MODEL.wilson_interval_09(k, N);
+    const ek = V("eval_successes_illustrative"), en = V("eval_runs_illustrative"), ew = MODEL.wilson_interval_09(ek, en);
+    let s = "";
+    for (let g = 0; g <= 10; g++){ const x = X(g / 10); s += `<line x1="${x}" y1="20" x2="${x}" y2="104" stroke="#262a33"/><text x="${x}" y="120" fill="#aeb6c4" font-size="11" text-anchor="middle">${g * 10}%</text>`; }
+    s += `<line x1="${X(pc)}" y1="14" x2="${X(pc)}" y2="104" stroke="#5ec8ff" stroke-width="2"/><text x="${Math.min(X(pc) + 4, W - 190)}" y="14" fill="#5ec8ff" font-size="11">predicted completion ${pct(pc)}</text>`;
+    s += `<line x1="${X(w[0])}" y1="44" x2="${X(w[1])}" y2="44" stroke="#5ec8ff" stroke-width="6" opacity="0.55"/><text x="${pl}" y="34" fill="#eef1f6" font-size="11">${N} runs, ${k} successes → 95 % Wilson ${pct(w[0], 1)}–${pct(w[1], 1)} (derived)</text>`;
+    s += `<line x1="${X(ew[0])}" y1="84" x2="${X(ew[1])}" y2="84" stroke="#ffd36b" stroke-width="2"/><line x1="${X(ew[0])}" y1="78" x2="${X(ew[0])}" y2="90" stroke="#ffd36b"/><line x1="${X(ew[1])}" y1="78" x2="${X(ew[1])}" y2="90" stroke="#ffd36b"/>`;
+    s += `<rect x="${X(ek / en) - 5}" y="79" width="10" height="10" fill="#ffd36b" transform="rotate(45 ${X(ek / en)} 84)"/><text x="${pl}" y="72" fill="#ffd36b" font-size="11">illustrative evaluation from note 09: ${ek}/${en} → ${pct(ew[0], 1)}–${pct(ew[1], 1)} (an illustrative result, not a measurement)</text>`;
+    $("wil").innerHTML = `<title id="wil_t">Predicted completion probability and the 95 % Wilson interval an evaluation of N runs would report</title>` + s;
+    return {k, w};
+  }
+
+  function update(){
+    const p = +$("p").value, n = +$("n").value, r = +$("r").value, L = +$("L").value, tok = +$("tok").value,
+          hit = +$("hit").value, orch = +$("orch").value, N = +$("N").value, cache = $("cache").checked;
+    $("hit").disabled = !cache;
+    $("p_v").textContent = fmt(p, 2); $("n_v").textContent = n; $("r_v").textContent = fmt(r, 2); $("L_v").textContent = L;
+    $("tok_v").textContent = tok.toLocaleString("en-US"); $("hit_v").textContent = cache ? pct(hit, 0) : "(caching off)";
+    $("orch_v").textContent = orch; $("N_v").textContent = N;
+    const o = MODEL.task_outcome_with_recovery(p, n, L, r);
+    const c = MODEL.task_cost_07(o.expSteps, tok, orch, V("orchestrator_call_tokens_illustrative"), hit, cache,
+      V("cache_read_multiplier"), V("cache_write_5m_multiplier"), V("price_tier_pair_input"));
+    const perOk = o.pComplete > 0 ? c.usd / o.pComplete : NaN;
+    $("headline").innerHTML =
+      metric("Task completion", pct(o.pComplete), "der") +
+      metric("Expected steps", fmt(o.expSteps, 2), "der") +
+      metric("Expected input tokens", Math.round(c.inputTokens).toLocaleString("en-US"), "der") +
+      metric("Expected cost / run", usd(c.usd), "der") +
+      metric("Cost / successful task", isFinite(perOk) ? usd(perOk) : "no successes", "der");
+    drawDist(o, L, n);
+    const wl = drawWilson(o.pComplete, N);
+    const noRec = MODEL.task_success_no_recovery_pn(p, n);
+    let w1;
+    if (n > L) w1 = `The limit (${L}) is below the steps the task needs (${n}), so no run can finish. Raise the limit or split the task.`;
+    else if (o.pFatal >= o.pLimit && o.pFatal > 0.005) w1 = `Unrecovered wrong steps dominate the failures (${pct(o.pFatal)} of runs). With no recovery the task would finish ${pct(noRec)} of the time: ${fmt(p, 2)}<sup>${n}</sup>. Each step multiplies in another chance to fail, so long tasks need recovery more than they need a slightly better click.`;
+    else if (o.pLimit > 0.005) w1 = `The step limit dominates the failures (${pct(o.pLimit)} of runs reach step ${L} still unfinished). Recovery costs steps: on average a step is right ${fmt(p, 2)} of the time, so the task needs about ${fmt(n / p, 1)} steps (n/p) and the slow tail runs past the limit. Size the limit from the step distribution of successful runs (note 06).`;
+    else if (p === 1) w1 = `Every step succeeds first time (p = 1), as in note 07's budget table, so the run uses exactly n = ${n} steps and cost is set only by tokens and caching.`;
+    else w1 = `Almost every run finishes (${pct(o.pComplete)}). Recovery turns the ${pct(noRec)} of p<sup>n</sup> into near-certain completion; the price is extra steps: ${fmt(o.expSteps, 2)} on average against the minimum ${n}.`;
+    const share = c.usd > 0 ? c.usdOrch / c.usd : 0;
+    const w2 = `Each step costs ${fmt(c.uStep, 0)} base-input-token units against ${tok.toLocaleString("en-US")} uncached (${pct(c.uStep / tok, 0)}). ` +
+      (cache && hit < 0.2 ? `With so little cached, caching costs <em>more</em> than no caching, because writes are billed at ${V("cache_write_5m_multiplier")}×. ` : "") +
+      `Orchestrator calls are ${pct(share, 0)} of the cost: fewer tokens per call, but on the tier priced ${V("price_tier_pair_input").strong / V("price_tier_pair_input").fast}× higher.`;
+    $("why1").innerHTML = w1; $("why2").innerHTML = w2;
+    $("callout").innerHTML = `<strong>Read the evaluation honestly.</strong> ${N} runs at this prediction give a 95 % interval of ${pct(wl.w[0], 1)}–${pct(wl.w[1], 1)}. ` +
+      `Two agent versions whose intervals overlap this much are not shown to differ, so report success with its interval, next to steps and cost per task (note 09).`;
+    $("live").textContent = `Completion ${pct(o.pComplete)}, expected ${fmt(o.expSteps, 2)} steps, ${usd(c.usd)} per run.`;
+  }
+
+  let raf = 0;
+  [...ids, "cache"].forEach(id => $(id).addEventListener("input", () => { mark(-1); cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }));
+  renderSources();
+  apply({}); mark(1);
+  const res = MODEL.selfTest(P, console.assert);
+  $("tests-sum").textContent = `${res.passed} passed, ${res.failed} failed`;
+  window.Story = {scenes: {outputs: {n: CASES.length}}, go: (id, k) => { if (id === "outputs" && CASES[k - 1]){ apply(CASES[k - 1].set); mark(k - 1); } }};
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,195 @@
+{
+ "_about": "Parameters for the device-log-anomaly-detection rung-3 explorers. Every entry is copied verbatim from ../constants.json with its 'class' and 'source'. Classes: 'public' = a cited public paper, standard or documentation (real value); 'illustrative' = a round number invented to explain an idea, never a measurement. Each explorer inlines the entries it uses in a <script type=\"application/json\" id=\"params\"> block; nothing is retyped.",
+ "iforest_subsample_size_default": {
+  "value": 256,
+  "unit": "points per tree",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3 (psi = 256); scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (max_samples='auto' = min(256, n_samples))"
+ },
+ "iforest_trees_default": {
+  "value": 100,
+  "unit": "trees",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3 (t = 100); scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (n_estimators=100)"
+ },
+ "iforest_height_limit_psi256": {
+  "value": 8,
+  "unit": "splits",
+  "class": "public",
+  "source": "ceil(log2 256); Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3; scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (max depth ceil(log2 n))"
+ },
+ "euler_mascheroni": {
+  "value": 0.5772156649,
+  "unit": "dimensionless",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §2, approximation H(i) ~ ln(i) + 0.5772156649"
+ },
+ "iforest_c_256": {
+  "value": 10.24,
+  "unit": "splits",
+  "class": "public",
+  "source": "my arithmetic from c(n) = 2H(n-1) - 2(n-1)/n in Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf Eq. 1"
+ },
+ "iforest_score_at_average_path": {
+  "value": 0.5,
+  "unit": "score",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §2: E(h(x)) -> c(n) gives s -> 0.5"
+ },
+ "iforest_score_3_splits_psi256": {
+  "value": 0.82,
+  "unit": "score",
+  "class": "public",
+  "source": "my arithmetic: 2^(-3/10.24), from Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf Eq. 2"
+ },
+ "sklearn_iforest_offset_auto": {
+  "value": -0.5,
+  "unit": "score offset",
+  "class": "public",
+  "source": "scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (offset_ = -0.5 when contamination='auto')"
+ },
+ "phred_factor": {
+  "value": 10,
+  "unit": "score points per decade of p",
+  "class": "public",
+  "source": "Ewing & Green, Genome Research 8:186-194, 1998: Q = -10 log10 P"
+ },
+ "score_examples": {
+  "value": {
+   "p_0.1": 10,
+   "p_0.01": 20,
+   "p_1e-5": 50,
+   "p_1e-10": 100
+  },
+  "unit": "score",
+  "class": "public",
+  "source": "my arithmetic from score = -10 log10(p)"
+ },
+ "score_cap": {
+  "value": 100,
+  "unit": "score",
+  "class": "illustrative",
+  "source": "illustrative cap (p = 1e-10)",
+  "used_in": "B4"
+ },
+ "z_95_two_sided": {
+  "value": 1.96,
+  "unit": "standard deviations",
+  "class": "public",
+  "source": "standard normal quantile; NIST/SEMATECH e-Handbook §7.2.4.1"
+ },
+ "small_family_devices": {
+  "value": 100,
+  "unit": "active devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2, C3"
+ },
+ "large_family_devices": {
+  "value": 10000,
+  "unit": "active devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2"
+ },
+ "rare_reason_devices": {
+  "value": 3,
+  "unit": "devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2, C3"
+ },
+ "rare_share_small_family_se": {
+  "value": 1.7,
+  "unit": "percentage points",
+  "class": "illustrative",
+  "source": "my arithmetic: sqrt(0.03*0.97/100), from illustrative inputs",
+  "used_in": "A2"
+ },
+ "rare_share_large_family_se": {
+  "value": 0.17,
+  "unit": "percentage points",
+  "class": "illustrative",
+  "source": "my arithmetic: sqrt(0.03*0.97/10000), from illustrative inputs",
+  "used_in": "A2"
+ },
+ "trend_series_length": {
+  "value": {
+   "weeks": 8,
+   "daily_points": 56
+  },
+  "unit": "weeks / days",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B4"
+ },
+ "monitored_series": {
+  "value": 10000,
+  "unit": "series per day",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B4"
+ },
+ "multiple_testing_false_alarms": {
+  "value": 100,
+  "unit": "series per day",
+  "class": "illustrative",
+  "source": "my arithmetic: 10 000 x 0.01, illustrative inputs",
+  "used_in": "B4"
+ },
+ "window_example": {
+  "value": {
+   "day": 24,
+   "window": 1,
+   "step": 0.25,
+   "windows": 93
+  },
+  "unit": "h / count",
+  "class": "illustrative",
+  "source": "illustrative inputs; windows = (24-1)/0.25 + 1, my arithmetic",
+  "used_in": "B2"
+ },
+ "he2016_fixed_window_default": {
+  "value": 1,
+  "unit": "h",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-B"
+ },
+ "he2016_sliding_window_default": {
+  "value": {
+   "window": 6,
+   "step": 1
+  },
+  "unit": "h",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-B"
+ },
+ "lines_per_device_day": {
+  "value": 500000,
+  "unit": "lines",
+  "class": "illustrative",
+  "source": "illustrative (order of magnitude endorsed by the kit brief)",
+  "used_in": "A0, A1"
+ },
+ "wifi_component_share_kept": {
+  "value": 1,
+  "unit": "% of lines",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A1"
+ },
+ "templates_per_component_set": {
+  "value": 400,
+  "unit": "templates",
+  "class": "illustrative",
+  "source": "illustrative ('a few hundred')",
+  "used_in": "B1, C2"
+ },
+ "miner_templates_found": {
+  "value": 20,
+  "unit": "templates",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B1"
+ }
+}

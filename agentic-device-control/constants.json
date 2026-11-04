@@ -1,0 +1,52 @@
+{
+ "_about": "Numbers cited by the agentic-device-control kit. Every entry has class 'public' (a cited public paper or documentation page, value as published) or 'illustrative' (a round number invented to explain an idea; never a measurement). No number here is copied from any internal source. Derived values in the notes are labelled 'my arithmetic'. Load this file; do not retype the numbers.",
+
+ "react_alfworld_gain_pp": {"value": 34, "unit": "percentage points absolute success rate", "class": "public", "source": "Yao et al. 2022, ReAct, arXiv:2210.03629, abstract (ALFWorld, over imitation/RL baselines)", "used_in": ["06"]},
+ "react_webshop_gain_pp": {"value": 10, "unit": "percentage points absolute success rate", "class": "public", "source": "Yao et al. 2022, ReAct, arXiv:2210.03629, abstract (WebShop)", "used_in": ["06"]},
+ "react_in_context_examples": {"value": [1, 2], "unit": "examples", "class": "public", "source": "Yao et al. 2022, ReAct, arXiv:2210.03629, abstract", "used_in": ["06"]},
+
+ "cu_reference_frame_recommended": {"value": [1280, 800], "unit": "px (width, height)", "class": "public", "source": "Anthropic computer-use tool documentation, 'Size screenshots to fit image limits' (recommended for web applications)", "used_in": ["04"]},
+ "cu_max_resolution_advised": {"value": [1920, 1080], "unit": "px", "class": "public", "source": "Anthropic computer-use tool documentation, 'Size screenshots to fit image limits' (avoid higher)", "used_in": ["04"]},
+ "cu_tokens_per_screenshot": {"value": [1000, 1800], "unit": "input tokens", "class": "public", "source": "Anthropic computer-use tool documentation, 'Manage screenshot history'", "used_in": ["04", "07"]},
+ "cu_screenshots_kept": {"value": 3, "unit": "screenshots", "class": "public", "source": "Anthropic computer-use tool documentation, 'Manage screenshot history' (suggested default)", "used_in": ["04", "07"]},
+ "cu_prune_interval": {"value": 25, "unit": "turns", "class": "public", "source": "Anthropic computer-use tool documentation, 'Manage screenshot history' (suggested default)", "used_in": ["07"]},
+
+ "cache_max_breakpoints": {"value": 4, "unit": "breakpoints per request", "class": "public", "source": "Anthropic prompt-caching documentation", "used_in": ["07"]},
+ "cache_ttl_default": {"value": 5, "unit": "min", "class": "public", "source": "Anthropic prompt-caching documentation", "used_in": ["07"]},
+ "cache_ttl_long": {"value": 1, "unit": "h", "class": "public", "source": "Anthropic prompt-caching documentation", "used_in": ["07"]},
+ "cache_write_5m_multiplier": {"value": 1.25, "unit": "x base input price", "class": "public", "source": "Anthropic prompt-caching documentation, price table (5m writes column ÷ input column)", "used_in": ["07"]},
+ "cache_write_1h_multiplier": {"value": 2, "unit": "x base input price", "class": "public", "source": "Anthropic prompt-caching documentation, TTL support", "used_in": ["07"]},
+ "cache_read_multiplier": {"value": 0.1, "unit": "x base input price", "class": "public", "source": "Anthropic prompt-caching documentation, price table notes (standard multiplier)", "used_in": ["07"]},
+ "price_output_to_input_ratio": {"value": 5, "unit": "ratio", "class": "public", "source": "Anthropic prompt-caching documentation, price table (output ÷ input, every listed model)", "used_in": ["07"]},
+ "price_tier_pair_input": {"value": {"fast": 1, "strong": 3}, "unit": "USD per million input tokens", "class": "public", "source": "Anthropic prompt-caching documentation, price table (one same-generation fast/strong pair)", "used_in": ["07"]},
+
+ "task_wall_time_illustrative": {"value": 20, "unit": "s", "class": "illustrative", "source": "illustrative end-to-end time for a simple 'open an app' task; sum of the 07 budget table", "used_in": ["00", "01", "07"]},
+ "task_model_calls_illustrative": {"value": 5, "unit": "calls", "class": "illustrative", "source": "illustrative: 2 orchestrator + 3 vision calls in the 07 budget table", "used_in": ["07"]},
+ "task_input_tokens_illustrative": {"value": 30000, "unit": "tokens", "class": "illustrative", "source": "illustrative: 29 000 in the 07 budget table, rounded", "used_in": ["00", "07"]},
+ "orchestrator_call_tokens_illustrative": {"value": 4000, "unit": "input tokens", "class": "illustrative", "source": "illustrative, 07 budget table", "used_in": ["07"]},
+ "vision_call_tokens_illustrative": {"value": {"total": 7000, "stable_prefix": 3000, "history": 2500, "new_screenshot": 1500}, "unit": "input tokens", "class": "illustrative", "source": "illustrative split used in the 07 caching arithmetic; new_screenshot chosen inside cu_tokens_per_screenshot", "used_in": ["07"]},
+ "orchestrator_call_latency_illustrative": {"value": 2, "unit": "s", "class": "illustrative", "source": "illustrative, 07 budget table", "used_in": ["07"]},
+ "vision_call_latency_illustrative": {"value": [5, 6], "unit": "s per step", "class": "illustrative", "source": "illustrative, 07 budget table", "used_in": ["07"]},
+ "capture_resize_latency_illustrative": {"value": 2, "unit": "s", "class": "illustrative", "source": "illustrative, 07 budget table", "used_in": ["07"]},
+ "receive_lock_latency_illustrative": {"value": 0.1, "unit": "s", "class": "illustrative", "source": "illustrative, 07 budget table", "used_in": ["07"]},
+ "settle_delay_illustrative": {"value": 1, "unit": "s", "class": "illustrative", "source": "illustrative wait after an action before the next screenshot", "used_in": ["04", "06", "07"]},
+
+ "dedup_window_illustrative": {"value": 10, "unit": "min", "class": "illustrative", "source": "illustrative retention of message IDs in the de-duplication cache", "used_in": ["01"]},
+ "watchdog_timeout_illustrative": {"value": 5, "unit": "min", "class": "illustrative", "source": "illustrative hard limit on task wall time", "used_in": ["01", "06"]},
+ "react_iteration_limit_illustrative": {"value": 20, "unit": "iterations per specialist turn", "class": "illustrative", "source": "illustrative inner-loop limit", "used_in": ["06"]},
+ "graph_step_limit_illustrative": {"value": 10, "unit": "orchestrator hops", "class": "illustrative", "source": "illustrative outer-loop limit", "used_in": ["06"]},
+
+ "orchestrator_temperature_illustrative": {"value": 0.2, "unit": "", "class": "illustrative", "source": "illustrative low non-zero temperature for the planner", "used_in": ["03"]},
+ "specialist_temperature_illustrative": {"value": 0, "unit": "", "class": "illustrative", "source": "illustrative: deterministic-as-possible specialists", "used_in": ["03"]},
+ "max_output_tokens_illustrative": {"value": {"orchestrator": 4000, "vision": 4000, "actuator": 2000}, "unit": "tokens per reply", "class": "illustrative", "source": "illustrative per-node reply caps", "used_in": ["03"]},
+
+ "device_native_resolution_illustrative": {"value": [2400, 1600], "unit": "px", "class": "illustrative", "source": "illustrative tablet screen, chosen with a different aspect ratio from the reference frame", "used_in": ["04"]},
+ "model_click_illustrative": {"value": [200, 560], "unit": "px in reference frame", "class": "illustrative", "source": "illustrative tap request; maps to (375, 1120) device px by my arithmetic", "used_in": ["04"]},
+
+ "actuator_vs_screen_illustrative": {"value": {"screen_calls": 2, "screen_s": 10, "os_calls": 1, "os_s": 2}, "unit": "model calls / s", "class": "illustrative", "source": "illustrative comparison of opening an app via the screen vs via one OS call", "used_in": ["05"]},
+
+ "eval_runs_illustrative": {"value": 50, "unit": "runs", "class": "illustrative", "source": "illustrative evaluation size", "used_in": ["09"]},
+ "eval_successes_illustrative": {"value": 40, "unit": "runs", "class": "illustrative", "source": "illustrative; 95 % Wilson interval 0.670-0.888 by my arithmetic", "used_in": ["09"]},
+ "per_step_success_illustrative": {"value": 0.9, "unit": "probability", "class": "illustrative", "source": "illustrative; with 5 steps and no recovery gives 0.59 by my arithmetic", "used_in": ["09"]},
+ "steps_without_recovery_illustrative": {"value": 5, "unit": "steps", "class": "illustrative", "source": "illustrative", "used_in": ["09"]}
+}

@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en" data-generated="2026-11-04">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A moving body reshapes the CSI across subcarriers; RSSI keeps only the sum</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --line:#3a3f4a; --good:#49d17a; --bad:#ff7a7a; --warn:#ffd36b; --violet:#c9a2ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h3{font-size:15px}
+  .sub{color:var(--muted);max-width:80ch;margin:6px 0 0}
+  .banner{max-width:80ch;margin:10px 0 0;padding:8px 12px;border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-size:13px}
+  main{display:grid;grid-template-columns:330px 1fr;gap:18px;padding:18px 22px}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .panel>*{min-width:0}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range],select{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit}
+  .check label{display:flex;gap:8px;align-items:center;font-weight:600}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--accent);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover,button:focus-visible{background:#1d2a36}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .headline{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .metric .t{font-size:11px;color:var(--muted)}
+  .decision{font-size:22px;font-weight:800;padding:8px 14px;border-radius:10px;display:inline-block;margin-bottom:12px;border:1px solid var(--accent);color:var(--accent);background:#12202a}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-bottom:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  svg text{font:11px system-ui,sans-serif}
+  svg .mut{fill:var(--muted)}
+  .figrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:1100px){.figrow{grid-template-columns:1fr}}
+  .figrow>*{min-width:0}
+  .cap{color:var(--muted);font-size:12.5px;margin:-4px 0 10px}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:4px;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--good);border-color:var(--good)}
+  .tag.asm{color:var(--violet);border-color:var(--violet)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .why{margin-top:6px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .why p{margin:0 0 8px}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  td{overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+  .sr{position:absolute;left:-9999px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+</style>
+</head>
+<body>
+<header>
+  <h1>A moving body changes the shape of the CSI across subcarriers, which the single RSSI number throws away, and wider channels keep more of that shape</h1>
+  <p class="sub">A synthetic room with one Wi-Fi link: a direct path, wall reflections up to second order and one reflector you can move
+  (a person). The receiver's channel estimate H(f) is the sum of those paths, each rotated by its delay (note A1).
+  Move the reflector or walk it along a short path. RSSI, the power summed over the channel, moves by one number. The
+  per-subcarrier amplitude (CSI) also changes <em>shape</em>: some subcarriers rise while others fall. That shape is the extra
+  information. At 20 MHz in a small room it is modest. At 80 MHz, where more paths are resolved, it is larger than the RSSI change. The Fresnel ellipse, Doppler and report-rate panel show why placement
+  and sampling rate matter.</p>
+  <p class="banner">Synthetic channel, not a measurement. Room size, wall and body reflectivity are page assumptions
+  <span class="tag asm">assumption</span>. Subcarrier counts, spacing and wavelengths are public 802.11 values loaded from
+  <code>constants.json</code>. Body blocking and diffraction are not modelled.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <h3 style="margin:0 0 8px">Preloaded cases <span class="tag ill">illustrative</span></h3>
+    <div class="cases" id="cases"></div>
+    <div class="ctrl">
+      <label for="band">Band</label>
+      <select id="band"><option value="5">5 GHz</option><option value="2.4">2.4 GHz</option></select>
+      <div class="hint">Sets the wavelength (<code>wavelength_5g</code>, <code>wavelength_2g4</code>).</div>
+    </div>
+    <div class="ctrl">
+      <label for="width">Channel width</label>
+      <select id="width"><option value="80">80 MHz (242 subcarriers)</option><option value="40">40 MHz (114)</option><option value="20">20 MHz (56)</option></select>
+      <div class="hint">Wider channels have more subcarriers and finer delay resolution (A2).</div>
+    </div>
+    <div class="ctrl">
+      <label for="rx">Reflector position along the link <span class="val" id="rx_v"></span></label>
+      <input id="rx" type="range" min="-0.8" max="4.8" step="0.05" value="1">
+      <div class="hint">Transmitter at 0 m, receiver at the link length (<code>link_length_illustrative</code>).</div>
+    </div>
+    <div class="ctrl">
+      <label for="ry">Reflector offset from the line of sight <span class="val" id="ry_v"></span></label>
+      <input id="ry" type="range" min="-2.8" max="2.8" step="0.05" value="0.8">
+    </div>
+    <div class="ctrl">
+      <label for="gam">Body reflectivity <span class="val" id="gam_v"></span></label>
+      <input id="gam" type="range" min="0" max="0.4" step="0.01" value="0.15">
+      <div class="hint">0 removes the reflector. Page assumption <span class="tag asm">assumption</span>.</div>
+    </div>
+    <div class="ctrl">
+      <label for="dir">Walk direction</label>
+      <select id="dir"><option value="perp">across the link (away from the LoS)</option><option value="para">along the link</option></select>
+    </div>
+    <div class="ctrl">
+      <label for="s">Distance walked <span class="val" id="s_v"></span></label>
+      <input id="s" type="range" min="0" max="0.5" step="0.005" value="0.1">
+      <div class="hint">From the start position, up to 0.5 m: several wavelengths.</div>
+    </div>
+    <hr>
+    <div class="ctrl">
+      <label for="v">Walking speed <span class="val" id="v_v"></span></label>
+      <input id="v" type="range" min="0.1" max="2" step="0.05" value="1">
+      <div class="hint">For the Doppler panel only. 1 m/s is A1's example walk.</div>
+    </div>
+    <div class="ctrl">
+      <label for="rate">CSI report rate</label>
+      <select id="rate"><option value="inj">injected traffic, 100 Hz</option><option value="beacon">beacons, 10 Hz</option></select>
+      <div class="hint"><code>csi_rate_beacon_illustrative</code>, <code>csi_rate_injected_illustrative</code> <span class="tag ill">illustrative</span></div>
+    </div>
+    <div class="ctrl check">
+      <label for="off"><input id="off" type="checkbox"> Add commodity-chip phase offsets</label>
+      <div class="hint">A random common phase (CFO) and phase slope (STO) per report (A2). The line fit of B1 removes both.</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <div class="figrow">
+      <div>
+        <svg id="plan" viewBox="0 0 380 380" role="img" aria-label="Floor plan: transmitter, receiver, line of sight, first Fresnel zone, wall reflections and the reflector with its walk"></svg>
+        <p class="cap">Floor plan, 1 grid square = 1 m. Shaded ellipse = first Fresnel zone. Dotted lines = first-order wall reflections (second-order paths are computed but not drawn).</p>
+      </div>
+      <div>
+        <svg id="amp" viewBox="0 0 420 250" role="img" aria-label="CSI amplitude in dB across subcarriers, with and without the reflector, and the RSSI of each as a horizontal line"></svg>
+        <p class="cap">CSI amplitude per subcarrier: grey dashed = room without the body, blue = with the body at its current position. Horizontal lines = RSSI of each.</p>
+        <svg id="phase" viewBox="0 0 420 170" role="img" aria-label="CSI phase across subcarriers after removing the best-fit line"></svg>
+        <p class="cap">Phase after removing the best-fit line across subcarriers (B1). Dots = raw wrapped phase when chip offsets are on.</p>
+      </div>
+    </div>
+    <svg id="walk" viewBox="0 0 860 240" role="img" aria-label="Change in dB along the walk for three subcarriers and for RSSI"></svg>
+    <p class="cap">Along the walk: change from the start position, in dB, for three subcarriers (thin, dashed and dotted lines) and for RSSI (thick white line). The vertical line is the current distance.</p>
+    <div class="why"><h3>What dominates here</h3><div id="why_text"></div></div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters and sources</h3>
+  <p class="hint">Loaded from the inline params block (also <code>params.json</code>), copied from <code>../constants.json</code>.
+  <span class="tag pub">public</span> standard, paper or arithmetic on them · <span class="tag ill">illustrative</span> round teaching value, never a measurement ·
+  <span class="tag asm">assumption</span> a choice this page makes to build the synthetic channel. <span id="tests-sum"></span></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Unit</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  <span id="gen"></span> · Study aid for <em>wifi-csi-sensing</em> (rung 3), notes A1, A2, B1. Channel model H(f) = Σ aᵢ·exp(−j2πfτᵢ) from A1
+  (Ma, Zhou, Wang 2019). The 1/(d₁·d₂) spreading of the body path is my simplification. No measured value from any study appears here.
+  Numbers are from the listed sources or labelled illustrative or assumption.
+</footer>
+
+<script type="application/json" id="params">
+{
+ "speed_of_light": {
+  "value": 299800000,
+  "unit": "m/s",
+  "class": "public",
+  "source": "CODATA defined constant"
+ },
+ "ofdm_subcarrier_spacing_11a_n_ac": {
+  "value": 312.5,
+  "unit": "kHz",
+  "class": "public",
+  "source": "IEEE 802.11 OFDM PHY (clauses 17/19/21): 20 MHz / 64-point FFT"
+ },
+ "fft_size_by_width": {
+  "value": {
+   "20MHz": 64,
+   "40MHz": 128,
+   "80MHz": 256,
+   "160MHz": 512
+  },
+  "unit": "points",
+  "class": "public",
+  "source": "IEEE 802.11n (HT) / 802.11ac (VHT) PHY"
+ },
+ "used_subcarriers_ht_20MHz": {
+  "value": 56,
+  "unit": "subcarriers (52 data + 4 pilot)",
+  "class": "public",
+  "source": "IEEE 802.11n HT20"
+ },
+ "used_subcarriers_ht_40MHz": {
+  "value": 114,
+  "unit": "subcarriers (108 data + 6 pilot)",
+  "class": "public",
+  "source": "IEEE 802.11n HT40"
+ },
+ "used_subcarriers_vht_80MHz": {
+  "value": 242,
+  "unit": "subcarriers (234 data + 8 pilot)",
+  "class": "public",
+  "source": "IEEE 802.11ac VHT80"
+ },
+ "wavelength_2g4": {
+  "value": 12.3,
+  "unit": "cm",
+  "class": "public",
+  "source": "my arithmetic: speed_of_light / 2.437 GHz (channel 6)"
+ },
+ "wavelength_5g": {
+  "value": 5.5,
+  "unit": "cm",
+  "class": "public",
+  "source": "my arithmetic: speed_of_light / 5.5 GHz (mid 5 GHz band)"
+ },
+ "link_length_illustrative": {
+  "value": 4,
+  "unit": "m",
+  "class": "illustrative",
+  "source": "round room-scale link length used for the Fresnel example in A1"
+ },
+ "fresnel_first_zone_mid_radius_example": {
+  "value": {
+   "5GHz_4m_link": 0.23,
+   "2g4_4m_link": 0.35
+  },
+  "unit": "m",
+  "class": "public",
+  "source": "my arithmetic: r1 = 0.5 x sqrt(lambda x d) at the midpoint of a link of illustrative length d = 4 m (link_length_illustrative); formula from Fresnel-zone model, Wang et al. UbiComp 2016"
+ },
+ "delay_resolution_by_width": {
+  "value": {
+   "20MHz": {
+    "ns": 50,
+    "path_m": 15
+   },
+   "80MHz": {
+    "ns": 12.5,
+    "path_m": 3.75
+   },
+   "160MHz": {
+    "ns": 6.25,
+    "path_m": 1.875
+   }
+  },
+  "unit": "ns and metres of path length",
+  "class": "public",
+  "source": "my arithmetic: delay resolution = 1/bandwidth; path = speed_of_light x delay"
+ },
+ "doppler_walk_example_5g": {
+  "value": 36,
+  "unit": "Hz (upper bound)",
+  "class": "public",
+  "source": "my arithmetic: reflected path length changes at up to 2 x 1 m/s for an illustrative 1 m/s walk; f = 2 / wavelength_5g"
+ },
+ "beacon_interval_default": {
+  "value": 100,
+  "unit": "TU (1 TU = 1024 us)",
+  "class": "public",
+  "source": "IEEE 802.11 default beacon interval"
+ },
+ "beacon_rate_default": {
+  "value": 9.77,
+  "unit": "Hz",
+  "class": "public",
+  "source": "my arithmetic from beacon_interval_default: 1 / (100 x 1024 us)"
+ },
+ "csi_rate_beacon_illustrative": {
+  "value": 10,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "round value for passive beacon-driven CSI; consistent with beacon_rate_default; internal I2/I7 report the same order"
+ },
+ "csi_rate_injected_illustrative": {
+  "value": 100,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "round nominal rate with injected traffic (pings or test frames); internal I7 reports the same order"
+ },
+ "near_device_radius_illustrative": {
+  "value": 1,
+  "unit": "m",
+  "class": "illustrative",
+  "source": "illustrative 'near a device' radius in the scenario script; internal I3"
+ },
+ "room_width_assumption": {
+  "value": 6,
+  "unit": "m",
+  "class": "assumption",
+  "source": "page model choice for explorer 01: a 6 m wide synthetic room around the link (my simplification; not from any study)"
+ },
+ "room_margin_assumption": {
+  "value": 1,
+  "unit": "m (room extends this far beyond each radio)",
+  "class": "assumption",
+  "source": "page model choice for explorer 01 (my simplification)"
+ },
+ "wall_reflectivity_assumption": {
+  "value": 0.5,
+  "unit": "amplitude reflection coefficient",
+  "class": "assumption",
+  "source": "page model choice for explorer 01: one first-order reflection per wall, image method (my simplification of A1's multipath sum)"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function () {
+  "use strict";
+  const TAU = 2 * Math.PI;
+
+  // A1/A2: wavelength per band from constants; centre frequency = c / wavelength (my arithmetic).
+  function band(P, b) {
+    const lam = (b === "2.4" ? P.wavelength_2g4.value : P.wavelength_5g.value) / 100;
+    return { lambda: lam, fc: P.speed_of_light.value / lam };
+  }
+
+  // A2: used subcarriers per width (IEEE 802.11n HT20 / HT40, 802.11ac VHT80). Tone indices are
+  // symmetric about DC; DC (20 MHz) or DC±1 (40/80 MHz) omitted — my simplification of the tone plan.
+  function subcarriers(P, width) {
+    const n = { 20: P.used_subcarriers_ht_20MHz.value, 40: P.used_subcarriers_ht_40MHz.value, 80: P.used_subcarriers_vht_80MHz.value }[width];
+    const skip = width === 20 ? 0 : 1, half = n / 2, out = [];
+    for (let k = -(half + skip); k <= half + skip; k++) if (Math.abs(k) > skip) out.push(k);
+    return out;
+  }
+
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+
+  // A1 multipath: LoS + first-order wall images (image method) + an optional body path.
+  // Amplitudes relative to the LoS: walls Γ·L/d (1/d spreading); body γ·L·(1 m)/(d1·d2) — bistatic
+  // 1/(d1·d2) spreading, my simplification; d1, d2 clamped at 0.1 m.
+  function paths(P, body) {
+    const L = P.link_length_illustrative.value, W = P.room_width_assumption.value, pad = P.room_margin_assumption.value;
+    const G = P.wall_reflectivity_assumption.value, tx = [0, 0], rx = [L, 0];
+    const out = [{ d: L, a: 1, kind: "los" }];
+    // image method up to second order in a rectangular room [−pad, L+pad] × [−W/2, W/2]
+    const xa = -pad, xb = L + pad, ya = -W / 2, yb = W / 2;
+    const xs = [[0, 0], [2 * xa, 1], [2 * xb, 1], [2 * (xb - xa), 2], [-2 * (xb - xa), 2]];
+    const ys = [[0, 0], [2 * ya, 1], [2 * yb, 1], [2 * (yb - ya), 2], [-2 * (yb - ya), 2]];
+    for (const [ix, ox] of xs) for (const [iy, oy] of ys) {
+      const order = ox + oy; if (order === 0 || order > 2) continue;
+      const im = [ix, iy], d = dist(im, rx); out.push({ d, a: Math.pow(G, order) * L / d, kind: "wall", order, im });
+    }
+    if (body && body.gamma > 0) {
+      const d1 = Math.max(0.1, dist(tx, body.p)), d2 = Math.max(0.1, dist(body.p, rx));
+      out.push({ d: d1 + d2, a: body.gamma * L / (d1 * d2), kind: "body" });
+    }
+    return out;
+  }
+
+  // H(f_k) = Σ a_i exp(−j 2π f_k τ_i), τ_i = d_i / c (A1).
+  function csi(P, ps, fc, ks) {
+    const c = P.speed_of_light.value, df = P.ofdm_subcarrier_spacing_11a_n_ac.value * 1e3;
+    return ks.map(k => {
+      const f = fc + k * df; let re = 0, im = 0;
+      for (const p of ps) { const ph = -TAU * f * p.d / c; re += p.a * Math.cos(ph); im += p.a * Math.sin(ph); }
+      return [re, im];
+    });
+  }
+  const ampDb = H => H.map(([r, i]) => 10 * Math.log10(r * r + i * i + 1e-30));
+  // RSSI: one number per frame, the received power summed (here averaged) over the channel (A1).
+  // spread (standard deviation, dB) across subcarriers of a per-subcarrier change in dB
+  const shapeDb = d => { const m = d.reduce((a, b) => a + b, 0) / d.length; return Math.sqrt(d.reduce((a, b) => a + (b - m) ** 2, 0) / d.length); };
+  const rssiDb = H => 10 * Math.log10(H.reduce((s, [r, i]) => s + r * r + i * i, 0) / H.length + 1e-30);
+
+  function unwrap(ph) {
+    const out = [ph[0]];
+    for (let i = 1; i < ph.length; i++) { let d = ph[i] - ph[i - 1]; d -= TAU * Math.round(d / TAU); out.push(out[i - 1] + d); }
+    return out;
+  }
+  // B1 phase sanitisation: subtract the least-squares line across subcarriers (SpotFi-style linear fit).
+  function detrend(ks, ph) {
+    const n = ks.length, mx = ks.reduce((a, b) => a + b, 0) / n, my = ph.reduce((a, b) => a + b, 0) / n;
+    let sxy = 0, sxx = 0;
+    for (let i = 0; i < n; i++) { sxy += (ks[i] - mx) * (ph[i] - my); sxx += (ks[i] - mx) ** 2; }
+    const b = sxx ? sxy / sxx : 0;
+    return ph.map((y, i) => y - my - b * (ks[i] - mx));
+  }
+  // A2: per-report CFO (common phase φ0) and STO (slope β per subcarrier index) added to the true phase.
+  function rawPhase(H, phi0, beta, ks) {
+    return H.map(([r, i], j) => { let p = Math.atan2(i, r) + phi0 + beta * ks[j]; return p - TAU * Math.round(p / TAU); });
+  }
+  function sanitisedPhase(H, ks, phi0 = 0, beta = 0) {
+    return detrend(ks, unwrap(rawPhase(H, phi0, beta, ks)));
+  }
+
+  // A1: first Fresnel zone radius at the link midpoint, r1 = ½·√(λ·d).
+  const fresnelR1 = (lambda, d) => 0.5 * Math.sqrt(lambda * d);
+  // A1: zone index of a reflector: n-th zone where excess path is between (n−1)·λ/2 and n·λ/2.
+  const fresnelZone = (excess, lambda) => Math.max(1, Math.ceil(excess / (lambda / 2)));
+  // A2: delay resolution = 1 / bandwidth; path resolution = c × delay.
+  const delayRes = bwHz => 1 / bwHz;
+  // A1: reflected path changes at up to 2 × body speed, Doppler upper bound f = 2v/λ.
+  const dopplerMax = (v, lambda) => 2 * v / lambda;
+  // A1 caution (Nyquist): a stream at rate R represents fluctuations up to R/2.
+  const nyquist = rate => rate / 2;
+
+  function bodyPos(P, x, y, dir, s) { return dir === "perp" ? [x, y + (y >= 0 ? 1 : -1) * s] : [x + s, y]; }
+
+  // One full evaluation for the UI.
+  function evaluate(P, inp) {
+    const B = band(P, inp.band), ks = subcarriers(P, inp.width), L = P.link_length_illustrative.value;
+    const H0 = csi(P, paths(P, null), B.fc, ks);
+    const start = bodyPos(P, inp.x, inp.y, inp.dir, 0), now = bodyPos(P, inp.x, inp.y, inp.dir, inp.s);
+    const Hs = csi(P, paths(P, { p: start, gamma: inp.gamma }), B.fc, ks);
+    const Hn = csi(P, paths(P, { p: now, gamma: inp.gamma }), B.fc, ks);
+    const a0 = ampDb(H0), aS = ampDb(Hs), aN = ampDb(Hn);
+    const dSub = aN.map((v, i) => v - aS[i]);
+    const maxSub = dSub.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+    const dRssi = rssiDb(Hn) - rssiDb(Hs);
+    // walk trace
+    const steps = 120, pick = [0, Math.floor(ks.length / 2), ks.length - 1], trace = [];
+    for (let i = 0; i <= steps; i++) {
+      const s = 0.5 * i / steps, H = csi(P, paths(P, { p: bodyPos(P, inp.x, inp.y, inp.dir, s), gamma: inp.gamma }), B.fc, ks);
+      const a = ampDb(H);
+      trace.push({ s, sub: pick.map(j => a[j] - aS[j]), rssi: rssiDb(H) - rssiDb(Hs), all: a });
+    }
+    // "shape" change = spread across subcarriers of the per-subcarrier change: the part RSSI cannot carry (A1)
+    for (const t of trace) t.shape = shapeDb(t.all.map((v, j) => v - aS[j]));
+    const walkShape = Math.max(...trace.map(t => t.shape)), walkRssi = Math.max(...trace.map(t => Math.abs(t.rssi)));
+    const excess = Math.hypot(now[0], now[1]) + Math.hypot(now[0] - L, now[1]) - L;
+    const rate = inp.rate === "beacon" ? P.csi_rate_beacon_illustrative.value : P.csi_rate_injected_illustrative.value;
+    const fd = dopplerMax(inp.v, B.lambda), nyq = nyquist(rate);
+    const phi0 = inp.offsets ? inp.phi0 : 0, beta = inp.offsets ? inp.beta : 0;
+    return {
+      ks, lambda: B.lambda, fc: B.fc, a0, aN, rssi0: rssiDb(H0), rssiN: rssiDb(Hn), dRssi, maxSub, shape: shapeDb(dSub), walkShape, walkRssi,
+      phase: sanitisedPhase(Hn, ks, phi0, beta), raw: rawPhase(Hn, phi0, beta, ks), trace, pick,
+      start, now, excess, zone: fresnelZone(excess, B.lambda), r1: fresnelR1(B.lambda, L),
+      fd, nyq, aliased: fd > nyq, rate, delayNs: delayRes(inp.width * 1e6) * 1e9,
+      bodyAmp: paths(P, { p: now, gamma: inp.gamma }).find(p => p.kind === "body")
+    };
+  }
+
+  function selfTest(P, assert) {
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const near = (a, b, tol) => Math.abs(a - b) <= tol;
+    // subcarrier counts reproduce the 802.11 values in constants.json
+    ok(subcarriers(P, 20).length === P.used_subcarriers_ht_20MHz.value, "HT20 count");
+    ok(subcarriers(P, 40).length === P.used_subcarriers_ht_40MHz.value, "HT40 count");
+    ok(subcarriers(P, 80).length === P.used_subcarriers_vht_80MHz.value, "VHT80 count");
+    // 64-point FFT × 312.5 kHz = 20 MHz
+    ok(near(P.fft_size_by_width.value["20MHz"] * P.ofdm_subcarrier_spacing_11a_n_ac.value * 1e3, 20e6, 1), "64 x 312.5 kHz = 20 MHz");
+    // Fresnel radius reproduces A1's printed 0.23 m (5 GHz) and 0.35 m (2.4 GHz) for a 4 m link
+    const L = P.link_length_illustrative.value, F = P.fresnel_first_zone_mid_radius_example.value;
+    ok(near(fresnelR1(band(P, "5").lambda, L), F["5GHz_4m_link"], 0.006), "Fresnel r1 5 GHz");
+    ok(near(fresnelR1(band(P, "2.4").lambda, L), F["2g4_4m_link"], 0.006), "Fresnel r1 2.4 GHz");
+    // delay resolution reproduces A2's table: 50 ns / 15 m at 20 MHz, 12.5 ns / 3.75 m at 80 MHz (the table rounds c to 3e8 m/s)
+    const DR = P.delay_resolution_by_width.value, c = P.speed_of_light.value;
+    ok(near(delayRes(20e6) * 1e9, DR["20MHz"].ns, 1e-6) && near(delayRes(20e6) * c, DR["20MHz"].path_m, 0.02), "delay res 20 MHz");
+    ok(near(delayRes(80e6) * 1e9, DR["80MHz"].ns, 1e-6) && near(delayRes(80e6) * c, DR["80MHz"].path_m, 0.01), "delay res 80 MHz");
+    // Doppler of a 1 m/s walk at 5 GHz reproduces A1's 36 Hz upper bound
+    ok(near(dopplerMax(1, band(P, "5").lambda), P.doppler_walk_example_5g.value, 0.5), "Doppler 36 Hz");
+    // beacon rate arithmetic and Nyquist at the illustrative 10 Hz
+    ok(near(1 / (P.beacon_interval_default.value * 1024e-6), P.beacon_rate_default.value, 0.01), "beacon rate 9.77 Hz");
+    ok(nyquist(P.csi_rate_beacon_illustrative.value) === 5, "Nyquist 5 Hz at 10 Hz");
+    // a single path is frequency-flat: no fingerprint without multipath
+    const ks = subcarriers(P, 80), fc = band(P, "5").fc;
+    const flat = ampDb(csi(P, [{ d: L, a: 1 }], fc, ks));
+    ok(Math.max(...flat) - Math.min(...flat) < 1e-9 && near(flat[0], 0, 1e-9), "single path flat");
+    // two paths: fades repeat every c/Δd in frequency (frequency-selective fading)
+    const dd = 7.5, H2 = ampDb(csi(P, [{ d: L, a: 1 }, { d: L + dd, a: 0.9 }], fc, ks)), df = P.ofdm_subcarrier_spacing_11a_n_ac.value * 1e3;
+    const mins = []; for (let i = 1; i < H2.length - 1; i++) if (H2[i] < H2[i - 1] && H2[i] <= H2[i + 1] && ks[i + 1] - ks[i - 1] === 2) mins.push(ks[i]);
+    ok(mins.length >= 2 && near((mins[1] - mins[0]) * df, c / dd, 2 * df), "fade spacing = c / delta d");
+    // the B1 line fit removes CFO + STO exactly
+    const Hb = csi(P, paths(P, { p: [1, 0.8], gamma: 0.15 }), fc, ks);
+    const a = sanitisedPhase(Hb, ks, 0, 0), b = sanitisedPhase(Hb, ks, 2.1, 0.37);
+    ok(a.every((v, i) => near(v, b[i], 1e-9)), "line fit removes phase offsets");
+    // with the body near the receiver, CSI changes more than RSSI along the walk (A1's main claim)
+    const e = evaluate(P, { band: "5", width: 20, x: 3.7, y: 0.3, gamma: 0.15, dir: "perp", s: 0.1, v: 1, rate: "inj", offsets: false });
+    ok(e.walkShape > 0.5, "the walk changes the CSI shape, which RSSI cannot carry");
+    // two body positions with almost the same RSSI change can have different CSI shape changes (A1 confusion)
+    const e80 = evaluate(P, { band: "5", width: 80, x: 3.7, y: 0.3, gamma: 0.15, dir: "perp", s: 0.1, v: 1, rate: "inj", offsets: false });
+    ok(e80.walkShape > e80.walkRssi, "at 80 MHz the shape change exceeds the RSSI change (title claim)");
+    const z = shapeDb([1, 1, 1, 1]); ok(z === 0, "a uniform change has zero shape: RSSI carries it all");
+    // body near a radio is stronger than mid-link (A1 pattern 1 and 3, via 1/(d1 d2))
+    const nearRx = paths(P, { p: [3.7, 0.3], gamma: 0.15 }).find(p => p.kind === "body").a;
+    const mid = paths(P, { p: [2, 0.3], gamma: 0.15 }).find(p => p.kind === "body").a;
+    ok(nearRx > mid, "body path stronger near a radio than mid-link");
+    return { passed, failed };
+  }
+
+  return { band, subcarriers, paths, csi, ampDb, shapeDb, rssiDb, unwrap, detrend, rawPhase, sanitisedPhase, fresnelR1, fresnelZone, delayRes, dopplerMax, nyquist, bodyPos, evaluate, selfTest };
+})();
+if (typeof module !== "undefined") module.exports = MODEL;
+/*MODEL-END*/
+</script>
+
+<script>
+/* ---- shared page helpers (UI only; the model block above is pure) ---- */
+const P = JSON.parse(document.getElementById("params").textContent);
+// The kit's page shooter (learning/stories/tools/shoot.py) steps story scenes via window.Story.
+// An explorer has no scenes; this empty stub lets the same tool check console, asserts and overflow.
+window.Story = window.Story || { scenes: {}, go() {} };
+const SHOT = /[?&]shot=1/.test(location.search);
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+function fmt(x, d = 2) {
+  if (x === null || x === undefined || !isFinite(x)) return "–";
+  const a = Math.abs(x);
+  if (a !== 0 && (a < 1e-3 || a >= 1e6)) return x.toExponential(d === 0 ? 1 : Math.min(d, 2));
+  return x.toFixed(d);
+}
+function polyline(svg, pts, attrs) {
+  const good = pts.filter(p => isFinite(p[0]) && isFinite(p[1]));
+  if (good.length < 2) return;
+  svg.appendChild(el("polyline", Object.assign({ fill: "none", points: good.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ") }, attrs)));
+}
+function classTag(c) {
+  const map = { public: "pub", illustrative: "ill", assumption: "asm" };
+  return '<span class="tag ' + (map[c] || "der") + '">' + c + "</span>";
+}
+function showVal(v) {
+  if (typeof v === "number") return String(v);
+  return JSON.stringify(v).replace(/"/g, "").replace(/,/g, ", ").replace(/:/g, ": ");
+}
+function renderSources() {
+  const tb = document.querySelector("#sources tbody");
+  for (const k of Object.keys(P)) {
+    if (k.startsWith("_")) continue;
+    const e = P[k], tr = document.createElement("tr");
+    const cells = [k, showVal(e.value), e.unit, classTag(e.class), e.source];
+    cells.forEach((c, i) => { const td = document.createElement("td"); if (i === 0) td.innerHTML = "<code>" + c + "</code>"; else if (i === 3) td.innerHTML = c; else td.textContent = c; tr.appendChild(td); });
+    tb.appendChild(tr);
+  }
+  $("gen").textContent = "Generated " + document.documentElement.dataset.generated;
+}
+function runSelfTests(selfTest) {
+  const r = selfTest(P, (cond, msg) => console.assert(cond, msg));
+  $("tests-sum").textContent = r.passed + " of " + (r.passed + r.failed) + " self-tests passed" + (r.failed ? " — see console" : "");
+  console.log("self-tests done: " + r.passed + " passed, " + r.failed + " failed");
+}
+let rafPending = false;
+function schedule(fn) { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; fn(); }); }
+function bindRange(id, fmtFn, onChange) {
+  const i = $(id), out = $(id + "_v");
+  const show = () => { out.textContent = fmtFn(+i.value); i.setAttribute("aria-valuetext", fmtFn(+i.value)); };
+  i.addEventListener("input", () => { show(); onChange(); });
+  show();
+  return show;
+}
+
+
+const CASES = [
+  { name: "Near the receiver, 80 MHz", set: { band: "5", width: "80", rx: 3.7, ry: 0.3, gam: 0.15, dir: "perp", s: 0.1 } },
+  { name: "Mid-link, beside the LoS", set: { band: "5", width: "80", rx: 2, ry: 0.3, gam: 0.15, dir: "perp", s: 0.1 } },
+  { name: "Far off the link", set: { band: "5", width: "80", rx: 2, ry: 2.6, gam: 0.15, dir: "perp", s: 0.1 } },
+  { name: "Near the receiver, 20 MHz", set: { band: "5", width: "20", rx: 3.7, ry: 0.3, gam: 0.15, dir: "perp", s: 0.1 } },
+  { name: "Same walk at 2.4 GHz, 20 MHz", set: { band: "2.4", width: "20", rx: 3.7, ry: 0.3, gam: 0.15, dir: "perp", s: 0.1 } },
+  { name: "1 m/s walk at beacon rate", set: { band: "5", v: 1, rate: "beacon" } },
+  { name: "Slow 0.1 m/s motion at beacon rate", set: { band: "5", v: 0.1, rate: "beacon" } }
+];
+const ids = ["band", "width", "rx", "ry", "gam", "dir", "s", "v", "rate"];
+const shows = {};
+function inputs() {
+  // per-report phase offsets: deterministic in the walked distance so the page is reproducible
+  const s = +$("s").value;
+  return { band: $("band").value, width: +$("width").value, x: +$("rx").value, y: +$("ry").value, gamma: +$("gam").value,
+    dir: $("dir").value, s, v: +$("v").value, rate: $("rate").value, offsets: $("off").checked,
+    phi0: 2.9 * Math.sin(97 * s + 1), beta: 0.4 * Math.sin(53 * s + 2) };
+}
+const X = (x) => 20 + (x + 1) * 56.67, Y = (y) => 20 + (3 - y) * 56.67;
+
+function drawPlan(r, inp) {
+  const s = $("plan"); clear(s);
+  const L = P.link_length_illustrative.value;
+  for (let gx = -1; gx <= 5; gx++) s.appendChild(el("line", { x1: X(gx), y1: Y(3), x2: X(gx), y2: Y(-3), stroke: "#262b35" }));
+  for (let gy = -3; gy <= 3; gy++) s.appendChild(el("line", { x1: X(-1), y1: Y(gy), x2: X(5), y2: Y(gy), stroke: "#262b35" }));
+  s.appendChild(el("rect", { x: X(-1), y: Y(3), width: X(5) - X(-1), height: Y(-3) - Y(3), fill: "none", stroke: "#aeb6c4", "stroke-width": 2 }));
+  // first Fresnel zone: ellipse with foci at TX and RX, path excess λ/2
+  const a = (L + r.lambda / 2) / 2, b = Math.sqrt(a * a - (L / 2) ** 2);
+  s.appendChild(el("ellipse", { cx: X(L / 2), cy: Y(0), rx: a * 56.67, ry: b * 56.67, fill: "rgba(94,200,255,0.18)", stroke: "#5ec8ff", "stroke-dasharray": "3 3" }));
+  for (const p of MODEL.paths(P, null).filter(p => p.kind === "wall" && p.order === 1)) {
+    // draw the reflection point on the wall: intersection of image→RX with the wall
+    const im = p.im, rx = [L, 0]; let hit;
+    if (im[0] === 0) { const wy = im[1] / 2; const t = (wy - rx[1]) / (im[1] - rx[1]); hit = [rx[0] + t * (im[0] - rx[0]), wy]; }
+    else { const wx = im[0] / 2; hit = [wx, 0]; }
+    polyline(s, [[X(0), Y(0)], [X(hit[0]), Y(hit[1])], [X(L), Y(0)]], { stroke: "#7d8594", "stroke-dasharray": "1 3" });
+  }
+  s.appendChild(el("line", { x1: X(0), y1: Y(0), x2: X(L), y2: Y(0), stroke: "#eef1f6", "stroke-width": 1.5 }));
+  if (inp.gamma > 0) {
+    polyline(s, [[X(0), Y(0)], [X(r.now[0]), Y(r.now[1])], [X(L), Y(0)]], { stroke: "#ffd36b", "stroke-width": 1.2 });
+    s.appendChild(el("line", { x1: X(r.start[0]), y1: Y(r.start[1]), x2: X(MODEL.bodyPos(P, inp.x, inp.y, inp.dir, 0.5)[0]), y2: Y(MODEL.bodyPos(P, inp.x, inp.y, inp.dir, 0.5)[1]), stroke: "#ffd36b", "stroke-dasharray": "4 3" }));
+    s.appendChild(el("circle", { cx: X(r.now[0]), cy: Y(r.now[1]), r: 7, fill: "#ffd36b", stroke: "#0f1115" }));
+    s.appendChild(el("text", { x: X(r.now[0]) + 10, y: Y(r.now[1]) - 8 }, "body"));
+  }
+  for (const [x, lab] of [[0, "TX"], [L, "RX"]]) {
+    s.appendChild(el("rect", { x: X(x) - 7, y: Y(0) - 7, width: 14, height: 14, fill: "#5ec8ff", stroke: "#0f1115" }));
+    s.appendChild(el("text", { x: X(x) - 9, y: Y(0) + 22 }, lab));
+  }
+  s.appendChild(el("text", { x: X(-1) + 4, y: Y(3) + 14, class: "mut" }, "room " + (L + 2 * P.room_margin_assumption.value) + " m × " + P.room_width_assumption.value + " m (assumption)"));
+}
+
+function axes(s, x0, y0, w, h, ylo, yhi, ylab, xlab, ticks) {
+  s.appendChild(el("rect", { x: x0, y: y0, width: w, height: h, fill: "none", stroke: "#3a3f4a" }));
+  for (const t of ticks) { const y = y0 + h - (t - ylo) / (yhi - ylo) * h; s.appendChild(el("line", { x1: x0, y1: y, x2: x0 + w, y2: y, stroke: "#262b35" })); s.appendChild(el("text", { x: x0 - 4, y: y + 4, "text-anchor": "end", class: "mut" }, String(t))); }
+  s.appendChild(el("text", { x: x0, y: y0 - 6, class: "mut" }, ylab));
+  s.appendChild(el("text", { x: x0 + w, y: y0 + h + 28, "text-anchor": "end", class: "mut" }, xlab));
+}
+function niceTicks(lo, hi, n = 5) {
+  const step0 = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(step0))), st = [1, 2, 5, 10].map(m => m * mag).find(m => m >= step0) || mag * 10;
+  const out = []; for (let t = Math.ceil(lo / st) * st; t <= hi + 1e-9; t += st) out.push(+t.toFixed(6)); return out;
+}
+
+function drawAmp(r) {
+  const s = $("amp"); clear(s);
+  const x0 = 46, y0 = 22, w = 360, h = 190, ks = r.ks;
+  const all = r.a0.concat(r.aN, [r.rssi0, r.rssiN]);
+  let lo = Math.floor(Math.min(...all) - 1), hi = Math.ceil(Math.max(...all) + 1);
+  if (hi - lo < 6) { const m = (hi + lo) / 2; lo = m - 3; hi = m + 3; }
+  axes(s, x0, y0, w, h, lo, hi, "|H| (dB, relative to the direct path)", "subcarrier index", niceTicks(lo, hi));
+  const xk = k => x0 + (k - ks[0]) / (ks[ks.length - 1] - ks[0]) * w, ya = v => y0 + h - (v - lo) / (hi - lo) * h;
+  for (const t of [ks[0], 0, ks[ks.length - 1]]) s.appendChild(el("text", { x: xk(t), y: y0 + h + 14, "text-anchor": "middle", class: "mut" }, String(t)));
+  polyline(s, ks.map((k, i) => [xk(k), ya(r.a0[i])]), { stroke: "#aeb6c4", "stroke-dasharray": "4 3", "stroke-width": 1.5 });
+  polyline(s, ks.map((k, i) => [xk(k), ya(r.aN[i])]), { stroke: "#5ec8ff", "stroke-width": 2 });
+  s.appendChild(el("line", { x1: x0, x2: x0 + w, y1: ya(r.rssi0), y2: ya(r.rssi0), stroke: "#aeb6c4", "stroke-width": 1 }));
+  s.appendChild(el("line", { x1: x0, x2: x0 + w, y1: ya(r.rssiN), y2: ya(r.rssiN), stroke: "#eef1f6", "stroke-width": 2.5 }));
+  s.appendChild(el("text", { x: x0 + w - 4, y: ya(r.rssiN) - 5, "text-anchor": "end" }, "RSSI " + fmt(r.rssiN, 1) + " dB"));
+}
+
+function drawPhase(r, inp) {
+  const s = $("phase"); clear(s);
+  const x0 = 46, y0 = 18, w = 360, h = 120, ks = r.ks;
+  const xk = k => x0 + (k - ks[0]) / (ks[ks.length - 1] - ks[0]) * w;
+  const m = Math.max(Math.PI, ...r.phase.map(Math.abs)), yp = v => y0 + h / 2 - v / m * h / 2;
+  s.appendChild(el("rect", { x: x0, y: y0, width: w, height: h, fill: "none", stroke: "#3a3f4a" }));
+  s.appendChild(el("line", { x1: x0, x2: x0 + w, y1: yp(0), y2: yp(0), stroke: "#262b35" }));
+  s.appendChild(el("text", { x: x0 - 4, y: yp(0) + 4, "text-anchor": "end", class: "mut" }, "0"));
+  s.appendChild(el("text", { x: x0 - 4, y: yp(m) + 10, "text-anchor": "end", class: "mut" }, "+" + fmt(m, 1)));
+  s.appendChild(el("text", { x: x0 - 4, y: yp(-m), "text-anchor": "end", class: "mut" }, "−" + fmt(m, 1)));
+  s.appendChild(el("text", { x: x0, y: y0 - 5, class: "mut" }, "phase (rad)"));
+  if (inp.offsets) r.raw.forEach((v, i) => s.appendChild(el("circle", { cx: xk(ks[i]), cy: yp(v), r: 1.8, fill: "#ff7a7a" })));
+  polyline(s, ks.map((k, i) => [xk(k), yp(r.phase[i])]), { stroke: "#49d17a", "stroke-width": 2 });
+  s.appendChild(el("text", { x: x0 + w, y: y0 + h + 16, "text-anchor": "end", class: "mut" }, "subcarrier index"));
+}
+
+function drawWalk(r, inp) {
+  const s = $("walk"); clear(s);
+  const x0 = 50, y0 = 22, w = 780, h = 180;
+  const vals = r.trace.flatMap(t => t.sub.concat([t.rssi]));
+  let m = Math.max(1, ...vals.map(Math.abs)); m = Math.ceil(m);
+  axes(s, x0, y0, w, h, -m, m, "change from the start position (dB)", "distance walked (m)", niceTicks(-m, m, 4));
+  const xs = v => x0 + v / 0.5 * w, yv = v => y0 + h - (v + m) / (2 * m) * h;
+  for (const t of [0, 0.1, 0.2, 0.3, 0.4, 0.5]) s.appendChild(el("text", { x: xs(t), y: y0 + h + 14, "text-anchor": "middle", class: "mut" }, t.toFixed(1)));
+  const styles = [{ stroke: "#5ec8ff", "stroke-width": 1.5 }, { stroke: "#ffd36b", "stroke-width": 1.5, "stroke-dasharray": "6 3" }, { stroke: "#c9a2ff", "stroke-width": 1.5, "stroke-dasharray": "2 3" }];
+  r.pick.forEach((j, q) => polyline(s, r.trace.map(t => [xs(t.s), yv(t.sub[q])]), styles[q]));
+  polyline(s, r.trace.map(t => [xs(t.s), yv(t.rssi)]), { stroke: "#eef1f6", "stroke-width": 3.5 });
+  s.appendChild(el("line", { x1: xs(inp.s), x2: xs(inp.s), y1: y0, y2: y0 + h, stroke: "#ff7a7a", "stroke-width": 1.5 }));
+  // legend in the top-left corner, text labels carry the meaning (colour is not the only channel)
+  const lg = [["subcarrier " + r.ks[r.pick[0]], styles[0]], ["subcarrier " + r.ks[r.pick[1]], styles[1]], ["subcarrier " + r.ks[r.pick[2]], styles[2]], ["RSSI", { stroke: "#eef1f6", "stroke-width": 3.5 }]];
+  lg.forEach(([t, st], i) => { const lx = x0 + 10 + i * 150; s.appendChild(el("line", Object.assign({ x1: lx, x2: lx + 26, y1: y0 + 12, y2: y0 + 12 }, st))); s.appendChild(el("text", { x: lx + 32, y: y0 + 16 }, t)); });
+}
+
+function metric(k, v, t) { return '<div class="metric"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="t">' + t + "</div></div>"; }
+
+function update() {
+  const inp = inputs(), r = MODEL.evaluate(P, inp);
+  $("headline").innerHTML =
+    metric("RSSI change at this step", fmt(r.dRssi, 2) + " dB", "one number per frame (derived)") +
+    metric("CSI shape change at this step", fmt(r.shape, 2) + " dB", "spread across subcarriers; RSSI cannot show it (derived)") +
+    metric("along the whole walk (max)", "shape " + fmt(r.walkShape, 1) + " / RSSI " + fmt(r.walkRssi, 1) + " dB", "largest shape spread vs largest RSSI change") +
+    metric("Fresnel zone of the body", inp.gamma > 0 ? "zone " + r.zone : "–", "first-zone radius " + fmt(r.r1 * 100, 0) + " cm at mid-link (A1)") +
+    metric("Doppler vs Nyquist", fmt(r.fd, 0) + " Hz vs " + fmt(r.nyq, 0) + " Hz", r.aliased ? "aliased at this report rate" : "representable at this rate");
+  drawPlan(r, inp); drawAmp(r); drawPhase(r, inp); drawWalk(r, inp);
+  const why = [];
+  if (inp.gamma === 0) why.push("<p>No body: the CSI is the static room only. The dips across subcarriers are frequency-selective fading from the four wall paths. This fingerprint is what RSSI averages away (A1).</p>");
+  else {
+    why.push("<p><strong>CSI versus RSSI.</strong> Along this walk RSSI changes by up to " + fmt(r.walkRssi, 1) + " dB. The change also differs from subcarrier to subcarrier, with a spread of up to " + fmt(r.walkShape, 1) + " dB. The body path adds to the static paths at an angle that depends on frequency, so some subcarriers rise while others fall. RSSI keeps only their sum. Two motions with the same RSSI change can have different CSI changes (A1). " + (inp.width === 20 ? "At 20 MHz the delay resolution is " + fmt(r.delayNs, 0) + " ns (" + fmt(r.delayNs * 0.2998, 0) + " m of path), coarser than most path differences in this room, so the subcarriers move fairly together. Try 80 MHz (A2)." : "At " + inp.width + " MHz the delay resolution is " + fmt(r.delayNs, 1) + " ns, so more paths are resolved and the shape carries more (A2).") + "</p>");
+    const dTx = Math.hypot(r.now[0], r.now[1]), dRx = Math.hypot(r.now[0] - P.link_length_illustrative.value, r.now[1]);
+    why.push("<p><strong>Where the body is.</strong> " + (Math.min(dTx, dRx) < P.near_device_radius_illustrative.value ? "Within about 1 m of a radio" : "At " + fmt(Math.min(dTx, dRx), 1) + " m from the nearer radio") + ", the body path is " + fmt(r.bodyAmp.a, 2) + " of the direct path. With 1/(d₁·d₂) spreading it is strongest near either radio and weaker mid-link or off to the side. This matches A1's single-link patterns. Body blocking on the LoS is not modelled.</p>");
+  }
+  why.push("<p><strong>Sampling.</strong> A " + fmt(inp.v, 2) + " m/s walk changes the reflected path at up to " + fmt(2 * inp.v, 1) + " m/s, a Doppler of up to " + fmt(r.fd, 0) + " Hz at " + (inp.band === "5" ? "5" : "2.4") + " GHz. At " + r.rate + " Hz reports the stream represents only " + fmt(r.nyq, 0) + " Hz. " + (r.aliased ? "Here the detector sees aliased energy and envelope changes, not a clean Doppler spectrum (A1 caution)." : "Here the Doppler is representable.") + "</p>");
+  if (inp.offsets) why.push("<p><strong>Phase.</strong> The red dots jump from report to report with the random chip offsets. The green line, after removing the best-fit line, is identical with and without them (B1). On a single-antenna link this fit does not remove everything a real chip adds, so practice uses amplitude (A2).</p>");
+  $("why_text").innerHTML = why.join("");
+  $("live").textContent = "RSSI change " + fmt(r.dRssi, 2) + " dB; CSI shape change " + fmt(r.shape, 2) + " dB.";
+}
+
+const fm = { rx: v => v.toFixed(2) + " m", ry: v => v.toFixed(2) + " m", gam: v => v.toFixed(2), s: v => (v * 100).toFixed(1) + " cm", v: v => v.toFixed(2) + " m/s" };
+for (const id of Object.keys(fm)) shows[id] = bindRange(id, fm[id], () => schedule(update));
+for (const id of ["band", "width", "dir", "rate", "off"]) $(id).addEventListener("change", () => schedule(update));
+const cb = $("cases");
+for (const c of CASES) {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+  b.addEventListener("click", () => { for (const k in c.set) { $(k).value = c.set[k]; if (shows[k]) shows[k](); } update(); });
+  cb.appendChild(b);
+}
+renderSources();
+runSelfTests(MODEL.selfTest);
+update();
+</script>
+</body>
+</html>

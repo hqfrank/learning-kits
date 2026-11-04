@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en" data-generated="2026-11-04">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Two endpoints: is the motion at the AP or at a device?</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --line:#3a3f4a; --good:#49d17a; --bad:#ff7a7a; --warn:#ffd36b; --violet:#c9a2ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h3{font-size:15px}
+  .sub{color:var(--muted);max-width:80ch;margin:6px 0 0}
+  .banner{max-width:80ch;margin:10px 0 0;padding:8px 12px;border:1px solid var(--warn);border-radius:8px;color:var(--warn);font-size:13px}
+  main{display:grid;grid-template-columns:330px 1fr;gap:18px;padding:18px 22px}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .panel>*{min-width:0}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range],select{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 7px;font:inherit}
+  .check label{display:flex;gap:8px;align-items:center;font-weight:600}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--accent);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover,button:focus-visible{background:#1d2a36}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .headline{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .metric .t{font-size:11px;color:var(--muted)}
+  .decision{font-size:22px;font-weight:800;padding:8px 14px;border-radius:10px;display:inline-block;margin-bottom:12px;border:1px solid var(--accent);color:var(--accent);background:#12202a}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-bottom:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  svg text{font:11px system-ui,sans-serif}
+  svg .mut{fill:var(--muted)}
+  .figrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:1100px){.figrow{grid-template-columns:1fr}}
+  .figrow>*{min-width:0}
+  .cap{color:var(--muted);font-size:12.5px;margin:-4px 0 10px}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:4px;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--good);border-color:var(--good)}
+  .tag.asm{color:var(--violet);border-color:var(--violet)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .why{margin-top:6px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .why p{margin:0 0 8px}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  td{overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  hr{border:0;border-top:1px solid var(--line);margin:16px 0}
+  .sr{position:absolute;left:-9999px}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+</style>
+</head>
+<body>
+<header>
+  <h1>Motion near the shared AP moves both links together, and motion near one device moves mostly that device's link</h1>
+  <p class="sub">One AP and two sensing devices give two links that share the AP end. A single link cannot tell motion
+  near its AP end from motion near its device end (B4). Comparing the two links can. Move the person along the AP →
+  device 1 link and off to the side. The page shows each link's variance, their cross-correlation over a 4 s window, and
+  the decision: no motion, AP side, near device 1, near device 2, or ambiguous.</p>
+  <p class="banner">Phenomenological model, not a propagation simulation. The shared AP-end component is built into the model,
+  as B4 describes it. The page shows how the decision rule behaves, not why the physics produces the shared component. The
+  weights and the wall factor are page assumptions <span class="tag asm">assumption</span>. The distances are illustrative
+  values from <code>constants.json</code> <span class="tag ill">illustrative</span>.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <h3 style="margin:0 0 8px">Preloaded cases <span class="tag ill">illustrative</span></h3>
+    <div class="cases" id="cases"></div>
+    <div class="ctrl">
+      <label for="sl">Position along AP → device 1 <span class="val" id="sl_v"></span></label>
+      <input id="sl" type="range" min="0" max="4" step="0.05" value="0.3">
+      <div class="hint">0 m = at the AP, 4 m = at device 1.</div>
+    </div>
+    <div class="ctrl">
+      <label for="off">Offset from that link <span class="val" id="off_v"></span></label>
+      <input id="off" type="range" min="-3" max="3" step="0.05" value="0.3">
+      <div class="hint">Positive values move toward device 2.</div>
+    </div>
+    <div class="ctrl check">
+      <label for="wall"><input id="wall" type="checkbox"> The person is in the next room (behind a wall)</label>
+      <div class="hint">Scales the motion's effect by <code>wall_attenuation_assumption</code> (B4 through-wall).</div>
+    </div>
+    <hr>
+    <div class="ctrl">
+      <label for="noise">Sensor noise (empty-room spread) <span class="val" id="noise_v"></span></label>
+      <input id="noise" type="range" min="0.02" max="0.5" step="0.01" value="0.1">
+    </div>
+    <div class="ctrl">
+      <label for="z">Activity threshold: variance ÷ empty-room variance <span class="val" id="z_v"></span></label>
+      <input id="z" type="range" min="1.2" max="10" step="0.1" value="2">
+      <div class="hint">A link is active if its variance is this many times the calibrated empty-room level.</div>
+    </div>
+    <div class="ctrl">
+      <label for="rt">Correlation threshold for "AP side" <span class="val" id="rt_v"></span></label>
+      <input id="rt" type="range" min="0" max="1" step="0.01" value="0.6">
+    </div>
+    <div class="ctrl">
+      <label for="T">Decision margin T <span class="val" id="T_v"></span></label>
+      <input id="T" type="range" min="0" max="0.6" step="0.01" value="0.2">
+      <div class="hint">One device wins only if its normalised variation exceeds the other's by T (B4).</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="decision" id="decision"></div>
+    <div class="headline" id="headline"></div>
+    <div class="figrow">
+      <div>
+        <svg id="plan" viewBox="0 0 380 460" role="img" aria-label="Floor plan: the AP, two devices, the two links and the person"></svg>
+        <p class="cap">Floor plan, 1 grid square = 1 m. Circles = the illustrative 1 m "near a device" radius.</p>
+      </div>
+      <div>
+        <svg id="trace" viewBox="0 0 420 220" role="img" aria-label="Variation over the 4 second window on link 1 and link 2"></svg>
+        <p class="cap">The two links over one 4 s window at 100 Hz. Solid = link 1 (AP–device 1), dashed = link 2 (AP–device 2).</p>
+        <div class="why"><h3>Node variation w (B4)</h3><div id="nodes"></div></div>
+      </div>
+    </div>
+    <svg id="sweep" viewBox="0 0 860 270" role="img" aria-label="Expected correlation and link variances as the person moves from the AP to device 1, with the decision along the way"></svg>
+    <p class="cap">Expected values along the AP → device 1 line at the current offset. Correlation (thick), link 1 variation (solid), link 2 variation (dashed), both normalised. The band below names the decision. The vertical line is the person.</p>
+    <div class="why"><h3>What dominates here</h3><div id="why_text"></div></div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters and sources</h3>
+  <p class="hint">Loaded from the inline params block (also <code>params.json</code>), copied from <code>../constants.json</code>.
+  <span class="tag pub">public</span> · <span class="tag ill">illustrative</span> round teaching value, never a measurement ·
+  <span class="tag asm">assumption</span> a choice this page makes for its model. <span id="tests-sum"></span></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Unit</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  <span id="gen"></span> · Study aid for <em>wifi-csi-sensing</em> (rung 3), notes A1, B4. Decision rule: cross-correlation across AP links
+  for AP side or client side; a margin T before one value is called larger (B4). Link variances and correlation come from my
+  phenomenological model. No measured value from any study appears here.
+</footer>
+
+<script type="application/json" id="params">
+{
+ "link_length_illustrative": {
+  "value": 4,
+  "unit": "m",
+  "class": "illustrative",
+  "source": "round room-scale link length used for the Fresnel example in A1"
+ },
+ "near_device_radius_illustrative": {
+  "value": 1,
+  "unit": "m",
+  "class": "illustrative",
+  "source": "illustrative 'near a device' radius in the scenario script; internal I3"
+ },
+ "single_link_range_illustrative": {
+  "value": 4,
+  "unit": "m from the line of sight",
+  "class": "illustrative",
+  "source": "illustrative distance beyond which walking motion is hard to see on one link; internal I1 reports the same order"
+ },
+ "csi_rate_injected_illustrative": {
+  "value": 100,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "round nominal rate with injected traffic (pings or test frames); internal I7 reports the same order"
+ },
+ "window_long_illustrative": {
+  "value": 4,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "round analysis window used in later feature studies; internal I7"
+ },
+ "devices_tpr_illustrative": {
+  "value": {
+   "1_device": 0.5,
+   "4_devices_ap_links_only": 0.75,
+   "4_devices_all_links": 0.95
+  },
+  "unit": "TPR at 1% FPR, home level",
+  "class": "illustrative",
+  "source": "illustrative relation: more endpoints help, device-to-device links help more; internal I7"
+ },
+ "device_spacing_assumption": {
+  "value": 4,
+  "unit": "m (AP to each device)",
+  "class": "assumption",
+  "source": "page model choice for explorer 03: both devices at the link_length_illustrative distance from the AP, at right angles"
+ },
+ "link_body_weight_assumption": {
+  "value": 0.3,
+  "unit": "relative weight",
+  "class": "assumption",
+  "source": "page model choice for explorer 03: weight of motion along a link body versus near its ends (A1: middle less sensitive than ends)"
+ },
+ "wall_attenuation_assumption": {
+  "value": 0.3,
+  "unit": "amplitude factor",
+  "class": "assumption",
+  "source": "page model choice for explorer 03: a wall between the motion and the links scales its effect (B4 through-wall)"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function () {
+  "use strict";
+  function rng(seed) { let a = seed >>> 0; return function () { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function gauss(r) { let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+  function dseg(p, a, b) { const vx = b[0] - a[0], vy = b[1] - a[1], t = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / (vx * vx + vy * vy))); return Math.hypot(p[0] - a[0] - t * vx, p[1] - a[1] - t * vy); }
+  function nodes(P) { const S = P.device_spacing_assumption.value; return { AP: [0, 0], D1: [S, 0], D2: [0, S] }; }
+
+  // Proximity to a radio: 1/(1 + (distance / r)²), r = the illustrative "near a device" radius (C2 script). My model.
+  const prox = (P, p, q) => 1 / (1 + (dist(p, q) / P.near_device_radius_illustrative.value) ** 2);
+  // Motion along a link body: β·max(0, 1 − d/R)², R = the illustrative single-link range (A1). My model.
+  const body = (P, p, a, b) => P.link_body_weight_assumption.value * Math.max(0, 1 - dseg(p, a, b) / P.single_link_range_illustrative.value) ** 2;
+
+  // B4 mechanism as a model: each AP link i carries a shared AP-end component c·s0(t) and its own
+  // component e_i·s_i(t), plus sensor noise n·ε_i(t). A wall scales the motion terms by g.
+  function weights(P, p, wall) {
+    const N = nodes(P), g = wall ? P.wall_attenuation_assumption.value : 1;
+    const c = prox(P, p, N.AP);
+    const e1 = prox(P, p, N.D1) + body(P, p, N.AP, N.D1), e2 = prox(P, p, N.D2) + body(P, p, N.AP, N.D2);
+    return { c: g * c, e1: g * e1, e2: g * e2 };
+  }
+  // Expected window statistics: Var_i = c² + e_i² + n²; Cov = c²; ρ = Cov / √(Var1·Var2).
+  function expected(P, p, wall, n) {
+    const w = weights(P, p, wall), v1 = w.c ** 2 + w.e1 ** 2 + n * n, v2 = w.c ** 2 + w.e2 ** 2 + n * n;
+    return { var1: v1, var2: v2, rho: w.c ** 2 / Math.sqrt(v1 * v2), w };
+  }
+  // One window of samples (white unit-variance sources, smoothed by a short moving average for display).
+  function sampleWindow(P, p, wall, n, N, seed, smooth) {
+    const w = weights(P, p, wall), r = rng(seed), raw = () => { const a = new Float64Array(N + smooth); for (let i = 0; i < a.length; i++) a[i] = gauss(r); return a; };
+    const ma = a => { const out = new Float64Array(N); const sc = Math.sqrt(smooth); for (let i = 0; i < N; i++) { let s = 0; for (let j = 0; j < smooth; j++) s += a[i + j]; out[i] = s / sc; } return out; };
+    const s0 = ma(raw()), s1 = ma(raw()), s2 = ma(raw()), e1 = ma(raw()), e2 = ma(raw());
+    const y1 = new Float64Array(N), y2 = new Float64Array(N);
+    for (let i = 0; i < N; i++) { y1[i] = w.c * s0[i] + w.e1 * s1[i] + n * e1[i]; y2[i] = w.c * s0[i] + w.e2 * s2[i] + n * e2[i]; }
+    return { y1, y2 };
+  }
+  function stats(y1, y2) {
+    const N = y1.length; let m1 = 0, m2 = 0; for (let i = 0; i < N; i++) { m1 += y1[i]; m2 += y2[i]; } m1 /= N; m2 /= N;
+    let a = 0, b = 0, c = 0; for (let i = 0; i < N; i++) { const d1 = y1[i] - m1, d2 = y2[i] - m2; a += d1 * d1; b += d2 * d2; c += d1 * d2; }
+    return { var1: a / N, var2: b / N, rho: a > 0 && b > 0 ? c / Math.sqrt(a * b) : 0 };
+  }
+  // B4 decision rule. Motion variation v_i = max(0, Var_i − n²) (calibrated empty-room floor removed).
+  // No link active → none. Both active and ρ ≥ ρ_thr → AP side. Else one device wins only by margin T on
+  // normalised variation. Else ambiguous ("near several nodes").
+  function decide(s, n, cfg) {
+    const n2 = n * n, a1 = s.var1 / n2 > cfg.z, a2 = s.var2 / n2 > cfg.z;
+    const v1 = Math.max(0, s.var1 - n2), v2 = Math.max(0, s.var2 - n2), m = Math.max(v1, v2);
+    const vn1 = m > 0 ? v1 / m : 0, vn2 = m > 0 ? v2 / m : 0;
+    let label;
+    if (!a1 && !a2) label = "none";
+    else if (a1 && a2 && s.rho >= cfg.rt) label = "ap";
+    else if (vn1 > vn2 + cfg.T) label = "d1";
+    else if (vn2 > vn1 + cfg.T) label = "d2";
+    else label = "amb";
+    return { label, v1, v2, vn1, vn2, a1, a2, w: { AP: v1 + v2, D1: v1, D2: v2 } };
+  }
+  // B4 arithmetic: N devices that all hear each other give N AP links + N(N−1) directed device links = N².
+  const linkCount = N => N + N * (N - 1);
+
+  function selfTest(P, assert) {
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const n = 0.1, cfg = { z: 2, rt: 0.6, T: 0.2 };
+    ok(linkCount(4) === 16, "4 devices: 4 AP links become 16 links (B4)");
+    ok(Math.abs(prox(P, [P.near_device_radius_illustrative.value, 0], [0, 0]) - 0.5) < 1e-12, "prox = 0.5 at the near-device radius");
+    const atAP = expected(P, [0.2, 0.3], false, n);
+    ok(atAP.rho > 0.8 && decide(atAP, n, cfg).label === "ap", "at the AP: high correlation, AP side");
+    const atD1 = expected(P, [3.8, 0.3], false, n);
+    ok(atD1.rho < 0.3 && decide(atD1, n, cfg).label === "d1", "near device 1: low correlation, device 1");
+    ok(decide(expected(P, [0.3, 3.0], false, n), n, cfg).label === "d2", "toward device 2: device 2");
+    // empirical correlation converges to the expected value
+    const wv = sampleWindow(P, [1.2, 0.5], false, n, 20000, 9, 1), sv = stats(wv.y1, wv.y2), ev = expected(P, [1.2, 0.5], false, n);
+    ok(Math.abs(sv.rho - ev.rho) < 0.05 && Math.abs(sv.var1 / ev.var1 - 1) < 0.05, "empirical stats match expected");
+    // a wall scales the motion variance by g²
+    const g = P.wall_attenuation_assumption.value, a = expected(P, [3, 0.5], false, n), b = expected(P, [3, 0.5], true, n);
+    ok(Math.abs((b.var1 - n * n) / (a.var1 - n * n) - g * g) < 1e-12, "wall scales motion variance by g^2");
+    // with AP links only, the AP's node variation is never below a device's (why sorted nodes need device-to-device links)
+    let apWins = true;
+    for (let x = -1; x <= 5; x += 0.5) for (let y = -3; y <= 5; y += 0.5) { const d = decide(expected(P, [x, y], false, n), n, cfg); if (d.w.AP < Math.max(d.w.D1, d.w.D2)) apWins = false; }
+    ok(apWins, "AP-links-only: w(AP) >= w(device) everywhere");
+    // equidistant from both devices: neither device wins by the margin
+    const eq = decide(expected(P, [2.5, 2.5], false, n), n, cfg).label;
+    ok(eq !== "d1" && eq !== "d2", "equidistant point: no single device wins");
+    ok(decide(expected(P, [2, -3], true, n), n, cfg).label === "none", "far and behind a wall: no motion");
+    return { passed, failed };
+  }
+  return { nodes, prox, body, weights, expected, sampleWindow, stats, decide, linkCount, dseg, selfTest };
+})();
+if (typeof module !== "undefined") module.exports = MODEL;
+/*MODEL-END*/
+</script>
+
+<script>
+/* ---- shared page helpers (UI only; the model block above is pure) ---- */
+const P = JSON.parse(document.getElementById("params").textContent);
+// The kit's page shooter (learning/stories/tools/shoot.py) steps story scenes via window.Story.
+// An explorer has no scenes; this empty stub lets the same tool check console, asserts and overflow.
+window.Story = window.Story || { scenes: {}, go() {} };
+const SHOT = /[?&]shot=1/.test(location.search);
+const $ = id => document.getElementById(id);
+const NS = "http://www.w3.org/2000/svg";
+function el(tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text !== undefined) e.textContent = text;
+  return e;
+}
+function clear(svg) { while (svg.firstChild) svg.removeChild(svg.firstChild); }
+function fmt(x, d = 2) {
+  if (x === null || x === undefined || !isFinite(x)) return "–";
+  const a = Math.abs(x);
+  if (a !== 0 && (a < 1e-3 || a >= 1e6)) return x.toExponential(d === 0 ? 1 : Math.min(d, 2));
+  return x.toFixed(d);
+}
+function polyline(svg, pts, attrs) {
+  const good = pts.filter(p => isFinite(p[0]) && isFinite(p[1]));
+  if (good.length < 2) return;
+  svg.appendChild(el("polyline", Object.assign({ fill: "none", points: good.map(p => p[0].toFixed(1) + "," + p[1].toFixed(1)).join(" ") }, attrs)));
+}
+function classTag(c) {
+  const map = { public: "pub", illustrative: "ill", assumption: "asm" };
+  return '<span class="tag ' + (map[c] || "der") + '">' + c + "</span>";
+}
+function showVal(v) {
+  if (typeof v === "number") return String(v);
+  return JSON.stringify(v).replace(/"/g, "").replace(/,/g, ", ").replace(/:/g, ": ");
+}
+function renderSources() {
+  const tb = document.querySelector("#sources tbody");
+  for (const k of Object.keys(P)) {
+    if (k.startsWith("_")) continue;
+    const e = P[k], tr = document.createElement("tr");
+    const cells = [k, showVal(e.value), e.unit, classTag(e.class), e.source];
+    cells.forEach((c, i) => { const td = document.createElement("td"); if (i === 0) td.innerHTML = "<code>" + c + "</code>"; else if (i === 3) td.innerHTML = c; else td.textContent = c; tr.appendChild(td); });
+    tb.appendChild(tr);
+  }
+  $("gen").textContent = "Generated " + document.documentElement.dataset.generated;
+}
+function runSelfTests(selfTest) {
+  const r = selfTest(P, (cond, msg) => console.assert(cond, msg));
+  $("tests-sum").textContent = r.passed + " of " + (r.passed + r.failed) + " self-tests passed" + (r.failed ? " — see console" : "");
+  console.log("self-tests done: " + r.passed + " passed, " + r.failed + " failed");
+}
+let rafPending = false;
+function schedule(fn) { if (rafPending) return; rafPending = true; requestAnimationFrame(() => { rafPending = false; fn(); }); }
+function bindRange(id, fmtFn, onChange) {
+  const i = $(id), out = $(id + "_v");
+  const show = () => { out.textContent = fmtFn(+i.value); i.setAttribute("aria-valuetext", fmtFn(+i.value)); };
+  i.addEventListener("input", () => { show(); onChange(); });
+  show();
+  return show;
+}
+
+
+const LABEL = { none: "No motion detected", ap: "Motion on the AP side", d1: "Motion near device 1", d2: "Motion near device 2", amb: "Ambiguous: near several nodes" };
+const SHORT = { none: "none", ap: "AP", d1: "dev 1", d2: "dev 2", amb: "?" };
+const COLOR = { none: "#2a2f3a", ap: "#5ec8ff", d1: "#ffd36b", d2: "#c9a2ff", amb: "#7d8594" };
+const CASES = [
+  { name: "At the AP", set: { sl: 0.2, off: 0.3, wall: false } },
+  { name: "Near device 1", set: { sl: 3.8, off: 0.3, wall: false } },
+  { name: "Mid-link", set: { sl: 2, off: 0.2, wall: false } },
+  { name: "Toward device 2", set: { sl: 0.3, off: 3, wall: false } },
+  { name: "Between the devices", set: { sl: 2.5, off: 2.5, wall: false } },
+  { name: "Next room, near device 1", set: { sl: 3.8, off: -1.2, wall: true } },
+  { name: "Far to the side", set: { sl: 2, off: -3, wall: false } }
+];
+const shows = {};
+function inputs() { return { p: [+$("sl").value, +$("off").value], wall: $("wall").checked, n: +$("noise").value, cfg: { z: +$("z").value, rt: +$("rt").value, T: +$("T").value } }; }
+const N = Math.round(P.window_long_illustrative.value * P.csi_rate_injected_illustrative.value);
+const X = x => 30 + (x + 1.5) * 47, Y = y => 20 + (5.5 - y) * 47;
+
+function drawPlan(inp) {
+  const s = $("plan"); clear(s); const Nd = MODEL.nodes(P), r = P.near_device_radius_illustrative.value;
+  for (let gx = -1; gx <= 5; gx++) s.appendChild(el("line", { x1: X(gx), y1: Y(5.5), x2: X(gx), y2: Y(-3.5), stroke: "#262b35" }));
+  for (let gy = -3; gy <= 5; gy++) s.appendChild(el("line", { x1: X(-1.5), y1: Y(gy), x2: X(5.5), y2: Y(gy), stroke: "#262b35" }));
+  for (const [a, b, dash] of [[Nd.AP, Nd.D1, ""], [Nd.AP, Nd.D2, "6 4"]]) s.appendChild(el("line", { x1: X(a[0]), y1: Y(a[1]), x2: X(b[0]), y2: Y(b[1]), stroke: "#eef1f6", "stroke-width": 2, "stroke-dasharray": dash }));
+  for (const [k, q] of Object.entries(Nd)) {
+    s.appendChild(el("circle", { cx: X(q[0]), cy: Y(q[1]), r: r * 47, fill: "none", stroke: "#3a3f4a", "stroke-dasharray": "2 3" }));
+    s.appendChild(el("rect", { x: X(q[0]) - 8, y: Y(q[1]) - 8, width: 16, height: 16, fill: k === "AP" ? "#49d17a" : "#5ec8ff", stroke: "#0f1115" }));
+    s.appendChild(el("text", k === "AP" ? { x: X(q[0]) - 12, y: Y(q[1]) + 24, "text-anchor": "end" } : { x: X(q[0]) + 12, y: Y(q[1]) + (k === "D1" ? 22 : -10) }, k === "AP" ? "AP" : k === "D1" ? "device 1" : "device 2"));
+  }
+  if (inp.wall) {
+    s.appendChild(el("line", { x1: X(-1.5), y1: Y(inp.p[1] + 0.5), x2: X(5.5), y2: Y(inp.p[1] + 0.5), stroke: "#ff7a7a", "stroke-width": 4 }));
+    s.appendChild(el("text", { x: X(-1.4), y: Y(inp.p[1] + 0.5) - 6, fill: "#ff7a7a" }, "wall (the person is in the next room)"));
+  }
+  s.appendChild(el("circle", { cx: X(inp.p[0]), cy: Y(inp.p[1]), r: 8, fill: "#ffd36b", stroke: "#0f1115" }));
+  s.appendChild(el("text", { x: X(inp.p[0]) + 11, y: Y(inp.p[1]) - 10 }, "person"));
+}
+function drawTrace(win) {
+  const s = $("trace"); clear(s); const x0 = 40, y0 = 16, w = 365, h = 170;
+  let m = 0; for (let i = 0; i < N; i++) m = Math.max(m, Math.abs(win.y1[i]), Math.abs(win.y2[i])); m = m || 1;
+  s.appendChild(el("rect", { x: x0, y: y0, width: w, height: h, fill: "none", stroke: "#3a3f4a" }));
+  const xAt = i => x0 + i / (N - 1) * w, yAt = v => y0 + h / 2 - v / m * h / 2;
+  polyline(s, Array.from(win.y1, (v, i) => [xAt(i), yAt(v)]), { stroke: "#ffd36b", "stroke-width": 1.4 });
+  polyline(s, Array.from(win.y2, (v, i) => [xAt(i), yAt(v)]), { stroke: "#c9a2ff", "stroke-width": 1.4, "stroke-dasharray": "4 3" });
+  for (const t of [0, 1, 2, 3, 4]) s.appendChild(el("text", { x: x0 + t / 4 * w, y: y0 + h + 14, "text-anchor": "middle", class: "mut" }, t + " s"));
+  s.appendChild(el("text", { x: x0, y: y0 - 4, class: "mut" }, "variation (arbitrary units)"));
+}
+function drawSweep(inp) {
+  const s = $("sweep"); clear(s); const x0 = 50, y0 = 22, w = 780, h = 170, M = 160, pts = [];
+  for (let i = 0; i <= M; i++) { const sl = 4 * i / M, e = MODEL.expected(P, [sl, inp.p[1]], inp.wall, inp.n); pts.push({ sl, e, d: MODEL.decide(e, inp.n, inp.cfg) }); }
+  const vmax = Math.max(1e-12, ...pts.map(q => Math.max(q.d.v1, q.d.v2)));
+  s.appendChild(el("rect", { x: x0, y: y0, width: w, height: h, fill: "none", stroke: "#3a3f4a" }));
+  const xs = v => x0 + v / 4 * w, yv = v => y0 + h - v * h;
+  for (const t of [0, 0.5, 1]) { s.appendChild(el("line", { x1: x0, x2: x0 + w, y1: yv(t), y2: yv(t), stroke: "#262b35" })); s.appendChild(el("text", { x: x0 - 6, y: yv(t) + 4, "text-anchor": "end", class: "mut" }, String(t))); }
+  s.appendChild(el("line", { x1: x0, x2: x0 + w, y1: yv(inp.cfg.rt), y2: yv(inp.cfg.rt), stroke: "#5ec8ff", "stroke-dasharray": "2 4" }));
+  polyline(s, pts.map(q => [xs(q.sl), yv(q.e.rho)]), { stroke: "#5ec8ff", "stroke-width": 3.5 });
+  polyline(s, pts.map(q => [xs(q.sl), yv(q.d.v1 / vmax)]), { stroke: "#ffd36b", "stroke-width": 1.8 });
+  polyline(s, pts.map(q => [xs(q.sl), yv(q.d.v2 / vmax)]), { stroke: "#c9a2ff", "stroke-width": 1.8, "stroke-dasharray": "6 3" });
+  // decision band with text labels on runs wide enough to hold them
+  const by = y0 + h + 22; let runStart = 0;
+  for (let i = 1; i <= M + 1; i++) {
+    if (i <= M && pts[i].d.label === pts[runStart].d.label) continue;
+    const lab = pts[runStart].d.label, xa = xs(pts[runStart].sl), xb = xs(pts[Math.min(i, M)].sl);
+    s.appendChild(el("rect", { x: xa, y: by, width: Math.max(1, xb - xa), height: 18, fill: COLOR[lab] }));
+    if (xb - xa > 34) s.appendChild(el("text", { x: (xa + xb) / 2, y: by + 13, "text-anchor": "middle", fill: lab === "none" || lab === "amb" ? "#eef1f6" : "#0f1115" }, SHORT[lab]));
+    runStart = i;
+  }
+  s.appendChild(el("line", { x1: xs(inp.p[0]), x2: xs(inp.p[0]), y1: y0, y2: by + 18, stroke: "#ff7a7a", "stroke-width": 1.5 }));
+  for (const t of [0, 1, 2, 3, 4]) s.appendChild(el("text", { x: xs(t), y: by + 34, "text-anchor": t === 0 ? "start" : t === 4 ? "end" : "middle", class: "mut" }, t === 0 ? "0 m (AP)" : t === 4 ? "4 m (device 1)" : t + " m"));
+  const lg = [["correlation ρ", { stroke: "#5ec8ff", "stroke-width": 3.5 }], ["link 1 variation", { stroke: "#ffd36b", "stroke-width": 1.8 }], ["link 2 variation", { stroke: "#c9a2ff", "stroke-width": 1.8, "stroke-dasharray": "6 3" }], ["ρ threshold", { stroke: "#5ec8ff", "stroke-dasharray": "2 4" }]];
+  lg.forEach(([t, st], i) => { const lx = x0 + 250 + i * 135; s.appendChild(el("line", Object.assign({ x1: lx, x2: lx + 24, y1: y0 - 10, y2: y0 - 10 }, st))); s.appendChild(el("text", { x: lx + 30, y: y0 - 6 }, t)); });
+}
+function metric(k, v, t) { return '<div class="metric"><div class="k">' + k + '</div><div class="v">' + v + '</div><div class="t">' + t + "</div></div>"; }
+
+function update() {
+  const inp = inputs();
+  const seed = 1 + Math.round(inp.p[0] * 100) * 1000 + Math.round((inp.p[1] + 3) * 100);
+  const win = MODEL.sampleWindow(P, inp.p, inp.wall, inp.n, N, seed, 5), st = MODEL.stats(win.y1, win.y2), ex = MODEL.expected(P, inp.p, inp.wall, inp.n);
+  const d = MODEL.decide(st, inp.n, inp.cfg), dx = MODEL.decide(ex, inp.n, inp.cfg), n2 = inp.n * inp.n;
+  $("decision").textContent = LABEL[d.label];
+  $("decision").style.borderColor = COLOR[d.label] === "#2a2f3a" ? "#aeb6c4" : COLOR[d.label];
+  $("decision").style.color = COLOR[d.label] === "#2a2f3a" ? "#eef1f6" : COLOR[d.label];
+  $("headline").innerHTML =
+    metric("link 1 variance ÷ empty room", fmt(st.var1 / n2, 1) + "×", (d.a1 ? "active" : "not active") + " · expected " + fmt(ex.var1 / n2, 1) + "×") +
+    metric("link 2 variance ÷ empty room", fmt(st.var2 / n2, 1) + "×", (d.a2 ? "active" : "not active") + " · expected " + fmt(ex.var2 / n2, 1) + "×") +
+    metric("cross-correlation ρ (4 s window)", fmt(st.rho, 2), "expected " + fmt(ex.rho, 2) + " · threshold " + fmt(inp.cfg.rt, 2)) +
+    metric("normalised variation", fmt(d.vn1, 2) + " / " + fmt(d.vn2, 2), "link 1 / link 2, margin T = " + fmt(inp.cfg.T, 2));
+  $("nodes").innerHTML = "<p>w(AP) = " + fmt(d.w.AP / n2, 1) + ", w(device 1) = " + fmt(d.w.D1 / n2, 1) + ", w(device 2) = " + fmt(d.w.D2 / n2, 1) + " (in empty-room units).</p><p>With AP links only, the AP is an end of every link, so its summed variation is never below a device's. Sorting nodes by w alone therefore always points at the AP. Correlation, or device-to-device links, are needed. With 4 devices that hear each other, 4 AP links become " + MODEL.linkCount(4) + " links (B4, my arithmetic).</p>";
+  drawPlan(inp); drawTrace(win); drawSweep(inp);
+  const why = [];
+  const w = ex.w;
+  if (d.label === "none") why.push("<p>Neither link rises above " + fmt(inp.cfg.z, 1) + "× its empty-room variance. " + (inp.wall ? "The wall scales the motion's effect by " + P.wall_attenuation_assumption.value + " (an assumption), so its variance falls by " + fmt(P.wall_attenuation_assumption.value ** 2, 2) + "." : "At more than about " + P.single_link_range_illustrative.value + " m from a link, walking is hard to see (illustrative, A1).") + "</p>");
+  if (d.label === "ap") why.push("<p>The shared AP-end term (" + fmt(w.c, 2) + ") dominates both links, so they move together: ρ = " + fmt(st.rho, 2) + ". B4: high correlation across all AP links means motion near the AP.</p>");
+  if (d.label === "d1" || d.label === "d2") why.push("<p>Device " + (d.label === "d1" ? "1" : "2") + "'s own term (" + fmt(d.label === "d1" ? w.e1 : w.e2, 2) + ") is larger than the shared AP term (" + fmt(w.c, 2) + "). Its link moves alone, ρ = " + fmt(st.rho, 2) + " stays low, and its variation wins by more than T. B4: low correlation with one device's links active means motion near that device.</p>");
+  if (d.label === "amb") why.push("<p>Both links move about equally, and the correlation is not high enough to call it the AP side. The honest answer is \"near several nodes\" (B4). This happens between the devices, or when T is large.</p>");
+  if (d.label !== dx.label) why.push("<p><strong>Window noise.</strong> The expected values give \"" + LABEL[dx.label] + "\", but this 4 s window gives \"" + LABEL[d.label] + "\". A " + N + "-sample estimate of ρ is noisy, which is why decisions near a threshold flip from window to window.</p>");
+  if (inp.wall && d.label !== "none") why.push("<p><strong>Through-wall false positive.</strong> The person is in the next room, yet the system reports motion. B4's fixes: more endpoints (so the right room has a link that responds much more strongly), per-home sensitivity, or fusion with a sensor that does not see through walls. In the notes' study, 4 devices with device-to-device links reached an illustrative " + P.devices_tpr_illustrative.value["4_devices_all_links"] + " TPR against " + P.devices_tpr_illustrative.value["4_devices_ap_links_only"] + " with AP links only.</p>");
+  $("why_text").innerHTML = why.join("");
+  $("live").textContent = LABEL[d.label] + ". Correlation " + fmt(st.rho, 2) + ".";
+}
+const fm = { sl: v => v.toFixed(2) + " m", off: v => v.toFixed(2) + " m", noise: v => v.toFixed(2), z: v => v.toFixed(1) + "×", rt: v => v.toFixed(2), T: v => v.toFixed(2) };
+for (const id of Object.keys(fm)) shows[id] = bindRange(id, fm[id], () => schedule(update));
+$("wall").addEventListener("change", () => schedule(update));
+for (const c of CASES) {
+  const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+  b.addEventListener("click", () => { for (const k in c.set) { if (k === "wall") $(k).checked = c.set[k]; else $(k).value = c.set[k]; if (shows[k]) shows[k](); } update(); });
+  $("cases").appendChild(b);
+}
+renderSources();
+runSelfTests(MODEL.selfTest);
+update();
+</script>
+</body>
+</html>

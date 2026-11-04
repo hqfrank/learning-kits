@@ -1,0 +1,126 @@
+# Glossary — Finding faults in a device fleet from logs and metrics
+
+One line per term, alphabetical, each defined once. The note where a term is introduced is named in parentheses. Numbers live in [`constants.json`](constants.json).
+
+- **accuracy** — whether values are correct (for example, timestamps in a possible order) ([[notes/C3-data-quality|C3]]).
+- **agglomerative hierarchical clustering** — bottom-up clustering that repeatedly merges the two closest clusters ([[notes/B6-clustering-and-reporting|B6]]).
+- **anomaly clustering** — grouping anomalous device-days with similar attributes, metrics, and log patterns ([[notes/B6-clustering-and-reporting|B6]]).
+- **anomaly detection** — flagging data points that differ from the bulk of the data ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **attribute** — a descriptor of the device (software version, country, family, router vendor), used for slicing ([[notes/A2-fleet-metrics|A2]]).
+- **availability** — whether the needed data can be accessed, for the needed devices and period ([[notes/C3-data-quality|C3]]).
+- **backward validation** — starting from a known fault and checking that the detector flags it ([[notes/C1-the-ground-truth-problem|C1]]).
+- **bag of events** — the count-vector representation; frequency kept, order lost ([[notes/B2-windows-and-count-vectors|B2]]).
+- **BLUE (best linear unbiased estimator)** — the minimum-variance linear unbiased estimator; WLS with correct weights is BLUE ([[notes/B4-fleet-trend-detection|B4]]).
+- **cascade architecture** — metrics detect first; logs of the contributing devices are analysed after ([[notes/B5-from-anomaly-to-root-cause|B5]]).
+- **c(n)** — the average path length of an unsuccessful binary-search-tree search on n points; the normaliser of the score ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **component (tag)** — the name of the software part that wrote a line ([[notes/A1-what-a-device-log-is|A1]]).
+- **confidence gap** — the distance between "anomalous" and "a real device defect" ([[notes/C4-lessons|C4]]).
+- **confusion matrix** — the 2 × 2 table of TP, FP, FN, TN ([[notes/C1-the-ground-truth-problem|C1]]).
+- **consistency** — whether each field means one thing across records, families, and time ([[notes/C3-data-quality|C3]]).
+- **contamination** — the user-chosen fraction of training points the threshold flags ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **data artefact** — an apparent anomaly caused by the data pipeline, not by device behaviour ([[notes/C3-data-quality|C3]]).
+- **data quality** — how fit the input data are for the intended analysis ([[notes/C3-data-quality|C3]]).
+- **data-driven mining** — discovering templates from sample logs (Drain, Spell) ([[notes/B1-log-parsing-to-templates|B1]]).
+- **data-quality report** — an audit with one row per finding: dimension, check, rate, impact, fix ([[notes/C3-data-quality|C3]]).
+- **dendrogram** — the merge tree of hierarchical clustering; cut at a threshold to get clusters ([[notes/B6-clustering-and-reporting|B6]]).
+- **detection rate (recall)** — TP ÷ (TP + FN) ([[notes/C1-the-ground-truth-problem|C1]]).
+- **device-day** — one device's aggregated metrics for one day; the unit of analysis ([[notes/A2-fleet-metrics|A2]]).
+- **direction filter** — rules that drop changes in the good direction ([[notes/B4-fleet-trend-detection|B4]]).
+- **distribution anomaly** — the probability of a transition edge has changed ([[notes/B5-from-anomaly-to-root-cause|B5]]).
+- **environmental anomaly** — an anomaly caused by the device's surroundings (router, internet provider, setup), not by a device defect ([[notes/A0-why-fleets-need-log-analysis|A0]]).
+- **event count matrix** — the stack of count vectors: windows × templates ([[notes/B2-windows-and-count-vectors|B2]]).
+- **event-triggered** — emitted only when the event happens; absence is the normal state ([[notes/A2-fleet-metrics|A2]]).
+- **execution replay** — mapping templates back to print statements to follow the code path taken ([[notes/B5-from-anomaly-to-root-cause|B5]]).
+- **false discovery rate (FDR)** — the expected share of flagged series that are false alarms ([[notes/B4-fleet-trend-detection|B4]]).
+- **false-alarm feedback** — a user action that marks a flagged window as not a fault; future training data ([[notes/C5-from-service-to-tool|C5]]).
+- **false-alarm rate** — the share of flags that are not real device faults ([[notes/C1-the-ground-truth-problem|C1]]).
+- **feature** — one metric name joined to one category value, giving a column with one meaning ([[notes/A2-fleet-metrics|A2]]).
+- **feature importance** — the attribution of an anomaly score to individual features (templates) ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **fixable / unfixable miss** — a missed fault that more signal would catch / one that leaves no trace in the signals ([[notes/C1-the-ground-truth-problem|C1]]).
+- **fixed window** — non-overlapping windows of constant size ([[notes/B2-windows-and-count-vectors|B2]]).
+- **fleet** — the full population of a maker's devices that are in use ([[notes/A0-why-fleets-need-log-analysis|A0]]).
+- **fleet metric** — a structured, event-triggered record a device sends to the cloud ([[notes/A2-fleet-metrics|A2]]).
+- **fleet trend detection** — testing a fleet-level series for a sustained slope ([[notes/B4-fleet-trend-detection|B4]]).
+- **fleet-side analysis** — analysis that runs in the cloud on uploaded metrics and logs from many devices ([[notes/A0-why-fleets-need-log-analysis|A0]]).
+- **forward validation (forward pilot)** — giving detector output to experts with no prior answer and asking whether it is sufficient to start ([[notes/C1-the-ground-truth-problem|C1]]).
+- **gap detector** — a check that flags missing days or cohorts before anomaly detection runs ([[notes/C3-data-quality|C3]]).
+- **golden sequence** — the normal event sequence for a task, learned from healthy logs ([[notes/B5-from-anomaly-to-root-cause|B5]]).
+- **Gower similarity** — a similarity measure for rows with mixed numeric and categorical columns ([[notes/B6-clustering-and-reporting|B6]]).
+- **ground truth** — cases where the true answer (device, time, fault) is known and confirmed ([[notes/C1-the-ground-truth-problem|C1]]).
+- **homoscedastic / heteroscedastic** — constant / non-constant error variance across points ([[notes/B4-fleet-trend-detection|B4]]).
+- **hybrid analyser** — a model that uses rule-extracted known signals as extra features ([[notes/C4-lessons|C4]]).
+- **intensity** — total events of a feature ÷ active devices, per day ([[notes/A2-fleet-metrics|A2]]).
+- **interleaving** — lines from concurrent threads mixed together in one stream ([[notes/A1-what-a-device-log-is|A1]]).
+- **isolation forest (iForest)** — an ensemble of random trees that scores points by how quickly random splits isolate them ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **isolation tree** — one random-split tree in the forest ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **lab-induced fault** — a known bug reproduced on a test device under controlled conditions ([[notes/C1-the-ground-truth-problem|C1]]).
+- **linkage** — the rule for the distance between two clusters (single, complete, average, Ward) ([[notes/B6-clustering-and-reporting|B6]]).
+- **linked views** — separate displays (output, search, state machine, metrics) of the same log and time range ([[notes/C5-from-service-to-tool|C5]]).
+- **log** — the free-text lines that device software writes as it runs ([[notes/A0-why-fleets-need-log-analysis|A0]]).
+- **log buffer** — one of the named in-memory stores (main, system, radio, events, crash, kernel) that a logging daemon keeps ([[notes/A1-what-a-device-log-is|A1]]).
+- **log count vector (event count vector)** — per window, the number of occurrences of each template ([[notes/B2-windows-and-count-vectors|B2]]).
+- **log line** — one record of a log: header (time, pid, tid, level, tag) plus message ([[notes/A1-what-a-device-log-is|A1]]).
+- **log parsing** — mapping each raw message to a template ID plus its parameter list ([[notes/B1-log-parsing-to-templates|B1]]).
+- **LSTM (long short-term memory)** — a recurrent neural network that keeps a state across a sequence ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **metric** — a small structured record a device sends when a defined event happens ([[notes/A0-why-fleets-need-log-analysis|A0]]).
+- **miss log** — the list of missed ground-truth cases, each with its missing signal ([[notes/C4-lessons|C4]]).
+- **north-star metric** — the single measure that best states the product's goal (here, time saved) ([[notes/C5-from-service-to-tool|C5]]).
+- **on-device analysis** — analysis that runs on the device, before logs are overwritten or uploaded ([[notes/A0-why-fleets-need-log-analysis|A0]]).
+- **one-to-many / many-to-one parsing** — one statement split into several templates / several statements merged into one ([[notes/B1-log-parsing-to-templates|B1]]).
+- **ordinary least squares (OLS)** — linear regression with equal weight on every point ([[notes/B4-fleet-trend-detection|B4]]).
+- **OS drift** — changes to print statements and components across OS families and releases ([[notes/C2-template-engineering|C2]]).
+- **OUI (organisationally unique identifier)** — the vendor prefix of a MAC address; it identifies the router maker ([[notes/A2-fleet-metrics|A2]]).
+- **parallel architecture** — logs and metrics are analysed continuously side by side, with fused results ([[notes/B5-from-anomaly-to-root-cause|B5]]).
+- **parameter** — a run-time value inside a message, such as a reason code or an address ([[notes/A1-what-a-device-log-is|A1]]).
+- **parameter plot** — a time series of one template parameter across all its occurrences ([[notes/C5-from-service-to-tool|C5]]).
+- **parse tree (fixed depth)** — Drain's index: length, then leading tokens, then candidate groups at the leaves ([[notes/B1-log-parsing-to-templates|B1]]).
+- **partial-token wildcard** — a wildcard inside a token (`event=<*>`), keeping the constant prefix distinct ([[notes/B1-log-parsing-to-templates|B1]]).
+- **path length h(x)** — the number of splits needed to isolate point x ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **Phred-style score** — −10·log₁₀(p); each 10 points is a factor of 10 in p ([[notes/B4-fleet-trend-detection|B4]]).
+- **post-processing (templates)** — merging duplicates, masking variables, and checking mined templates against source ([[notes/C2-template-engineering|C2]]).
+- **practical threshold s** — the smallest slope worth acting on; the null hypothesis value ([[notes/B4-fleet-trend-detection|B4]]).
+- **precision** — TP ÷ (TP + FP) ([[notes/C1-the-ground-truth-problem|C1]]).
+- **proxy device** — a device with logs that matches an anomalous group without logs, used for diagnosis ([[notes/A2-fleet-metrics|A2]]).
+- **p-value** — the probability, under the null hypothesis, of a slope at least as extreme as the one observed ([[notes/B4-fleet-trend-detection|B4]]).
+- **quantitative / sequential / semantic features** — counts / ordered template IDs / text embeddings ([[notes/B2-windows-and-count-vectors|B2]]).
+- **reason code** — the IEEE 802.11 number that states why a Wi-Fi association ended ([[notes/A1-what-a-device-log-is|A1]]).
+- **release correlation** — checking whether an anomaly started with a software update ([[notes/B6-clustering-and-reporting|B6]]).
+- **release-health check** — comparing a new release's fleet behaviour with earlier releases ([[notes/C4-lessons|C4]]).
+- **retraining cascade** — the chain template change → tree rebuild → new feature space → model retrain → ground-truth re-run ([[notes/C2-template-engineering|C2]]).
+- **ring buffer** — a fixed-size buffer in which new entries overwrite the oldest ones ([[notes/A1-what-a-device-log-is|A1]]).
+- **root-cause analysis (RCA)** — the step from "this is anomalous" to "this is what went wrong" ([[notes/B5-from-anomaly-to-root-cause|B5]]).
+- **root-cause label** — the resolved category of a ticket (defect, environmental, data artefact), fed back to the pipeline ([[notes/B6-clustering-and-reporting|B6]]).
+- **rule-based tool** — a diagnostic tool that flags only patterns an engineer wrote down in advance ([[notes/A0-why-fleets-need-log-analysis|A0]]).
+- **sample proportion** — a fraction estimated from a sample; its standard error is √(p(1−p)/n) ([[notes/A2-fleet-metrics|A2]]).
+- **scope (of an analyser)** — the components, log buffers, formats, and time ranges it reads ([[notes/C4-lessons|C4]]).
+- **second-signal confirmation** — requiring an independent signal before opening a ticket ([[notes/C4-lessons|C4]]).
+- **sequence anomaly** — an expected child event is missing within its expected time lag ([[notes/B5-from-anomaly-to-root-cause|B5]]).
+- **sequence model** — a model of the order of template IDs, such as an LSTM ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **session window** — a window that holds one execution path, defined by an identifier ([[notes/B2-windows-and-count-vectors|B2]]).
+- **severity (level)** — the writer's label for how serious a line is (verbose to fatal) ([[notes/A1-what-a-device-log-is|A1]]).
+- **share of devices (device ratio)** — active devices that emitted a feature ÷ all active devices, per day ([[notes/A2-fleet-metrics|A2]]).
+- **similar-device matching** — checking whether devices with the same attributes show the same pattern ([[notes/B6-clustering-and-reporting|B6]]).
+- **similarity threshold (st)** — Drain's minimum token similarity for a message to join an existing group ([[notes/B1-log-parsing-to-templates|B1]]).
+- **sliding window** — overlapping windows defined by a window size and a smaller step size ([[notes/B2-windows-and-count-vectors|B2]]).
+- **source-code extraction** — building templates from the print statements in the code ([[notes/B1-log-parsing-to-templates|B1]]).
+- **stable template ID** — an ID derived from the normalised template text, unchanged across rebuilds ([[notes/C2-template-engineering|C2]]).
+- **stand-alone health analyzer** — an interactive tool that runs the fleet pipeline's parsing and detection on one device or one uploaded log ([[notes/C5-from-service-to-tool|C5]]).
+- **stateful (order-dependent) fault** — a fault that appears only after a specific earlier sequence of events ([[notes/C4-lessons|C4]]).
+- **state-machine search** — finding every occurrence of a user-defined ordered event pattern within a time span ([[notes/B5-from-anomaly-to-root-cause|B5]]).
+- **sub-sampling size ψ** — the number of points each isolation tree is built on ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **template coverage** — the share of log lines that match some template ([[notes/C2-template-engineering|C2]]).
+- **template engineering** — building, cleaning, validating, and maintaining the template set ([[notes/C2-template-engineering|C2]]).
+- **template ID** — a stable identifier for one template ([[notes/B1-log-parsing-to-templates|B1]]).
+- **template (log event, log key)** — the constant part of a message with parameter positions replaced by `<*>` ([[notes/B1-log-parsing-to-templates|B1]]).
+- **ticket enrichment** — attaching automated evidence to a ticket that a person opened ([[notes/B6-clustering-and-reporting|B6]]).
+- **timeliness** — whether data arrive when expected, without gaps ([[notes/C3-data-quality|C3]]).
+- **time-ordered cross-validation** — training on earlier data and validating on later data, rolled forward ([[notes/C1-the-ground-truth-problem|C1]]).
+- **top-g rule** — DeepLog's test: the next template is normal if it is among the g most probable predictions ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **transition count matrix** — N × N counts of "template i followed by template j" within one thread ([[notes/B5-from-anomaly-to-root-cause|B5]]).
+- **transparent design** — showing intermediate pipeline results so users can verify and choose the level of automation ([[notes/C5-from-service-to-tool|C5]]).
+- **unmatched bucket** — the store of messages no template matched, reviewed to extend the template set ([[notes/B1-log-parsing-to-templates|B1]]).
+- **unsupervised** — learning without labelled examples of the target class ([[notes/B3-anomaly-detection-on-logs|B3]]).
+- **weighted least squares (WLS)** — linear regression that weights each point by the inverse of its variance ([[notes/B4-fleet-trend-detection|B4]]).
+- **Wilson score interval** — a confidence interval for a proportion that behaves well for small n and rates near 0 or 1 ([[notes/C1-the-ground-truth-problem|C1]]).
+- **window (log sequence)** — a finite contiguous chunk of the parsed stream ([[notes/B2-windows-and-count-vectors|B2]]).
+- **workflow (empirical control-flow graph)** — a graph of templates (nodes) and observed transitions (edges) ([[notes/B5-from-anomaly-to-root-cause|B5]]).

@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The window length decides which faults you can see, and how soon — log windowing explorer</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a; --warn:#ffd36b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:75ch;margin:4px 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  input:focus-visible,button:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:130px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;display:inline-block}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .figs{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .figs>*{min-width:0}
+  @media(max-width:1100px){.figs{grid-template-columns:1fr}}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:nth-child(1){width:22%} #sources td:nth-child(2){width:14%} #sources td:nth-child(3){width:9%;overflow-wrap:normal}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>The window length decides which faults you can see, and how soon: long windows are dense but dilute a short burst; short windows react fast but are mostly zeros</h1>
+  <p class="sub">A device's parsed log is cut into windows of length <var>W</var>, moved forward by a step; each window becomes a
+  count vector with one entry per template (note B2). Here one rare template is watched. Normally it occurs at a low rate; during a
+  fault <strong>burst</strong> it occurs much more often. A window is flagged if its count is unusually high for a normal window.
+  The fleet rates, burst and alarm budget are <span class="tag ill">illustrative</span>; counts follow a Poisson model (my
+  modelling choice, not from the notes).</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="cases" role="group" aria-label="Preloaded cases">
+      <button type="button" data-case="kit">Kit example: 1 h / 15 min</button>
+      <button type="button" data-case="fixed">Fixed 1 h (He et al.)</button>
+      <button type="button" data-case="sliding">Sliding 6 h / 1 h (He et al.)</button>
+      <button type="button" data-case="leak">Slow leak, 10 min windows</button>
+    </div>
+    <div class="ctrl">
+      <label for="w">Window length W <span class="val" id="w_v"></span></label>
+      <input id="w" type="range" min="0" max="1" step="any" value="0.5">
+      <div class="hint">Log scale, 5 min … 6 h.</div>
+    </div>
+    <div class="ctrl">
+      <label for="st">Step as a share of W <span class="val" id="st_v"></span></label>
+      <input id="st" type="range" min="0.05" max="1" step="0.05" value="0.25">
+      <div class="hint">1 = fixed (non-overlapping) windows; smaller = sliding windows that overlap.</div>
+    </div>
+    <div class="ctrl">
+      <label for="p">Templates in the count vector <span class="val" id="p_v"></span></label>
+      <input id="p" type="range" min="5" max="400" step="1" value="20">
+      <div class="hint">Up to "a few hundred" per component set (illustrative, note B1).</div>
+    </div>
+    <div class="ctrl">
+      <label for="r">Component lines per hour <span class="val" id="r_v"></span></label>
+      <input id="r" type="range" min="0" max="1" step="any" value="0.5">
+      <div class="hint">Log scale, 10 … 5000. Default derived from the kit's illustrative lines per device-day × share kept for one component. Template frequencies follow 1/rank (my assumption).</div>
+    </div>
+    <div class="ctrl">
+      <label for="l0">Watched template, normal rate <span class="val" id="l0_v"></span></label>
+      <input id="l0" type="range" min="0.1" max="20" step="0.1" value="1">
+    </div>
+    <div class="ctrl">
+      <label for="lb">Extra rate during the burst <span class="val" id="lb_v"></span></label>
+      <input id="lb" type="range" min="1" max="200" step="1" value="30">
+    </div>
+    <div class="ctrl">
+      <label for="d">Burst duration <span class="val" id="d_v"></span></label>
+      <input id="d" type="range" min="0" max="1" step="any" value="0.2">
+      <div class="hint">Log scale, 2 min … 6 h.</div>
+    </div>
+    <div class="ctrl">
+      <label for="a">False-alarm budget per normal window α <span class="val" id="a_v"></span></label>
+      <input id="a" type="range" min="0.1" max="10" step="0.1" value="1">
+      <div class="hint">Sets the count threshold k*: the smallest count a normal window reaches with probability ≤ α.</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <div class="figs">
+      <svg id="curves" viewBox="0 0 440 360" role="img" aria-labelledby="curves_t"><title id="curves_t">Detection probability, empty share and delay as functions of window length</title></svg>
+      <svg id="tl" viewBox="0 0 440 360" role="img" aria-labelledby="tl_t"><title id="tl_t">Timeline of windows around the burst, flagged windows marked</title></svg>
+    </div>
+    <div class="why">
+      <h3>What dominates right now</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters &amp; sources</h3>
+  <p class="hint">Every constant is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = cited; <span class="tag ill">illustrative</span> = a round teaching
+  number. The burst rates, the alarm budget and the 1/rank template mix are page inputs (illustrative). Detection delay uses an
+  expected-count rule: the burst must have run long enough inside one window that the window's expected count reaches k*, plus a
+  mean wait of half a step for the next window to close (my estimate). Self-tests: <span id="tests-sum">not run</span>.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  <span id="gen"></span> · Study aid for <em>device-log-anomaly-detection</em> (rung 3), note B2. Numbers are from the listed sources or
+  labelled illustrative/derived; nothing here is a measurement from any device fleet. Windows and count vectors:
+  <a href="https://jiemingzhu.github.io/pub/slhe_issre2016.pdf">He, Zhu, He, Lyu, ISSRE 2016</a> §III-B, §III-C, §IV-B.
+</footer>
+
+<script type="application/json" id="params" data-keys="window_example,he2016_fixed_window_default,he2016_sliding_window_default,lines_per_device_day,wifi_component_share_kept,templates_per_component_set,miner_templates_found">
+{
+ "window_example": {
+  "value": {
+   "day": 24,
+   "window": 1,
+   "step": 0.25,
+   "windows": 93
+  },
+  "unit": "h / count",
+  "class": "illustrative",
+  "source": "illustrative inputs; windows = (24-1)/0.25 + 1, my arithmetic",
+  "used_in": "B2"
+ },
+ "he2016_fixed_window_default": {
+  "value": 1,
+  "unit": "h",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-B"
+ },
+ "he2016_sliding_window_default": {
+  "value": {
+   "window": 6,
+   "step": 1
+  },
+  "unit": "h",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-B"
+ },
+ "lines_per_device_day": {
+  "value": 500000,
+  "unit": "lines",
+  "class": "illustrative",
+  "source": "illustrative (order of magnitude endorsed by the kit brief)",
+  "used_in": "A0, A1"
+ },
+ "wifi_component_share_kept": {
+  "value": 1,
+  "unit": "% of lines",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A1"
+ },
+ "templates_per_component_set": {
+  "value": 400,
+  "unit": "templates",
+  "class": "illustrative",
+  "source": "illustrative ('a few hundred')",
+  "used_in": "B1, C2"
+ },
+ "miner_templates_found": {
+  "value": 20,
+  "unit": "templates",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B1"
+ }
+}
+</script>
+
+<script>
+// Lets the kit's shoot.py (written for story pages) run on this explorer: this page has no scenes.
+window.Story = window.Story || { scenes: {}, go(){} };
+</script>
+
+<script>
+/*MODEL-START*/
+var WN = (function(){
+  "use strict";
+  // ln Gamma (Lanczos) and the regularised lower incomplete gamma P(a, x) (series / continued fraction).
+  function gammaln(z){ const g = [76.18009172947146, -86.50532032941677, 24.01409824083091, -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+    let x = z, y = z, t = x + 5.5; t -= (x + 0.5) * Math.log(t); let s = 1.000000000190015; for (const c of g) s += c / ++y;
+    return -t + Math.log(2.5066282746310005 * s / x); }
+  function gammaP(a, x){
+    if (x <= 0) return 0;
+    if (x < a + 1){ let ap = a, sum = 1 / a, del = sum; for (let n = 0; n < 1000; n++){ ap++; del *= x / ap; sum += del; if (Math.abs(del) < Math.abs(sum) * 1e-14) break; }
+      return Math.min(1, sum * Math.exp(-x + a * Math.log(x) - gammaln(a))); }
+    let b = x + 1 - a, c = 1e300, d = 1 / b, h = d;
+    for (let i = 1; i < 1000; i++){ const an = -i * (i - a); b += 2; d = an * d + b; if (Math.abs(d) < 1e-300) d = 1e-300;
+      c = b + an / c; if (Math.abs(c) < 1e-300) c = 1e-300; d = 1 / d; const del = d * c; h *= del; if (Math.abs(del - 1) < 1e-14) break; }
+    return Math.max(0, 1 - Math.exp(-x + a * Math.log(x) - gammaln(a)) * h);
+  }
+  // P(N >= k) for N ~ Poisson(mu) equals P(k, mu) for k >= 1.
+  function poisTail(k, mu){ return k <= 0 ? 1 : gammaP(k, mu); }
+
+  // windows per day = floor((day - W) / step) + 1  (note B2 worked example)
+  function windowsPerDay_B2(day, W, step){ return day < W ? 0 : Math.floor((day - W) / step + 1e-9) + 1; }
+  // Share of empty entries in a normal window's count vector: rates follow 1/rank, lambda_j = R (1/j) / H_p.
+  function zeroShare(R, p, W){ let H = 0; for (let j = 1; j <= p; j++) H += 1 / j;
+    let z = 0; for (let j = 1; j <= p; j++) z += Math.exp(-R * W / (j * H)); return z / p; }
+  // Count threshold: smallest k with P(N >= k) <= alpha under the normal rate.
+  function threshold(mu0, alpha){ let k = Math.max(1, Math.floor(mu0)); while (poisTail(k, mu0) > alpha) k++;
+    while (k > 1 && poisTail(k - 1, mu0) <= alpha) k--; return {k, alphaEff: poisTail(k, mu0)}; }
+
+  // Everything for one setting. Hours throughout.
+  function evaluate(o){
+    const mu0 = o.l0 * o.W, th = threshold(mu0, o.alpha);
+    const inBurst = Math.min(o.W, o.d), muBest = mu0 + o.lb * inBurst;
+    const pDet = poisTail(th.k, muBest);
+    const xNeed = Math.max(0, (th.k - mu0) / o.lb);          // burst time needed inside one window
+    const detectable = xNeed <= inBurst;
+    const delay = detectable ? xNeed + o.step / 2 : Infinity;
+    const wpd = windowsPerDay_B2(24, o.W, o.step);
+    return {mu0, k: th.k, alphaEff: th.alphaEff, inBurst, muBest, pDet, xNeed, detectable, delay, wpd,
+            falseAlarmsPerDay: th.alphaEff * wpd, zero: zeroShare(o.R, o.p, o.W), linesPerWindow: o.R * o.W};
+  }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0; const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const we = P.window_example.value;
+    ok(windowsPerDay_B2(we.day, we.window, we.step) === we.windows, "24 h, 1 h window, 15 min step gives " + we.windows + " windows");
+    ok(windowsPerDay_B2(24, P.he2016_fixed_window_default.value, P.he2016_fixed_window_default.value) === 24, "fixed 1 h windows: 24 per day");
+    const sw = P.he2016_sliding_window_default.value;
+    ok(windowsPerDay_B2(24, sw.window, sw.step) === 19, "sliding 6 h / 1 h: 19 windows per day");
+    ok(Math.abs(poisTail(1, 2) - (1 - Math.exp(-2))) < 1e-12 && poisTail(0, 5) === 1, "Poisson tail: P(N>=1) = 1 - e^-mu");
+    let pmf = 0; for (let i = 0; i < 4; i++){ let f = 1; for (let j = 2; j <= i; j++) f *= j; pmf += Math.exp(-3) * Math.pow(3, i) / f; }
+    ok(Math.abs(poisTail(4, 3) - (1 - pmf)) < 1e-10, "Poisson tail P(N>=4 | 3) matches the pmf sum");
+    const th = threshold(1, 0.01);
+    ok(poisTail(th.k, 1) <= 0.01 && poisTail(th.k - 1, 1) > 0.01, "threshold k* is the smallest count within the alarm budget");
+    ok(Math.abs(zeroShare(3, 1, 0.5) - Math.exp(-1.5)) < 1e-12, "one template: empty share = exp(-lambda W)");
+    const R = P.lines_per_device_day.value * P.wifi_component_share_kept.value / 100 / 24;
+    ok(Math.abs(R - 208.33) < 0.01, "default component rate = 500 000 x 1 % / 24 h = 208.3 lines per hour (my arithmetic)");
+    ok(zeroShare(R, 400, 0.25) > zeroShare(R, 20, 0.25), "more templates at the same rate: sparser vectors");
+    const base = {l0: 1, lb: 30, alpha: 0.01, R, p: 20};
+    const short1 = evaluate({...base, W: 1, step: 0.25, d: 1 / 6}), short6 = evaluate({...base, W: 6, step: 1, d: 1 / 6});
+    ok(short6.pDet < short1.pDet, "a 10 min burst is diluted in a 6 h window (lower detection probability)");
+    const leak10 = evaluate({...base, lb: 3, W: 1 / 6, step: 1 / 6, d: 6}), leak6 = evaluate({...base, lb: 3, W: 6, step: 1, d: 6});
+    ok(leak6.pDet > leak10.pDet, "a slow 6 h leak is clearer in a long window");
+    ok(evaluate({...base, W: 1, step: 0.25, d: 1}).delay < evaluate({...base, W: 1, step: 1, d: 1}).delay, "a smaller step shortens the mean delay");
+    return {passed, failed};
+  }
+  return {gammaP, poisTail, windowsPerDay_B2, zeroShare, threshold, evaluate, selfTest};
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = WN;
+/*MODEL-END*/
+</script>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const P = JSON.parse($("params").textContent);
+  const fmt = (x, d = 2) => Number.isFinite(x) ? Number(x).toFixed(d) : "—";
+  const lg = (lo, hi) => ({of: t => lo * Math.pow(hi / lo, t), inv: v => Math.log(v / lo) / Math.log(hi / lo)});
+  const WS = lg(5 / 60, 6), RS = lg(10, 5000), DS = lg(2 / 60, 6);
+  const dur = h => h < 1 ? (m => fmt(m, m < 10 && m % 1 ? 1 : 0))(Math.round(h * 600) / 10) + " min" : fmt(h, h < 10 ? 2 : 1).replace(/\.?0+$/, "") + " h";
+  const R0 = P.lines_per_device_day.value * P.wifi_component_share_kept.value / 100 / 24;   // my arithmetic
+  const we = P.window_example.value, fw = P.he2016_fixed_window_default.value, sw = P.he2016_sliding_window_default.value;
+  const CASES = {
+    kit:     {W: we.window, st: we.step / we.window, d: 1 / 6, lb: 30, l0: 1},
+    fixed:   {W: fw, st: 1, d: 1 / 6, lb: 30, l0: 1},
+    sliding: {W: sw.window, st: sw.step / sw.window, d: 1 / 6, lb: 30, l0: 1},
+    leak:    {W: 1 / 6, st: 1, d: 6, lb: 3, l0: 1}
+  };
+
+  const res = WN.selfTest(P, console.assert);
+  $("tests-sum").textContent = res.passed + " passed, " + res.failed + " failed (open the console for details)";
+
+  function renderSources(){
+    const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+    for (const [k, o] of Object.entries(P)){
+      const val = typeof o.value === "object" ? JSON.stringify(o.value) : o.value;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>${k}</code></td><td>${val} ${o.unit || ""}</td><td>${o.class}</td><td>${o.source}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  const metric = (k, v, tag) => `<div class="metric"><div class="k">${k}<span class="tag ${tag[0]}">${tag[1]}</span></div><div class="v">${v}</div></div>`;
+  const DER = ["der", "derived"];
+
+  function read(){ const W = WS.of(+$("w").value);
+    return {W, step: W * +$("st").value, p: +$("p").value, R: RS.of(+$("r").value), l0: +$("l0").value, lb: +$("lb").value,
+            d: DS.of(+$("d").value), alpha: +$("a").value / 100}; }
+
+  function drawCurves(o, r){
+    const W = 440, H = 360, L = 46, Rp = 30, T = 42, pw = W - L - Rp, h1 = 120, gap = 40, h2 = 112;
+    const X = w => L + WS.inv(w) * pw;
+    let s = `<text x="${L}" y="18" fill="#eef1f6" font-size="12">Sweep of W with your other settings</text>`;
+    const ws = []; for (let i = 0; i <= 60; i++) ws.push(WS.of(i / 60));
+    const ev = ws.map(w => WN.evaluate({...o, W: w, step: w * +$("st").value}));
+    // top panel: detection probability (solid) and empty share (dashed), 0..1
+    const Y1 = v => T + h1 - v * h1;
+    s += `<rect x="${L}" y="${T}" width="${pw}" height="${h1}" fill="none" stroke="#3a3f4a"/>`;
+    for (const v of [0, 0.5, 1]) s += `<text x="${L - 6}" y="${Y1(v) + 4}" fill="#aeb6c4" font-size="11" text-anchor="end">${v}</text>`;
+    const path = (vals, Y) => vals.map((v, i) => (i ? "L" : "M") + X(ws[i]).toFixed(1) + " " + Y(v).toFixed(1)).join("");
+    s += `<path d="${path(ev.map(e => e.pDet), Y1)}" fill="none" stroke="#49d17a" stroke-width="2.5"/>`;
+    s += `<path d="${path(ev.map(e => e.zero), Y1)}" fill="none" stroke="#ffd36b" stroke-width="2" stroke-dasharray="6 4"/>`;
+    s += `<text x="${L}" y="${T - 8}" font-size="11"><tspan fill="#49d17a">— P(burst flagged) ●</tspan><tspan fill="#ffd36b" dx="12">- - empty share of vector ■</tspan></text>`;
+    // bottom panel: delay in minutes (log 1..1000)
+    const T2 = T + h1 + gap, Y2 = m => T2 + h2 - (Math.log10(Math.max(1, Math.min(1000, m)))) / 3 * h2;
+    s += `<rect x="${L}" y="${T2}" width="${pw}" height="${h2}" fill="none" stroke="#3a3f4a"/>`;
+    for (const m of [1, 10, 100, 1000]) s += `<text x="${L - 6}" y="${Y2(m) + 4}" fill="#aeb6c4" font-size="11" text-anchor="end">${m}</text>`;
+    s += `<text x="${L}" y="${T2 - 8}" fill="#5ec8ff" font-size="11">— mean detection delay (min, log); gap = not detectable</text>`;
+    let d = "", pen = false;
+    ev.forEach((e, i) => { if (!e.detectable){ pen = false; return; } d += (pen ? "L" : "M") + X(ws[i]).toFixed(1) + " " + Y2(e.delay * 60).toFixed(1); pen = true; });
+    s += `<path d="${d}" fill="none" stroke="#5ec8ff" stroke-width="2.5"/>`;
+    // shared x axis and current W marker
+    for (const w of [5 / 60, 0.25, 1, 6]) s += `<text x="${X(w)}" y="${T2 + h2 + 15}" fill="#aeb6c4" font-size="11" text-anchor="middle">${dur(w)}</text>`;
+    s += `<text x="${L + pw / 2}" y="${H - 4}" fill="#eef1f6" font-size="12" text-anchor="middle">window length W (log scale)</text>`;
+    const xm = X(o.W);
+    s += `<line x1="${xm}" y1="${T}" x2="${xm}" y2="${T2 + h2}" stroke="#eef1f6" stroke-dasharray="2 3"/>`;
+    s += `<circle cx="${xm}" cy="${Y1(r.pDet)}" r="5" fill="#49d17a" stroke="#12151c" stroke-width="1.5"/><rect x="${xm - 4}" y="${Y1(r.zero) - 4}" width="8" height="8" fill="#ffd36b" stroke="#12151c"/>`;
+    if (r.detectable) s += `<circle cx="${xm}" cy="${Y2(r.delay * 60)}" r="5" fill="#5ec8ff" stroke="#12151c" stroke-width="1.5"/>`;
+    else s += `<text x="${xm + (xm > L + pw - 90 ? -6 : 6)}" y="${T2 + h2 / 2}" fill="#ff7a7a" font-size="12" font-weight="700" text-anchor="${xm > L + pw - 90 ? "end" : "start"}">not detectable</text>`;
+    $("curves").innerHTML = s;
+  }
+
+  function drawTimeline(o, r){
+    const W = 440, H = 360, L = 16, Rp = 16, pw = W - L - Rp, T = 44;
+    const t0 = 12, span = Math.min(24, Math.max(3, 2.4 * o.W + o.d + 1)), a = Math.max(0, t0 + o.d / 2 - span / 2), b = Math.min(24, a + span);
+    const X = t => L + (t - a) / (b - a) * pw;
+    let s = `<text x="${L}" y="18" fill="#eef1f6" font-size="12">Windows around a burst starting at hour 12 (zoom ${dur(b - a)})</text>`;
+    // burst
+    s += `<rect x="${X(t0)}" y="${T}" width="${Math.max(2, X(Math.min(b, t0 + o.d)) - X(t0))}" height="${H - T - 40}" fill="#ff7a7a" opacity="0.18"/>`;
+    s += `<text x="${X(t0) + 3}" y="${T + 12}" fill="#ff7a7a" font-size="11" font-weight="700">burst</text>`;
+    // windows overlapping the zoom, stacked in rows
+    const wins = []; for (let st = 0; st + o.W <= 24 + 1e-9; st += o.step){ if (st + o.W >= a && st <= b) wins.push(st); if (wins.length > 400) break; }
+    const rows = Math.min(14, Math.max(1, Math.ceil(o.W / o.step - 1e-9))), every = Math.max(1, Math.ceil(wins.length / 60));
+    const rowH = Math.min(18, (H - T - 70) / rows);
+    let shown = 0, flagged = 0;
+    wins.forEach((st, i) => { if (i % every) return;
+      const ov = Math.max(0, Math.min(st + o.W, t0 + o.d) - Math.max(st, t0)), mu = r.mu0 + o.lb * ov, f = mu >= r.k;
+      if (f) flagged++; shown++;
+      const y = T + 20 + (i % rows) * rowH, x1 = Math.max(L, X(st)), x2 = Math.min(L + pw, X(st + o.W));
+      s += `<rect x="${x1.toFixed(1)}" y="${y.toFixed(1)}" width="${Math.max(1, x2 - x1).toFixed(1)}" height="${(rowH - 4).toFixed(1)}" rx="2" fill="${f ? "#ff7a7a" : "#3a3f4a"}" fill-opacity="${f ? 0.8 : 0.9}" stroke="${f ? "#fff" : "#5a606c"}" stroke-width="${f ? 1.5 : 0.8}"/>`;
+      if (f && rowH >= 10) s += `<text x="${(x1 + 3).toFixed(1)}" y="${(y + rowH - 7).toFixed(1)}" fill="#12151c" font-size="9" font-weight="700">!</text>`; });
+    // axis
+    const yA = H - 30;
+    s += `<line x1="${L}" y1="${yA}" x2="${L + pw}" y2="${yA}" stroke="#aeb6c4"/>`;
+    const tick = (b - a) > 8 ? 4 : (b - a) > 3 ? 1 : 0.5;
+    for (let t = Math.ceil(a / tick) * tick; t <= b + 1e-9; t += tick) s += `<line x1="${X(t)}" y1="${yA}" x2="${X(t)}" y2="${yA + 4}" stroke="#aeb6c4"/><text x="${X(t)}" y="${yA + 16}" fill="#aeb6c4" font-size="10" text-anchor="middle">${fmt(t, tick < 1 ? 1 : 0)}</text>`;
+    s += `<text x="${L + pw}" y="${H - 2}" fill="#eef1f6" font-size="11" text-anchor="end">hour of day →</text>`;
+    s += `<text x="${L}" y="34" fill="#aeb6c4" font-size="11">red "!" bar = window whose expected count reaches k* = ${r.k}${every > 1 ? ` · every ${every}th window shown` : ""}</text>`;
+    $("tl").innerHTML = s;
+  }
+
+  function update(){
+    const o = read(), r = WN.evaluate(o);
+    $("w_v").textContent = dur(o.W); $("st_v").textContent = +$("st").value >= 1 ? "1 (fixed)" : fmt(+$("st").value, 2) + " → step " + dur(o.step);
+    $("p_v").textContent = o.p; $("r_v").textContent = fmt(o.R, 0) + " lines / h"; $("l0_v").textContent = fmt(o.l0, 1) + " / h";
+    $("lb_v").textContent = "+" + o.lb + " / h"; $("d_v").textContent = dur(o.d); $("a_v").textContent = fmt(o.alpha * 100, 1) + " %";
+    $("headline").innerHTML =
+      metric("Windows per day", r.wpd, DER) +
+      metric("Empty share of vector", fmt(100 * r.zero, 0) + " %", DER) +
+      metric("Threshold k*", r.k + " counts", DER) +
+      metric("P(burst flagged)", fmt(100 * r.pDet, 0) + " %", DER) +
+      metric("Mean delay (expected count)", r.detectable ? dur(r.delay) : "not detectable", DER) +
+      metric("False alarms / day", fmt(r.falseAlarmsPerDay, 2), DER) +
+      metric("Lines to read / window", fmt(r.linesPerWindow, 0), DER);
+    drawCurves(o, r); drawTimeline(o, r);
+    let why;
+    if (!r.detectable) why = `${r.pDet > 0.01 ? `Poisson luck still flags the burst ${fmt(100 * r.pDet, 0)} % of the time, but not reliably: on average ` : ""}the burst never fits enough extra events into one window: a normal ${dur(o.W)} window already expects ${fmt(r.mu0, 1)} of the watched template, so the threshold is ${r.k}; the burst would need ${dur(r.xNeed)} inside one window at +${o.lb}/h but only ${dur(r.inBurst)} fits. ${o.W > o.d ? "The window is longer than the burst, so the burst is diluted by normal time." : "Raise the burst rate or the alarm budget, or lengthen the window."}`;
+    else if (r.zero > 0.6) why = `The window is short: ${fmt(100 * r.zero, 0)} % of the ${o.p} template counts are zero in a normal window, so most of the vector carries no information. The watched template is still caught (${fmt(100 * r.pDet, 0)} %) because its burst rate is high, after about ${dur(r.delay)}.`;
+    else why = `The best-aligned window expects ${fmt(r.muBest, 1)} events against a threshold of ${r.k}, so the burst is flagged with probability ${fmt(100 * r.pDet, 0)} %, on average ${dur(r.delay)} after it starts (burst time needed ${dur(r.xNeed)} + half a step). ${fmt(100 * r.zero, 0)} % of the vector is empty in a normal window.`;
+    $("why_text").textContent = why;
+    $("callout").innerHTML = `<strong>More windows are not more evidence.</strong> At a ${dur(o.step)} step there are ${r.wpd} windows per day, so a budget α of ${fmt(o.alpha * 100, 1)} % per window (effective ${r.alphaEff < 0.001 ? (100 * r.alphaEff).toExponential(1) : fmt(100 * r.alphaEff, 2)} %, because k* is a whole count) gives about ${fmt(r.falseAlarmsPerDay, 2)} false-alarm windows per device-day${o.step < o.W ? `; neighbouring windows overlap by ${fmt(100 * (1 - o.step / o.W), 0)} %, so they come in runs and are not independent samples (note B2)` : ""}. An engineer shown one flagged window reads about ${fmt(r.linesPerWindow, 0)} lines of this component.`;
+    $("live").textContent = `Window ${dur(o.W)}: burst flagged with probability ${fmt(100 * r.pDet, 0)} %, delay ${r.detectable ? dur(r.delay) : "none, not detectable"}, ${fmt(100 * r.zero, 0)} % empty.`;
+  }
+  function setCase(c){ $("w").value = WS.inv(c.W); $("st").value = c.st; $("d").value = DS.inv(c.d); $("lb").value = c.lb; $("l0").value = c.l0; update(); }
+
+  let raf = null;
+  document.querySelectorAll("input[type=range]").forEach(el => el.addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }));
+  document.querySelectorAll("[data-case]").forEach(b => b.addEventListener("click", () => setCase(CASES[b.dataset.case])));
+  $("gen").textContent = "Generated 2026-11-10";
+  // defaults come from the params block, not from HTML literals
+  $("p").value = P.miner_templates_found.value; $("p").max = P.templates_per_component_set.value; $("r").value = RS.inv(R0);
+  renderSources(); setCase(CASES.kit);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+{
+ "_about": "Copied verbatim (value, unit, class, source) from ../constants.json by the explorer generator; the same entries are inlined in each page. Do not edit by hand.",
+ "per_step_success_illustrative": {
+  "value": 0.9,
+  "unit": "probability",
+  "class": "illustrative",
+  "source": "illustrative; with 5 steps and no recovery gives 0.59 by my arithmetic"
+ },
+ "steps_without_recovery_illustrative": {
+  "value": 5,
+  "unit": "steps",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "react_iteration_limit_illustrative": {
+  "value": 20,
+  "unit": "iterations per specialist turn",
+  "class": "illustrative",
+  "source": "illustrative inner-loop limit"
+ },
+ "vision_call_tokens_illustrative": {
+  "value": {
+   "total": 7000,
+   "stable_prefix": 3000,
+   "history": 2500,
+   "new_screenshot": 1500
+  },
+  "unit": "input tokens",
+  "class": "illustrative",
+  "source": "illustrative split used in the 07 caching arithmetic; new_screenshot chosen inside cu_tokens_per_screenshot"
+ },
+ "cu_tokens_per_screenshot": {
+  "value": [
+   1000,
+   1800
+  ],
+  "unit": "input tokens",
+  "class": "public",
+  "source": "Anthropic computer-use tool documentation, 'Manage screenshot history'"
+ },
+ "orchestrator_call_tokens_illustrative": {
+  "value": 4000,
+  "unit": "input tokens",
+  "class": "illustrative",
+  "source": "illustrative, 07 budget table"
+ },
+ "task_model_calls_illustrative": {
+  "value": 5,
+  "unit": "calls",
+  "class": "illustrative",
+  "source": "illustrative: 2 orchestrator + 3 vision calls in the 07 budget table"
+ },
+ "task_input_tokens_illustrative": {
+  "value": 30000,
+  "unit": "tokens",
+  "class": "illustrative",
+  "source": "illustrative: 29 000 in the 07 budget table, rounded"
+ },
+ "cache_read_multiplier": {
+  "value": 0.1,
+  "unit": "x base input price",
+  "class": "public",
+  "source": "Anthropic prompt-caching documentation, price table notes (standard multiplier)"
+ },
+ "cache_write_5m_multiplier": {
+  "value": 1.25,
+  "unit": "x base input price",
+  "class": "public",
+  "source": "Anthropic prompt-caching documentation, price table (5m writes column ÷ input column)"
+ },
+ "price_tier_pair_input": {
+  "value": {
+   "fast": 1,
+   "strong": 3
+  },
+  "unit": "USD per million input tokens",
+  "class": "public",
+  "source": "Anthropic prompt-caching documentation, price table (one same-generation fast/strong pair)"
+ },
+ "eval_runs_illustrative": {
+  "value": 50,
+  "unit": "runs",
+  "class": "illustrative",
+  "source": "illustrative evaluation size"
+ },
+ "eval_successes_illustrative": {
+  "value": 40,
+  "unit": "runs",
+  "class": "illustrative",
+  "source": "illustrative; 95 % Wilson interval 0.670-0.888 by my arithmetic"
+ },
+ "receive_lock_latency_illustrative": {
+  "value": 0.1,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative, 07 budget table"
+ },
+ "orchestrator_call_latency_illustrative": {
+  "value": 2,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative, 07 budget table"
+ },
+ "vision_call_latency_illustrative": {
+  "value": [
+   5,
+   6
+  ],
+  "unit": "s per step",
+  "class": "illustrative",
+  "source": "illustrative, 07 budget table"
+ },
+ "capture_resize_latency_illustrative": {
+  "value": 2,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative, 07 budget table"
+ },
+ "settle_delay_illustrative": {
+  "value": 1,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative wait after an action before the next screenshot"
+ },
+ "actuator_vs_screen_illustrative": {
+  "value": {
+   "screen_calls": 2,
+   "screen_s": 10,
+   "os_calls": 1,
+   "os_s": 2
+  },
+  "unit": "model calls / s",
+  "class": "illustrative",
+  "source": "illustrative comparison of opening an app via the screen vs via one OS call"
+ },
+ "graph_step_limit_illustrative": {
+  "value": 10,
+  "unit": "orchestrator hops",
+  "class": "illustrative",
+  "source": "illustrative outer-loop limit"
+ },
+ "watchdog_timeout_illustrative": {
+  "value": 5,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "illustrative hard limit on task wall time"
+ },
+ "cu_reference_frame_recommended": {
+  "value": [
+   1280,
+   800
+  ],
+  "unit": "px (width, height)",
+  "class": "public",
+  "source": "Anthropic computer-use tool documentation, 'Size screenshots to fit image limits' (recommended for web applications)"
+ },
+ "device_native_resolution_illustrative": {
+  "value": [
+   2400,
+   1600
+  ],
+  "unit": "px",
+  "class": "illustrative",
+  "source": "illustrative tablet screen, chosen with a different aspect ratio from the reference frame"
+ },
+ "model_click_illustrative": {
+  "value": [
+   200,
+   560
+  ],
+  "unit": "px in reference frame",
+  "class": "illustrative",
+  "source": "illustrative tap request; maps to (375, 1120) device px by my arithmetic"
+ },
+ "task_wall_time_illustrative": {
+  "value": 20,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative end-to-end time for a simple 'open an app' task; sum of the 07 budget table"
+ }
+}

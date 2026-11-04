@@ -1,0 +1,65 @@
+# Glossary — Agentic control of a consumer device
+
+One line per term, alphabetical, each defined once. The note where a term is introduced is named in
+parentheses. Numbers carry their source; the full values live in [`constants.json`](constants.json).
+
+- **accessibility service** — the OS service that can read the UI and inject gestures and global actions (04-the-vision-specialist).
+- **actuator** — the specialist that performs system-level actions through OS interfaces, not through the screen (05-the-actuator).
+- **ADB (Android Debug Bridge)** — the cable- or network-attached command-line tool for controlling an Android-type device from a host computer (00-why-cloud-initiated-device-agents).
+- **agent graph** — a state machine whose nodes are agent turns and whose edges choose the next turn (02-the-agent-graph).
+- **agentic** — describes software that chooses its next action from what it observes, in a loop, instead of following a fixed sequence (00-why-cloud-initiated-device-agents).
+- **allow-list** — the explicit list of tools and arguments the device will execute; everything else is refused (05-the-actuator).
+- **audit log** — the append-only record of every decision, action, and result in a run (08-safety).
+- **cache breakpoint** — a marker that ends a cacheable prompt prefix; up to 4 per request, public (07-cost-and-latency).
+- **cache lifetime (TTL)** — how long a cache entry lives without use: 5 min by default, 1 h optional, public (07-cost-and-latency).
+- **cache write / cache read** — processing and storing a new prefix, charged above base input price / re-using a stored prefix, charged far below it (07-cost-and-latency).
+- **cloud message channel** — the service that carries messages from server to device (down) and from device to server (up) (01-the-message-path).
+- **cloud-initiated device agent** — software on a device that receives a natural-language task from a server and completes it by acting on the device (00-why-cloud-initiated-device-agents).
+- **computer-use tool** — a vendor-defined tool with screen actions (screenshot, click, type, key, scroll, zoom) that the model calls and the application executes (04-the-vision-specialist).
+- **confirmation gate** — an approval outside the model required before an irreversible or costly action (08-safety).
+- **coordinate grounding** — the model's mapping from a described element to a pixel coordinate (04-the-vision-specialist).
+- **coordinate scaler** — the code that maps points between the reference frame and the device's native pixels, in both directions (04-the-vision-specialist).
+- **cost per task** — priced tokens in one run (09-evaluation).
+- **de-duplication cache** — a store of recent message IDs used to drop repeated deliveries (01-the-message-path).
+- **edge / conditional edge** — a link to the next node; a conditional edge picks its target from the state at run time (02-the-agent-graph).
+- **error result** — a tool result that reports a failed action to the model so that it can re-plan (06-the-react-loop).
+- **evaluation suite** — a fixed list of tasks with start states and predefined success checks (09-evaluation).
+- **excessive agency** — giving a model more functions, permissions, or autonomy than its job needs; OWASP LLM06 (08-safety).
+- **execution lock** — a guard that admits only one task at a time on the device (01-the-message-path).
+- **failure taxonomy** — the fixed list of failure classes into which every failed run is sorted (09-evaluation).
+- **FINISH / END** — the routing decision that ends the task / the terminal node of the graph (02-the-agent-graph).
+- **function-calling tool** — a tool defined by name, description, and input schema, which the model invokes with a structured call (05-the-actuator).
+- **global action** — an accessibility-service action that acts on the whole system, such as home or back (05-the-actuator).
+- **idempotency** — the property that doing an operation twice has the same effect as doing it once (01-the-message-path).
+- **indirect prompt injection** — injection carried by content the model reads, such as screen text, rather than by the task (08-safety).
+- **instruction hierarchy** — the prompt rule that only the task is an instruction and all observed content is data (08-safety).
+- **intent** — an Android-type OS message that asks the system to start an app or open a page (05-the-actuator).
+- **iteration limit** — the maximum ReAct iterations in one specialist turn (06-the-react-loop).
+- **large multimodal model** — a model that accepts text and images and returns text or tool calls (00-why-cloud-initiated-device-agents).
+- **loop detection** — code that stops a turn when the same action repeats with no change on screen (06-the-react-loop).
+- **maximum output tokens** — the per-call cap on reply length (03-the-orchestrator).
+- **model tier** — a class of model trading capability against speed and price: stronger and slower, or faster and cheaper (03-the-orchestrator).
+- **node** — one step of the agent graph; here, one agent's turn (02-the-agent-graph).
+- **orchestrator** — the planner node that chooses the next specialist or FINISH (02-the-agent-graph).
+- **premature FINISH** — stopping before the task is done, usually on an unverified success claim (03-the-orchestrator).
+- **prompt caching** — re-use of the processed form of an unchanged request prefix across requests (07-cost-and-latency).
+- **prompt injection** — input that changes a model's behaviour against the developer's intent; OWASP LLM01 (08-safety).
+- **ReAct** — a pattern that interleaves model reasoning, actions, and observations in a loop; Yao et al. 2022 (06-the-react-loop).
+- **reference frame** — the pixel size of the screenshot the model sees; all model coordinates are in this frame (04-the-vision-specialist).
+- **result status** — one of SUCCESS, ERROR, BUSY, TIMEOUT, sent once per accepted task (01-the-message-path).
+- **router** — the conditional edge after the orchestrator; plain code, not a model (02-the-agent-graph).
+- **routing decision** — the orchestrator's structured choice of the next node: a specialist or FINISH (03-the-orchestrator).
+- **screen-capture API** — the OS service that lets an app capture the display (MediaProjection on Android-type devices); it needs user consent (04-the-vision-specialist).
+- **scripted automation** — a fixed sequence of commands that names each UI element in advance (00-why-cloud-initiated-device-agents).
+- **settle delay** — the wait after an action before the next screenshot, so that the UI has finished changing (04-the-vision-specialist).
+- **specialist** — a graph node with a narrow tool set that performs one kind of action (02-the-agent-graph).
+- **state** — the shared object that carries task, history, and results between nodes (02-the-agent-graph).
+- **step limit (recursion limit)** — the maximum number of graph steps in one run (02-the-agent-graph).
+- **steps per task** — model calls in one run, reported as a distribution (09-evaluation).
+- **task success rate** — the fraction of runs that pass the success check (09-evaluation).
+- **temperature** — a sampling setting that controls randomness in the model's output; 0 is the least random (03-the-orchestrator).
+- **thought / action / observation** — the three parts of one ReAct iteration (06-the-react-loop).
+- **tokens per step** — the input and output tokens of one model call; the unit of agent cost (07-cost-and-latency).
+- **watchdog timeout** — a hard upper limit on task run time, after which the task is stopped and reported as TIMEOUT (01-the-message-path).
+- **Wilson score interval** — a confidence interval for a proportion that stays sensible at small n and near 0 or 1; Wilson 1927 (09-evaluation).
+- **work executor** — the background-work component that runs a task outside the user interface (01-the-message-path).

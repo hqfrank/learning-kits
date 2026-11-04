@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Weight each day by its devices — fleet trend test explorer (WLS vs OLS, p-value to score)</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ols:#ffa25e; --ok:#49d17a; --line:#3a3f4a; --warn:#ffd36b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:75ch;margin:4px 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range],select{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px;font:inherit}
+  input:focus-visible,button:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:130px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;display:inline-block}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .figs{display:grid;grid-template-columns:3fr 2fr;gap:12px}
+  .figs>*{min-width:0}
+  @media(max-width:1100px){.figs{grid-template-columns:1fr}}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:nth-child(1){width:22%} #sources td:nth-child(2){width:14%} #sources td:nth-child(3){width:9%;overflow-wrap:normal}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Weight each day by how many devices it rests on: weighted least squares gets the slope's error right, and the score follows</h1>
+  <p class="sub">The series is the daily <strong>share of devices</strong> that emitted a metric, <var>p̂</var><sub>t</sub>, from
+  <var>n</var><sub>t</sub> active devices (note A2). Its variance is <var>p</var>(1 − <var>p</var>)/<var>n</var><sub>t</sub>, so a day with few
+  devices is noisy. Ordinary least squares (OLS) gives every day the same say; weighted least squares (WLS) weights each day by
+  <var>n</var><sub>t</sub>. The slope is tested against a practical threshold <var>s</var>, and the one-sided p-value becomes a
+  score = −10·log₁₀ <var>p</var> (note B4). All fleet sizes, shares and slopes are <span class="tag ill">illustrative</span>; the
+  daily points are simulated on this page.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="cases" role="group" aria-label="Preloaded cases (illustrative)">
+      <button type="button" data-case="small">Small family, flat</button>
+      <button type="button" data-case="large">Large family, release regression</button>
+      <button type="button" data-case="weekend">Weekend dips</button>
+      <button type="button" data-case="cohort">Growing cohort</button>
+    </div>
+    <div class="ctrl">
+      <label for="n">Mean active devices per day n̄ <span class="val" id="n_v"></span></label>
+      <input id="n" type="range" min="0" max="1" step="any" value="0.5">
+      <div class="hint">Log scale, 20 … 20 000. The note's small and large families are 100 and 10 000 devices (illustrative).</div>
+    </div>
+    <div class="ctrl">
+      <label for="pat">How n<sub>t</sub> varies by day</label>
+      <select id="pat">
+        <option value="const">constant</option>
+        <option value="weekend" selected>weekend dip</option>
+        <option value="ramp">growing cohort (ramps up)</option>
+        <option value="outage">two outage days</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label for="v">Size of the variation in n<sub>t</sub> <span class="val" id="v_v"></span></label>
+      <input id="v" type="range" min="0" max="0.95" step="0.05" value="0.6">
+      <div class="hint">Weekend / outage days drop to n̄·(1 − v); a cohort ramps from n̄·(1 − v) to n̄·(1 + v).</div>
+    </div>
+    <div class="ctrl">
+      <label for="p0">Share on day 0 <span class="val" id="p0_v"></span></label>
+      <input id="p0" type="range" min="0.5" max="20" step="0.5" value="3">
+      <div class="hint">Default = 3 rare-reason devices of 100 (illustrative, note A2).</div>
+    </div>
+    <div class="ctrl">
+      <label for="b">True slope <span class="val" id="b_v"></span></label>
+      <input id="b" type="range" min="-0.3" max="0.6" step="0.01" value="0">
+      <div class="hint">Percentage points per week. Positive = getting worse (the direction filter keeps it).</div>
+    </div>
+    <div class="ctrl">
+      <label for="s">Practical threshold s <span class="val" id="s_v"></span></label>
+      <input id="s" type="range" min="0" max="0.3" step="0.01" value="0.05">
+      <div class="hint">H₀: β = s. The smallest slope worth an engineer's time; testing β = 0 flags every tiny drift in a big fleet.</div>
+    </div>
+    <div class="ctrl">
+      <label for="days">Series length <span class="val" id="days_v"></span></label>
+      <input id="days" type="range" min="14" max="112" step="7" value="56">
+    </div>
+    <div class="ctrl">
+      <label for="phi">Extra day-to-day noise φ <span class="val" id="phi_v"></span></label>
+      <input id="phi" type="range" min="1" max="4" step="0.1" value="1">
+      <div class="hint">1 = pure sampling noise. φ &gt; 1 multiplies the variance (households, weather, drift), which the weights do not know about. My model, not from the notes.</div>
+    </div>
+    <button type="button" id="redraw">New random draw</button>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <div class="figs">
+      <svg id="series" viewBox="0 0 540 340" role="img" aria-labelledby="series_t"><title id="series_t">Daily share of devices with OLS, WLS and true lines, and devices per day</title></svg>
+      <svg id="se" viewBox="0 0 340 340" role="img" aria-labelledby="se_t"><title id="se_t">Slope standard errors and the p-value to score ruler</title></svg>
+    </div>
+    <div class="why">
+      <h3>What dominates right now</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters &amp; sources</h3>
+  <p class="hint">Every constant is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = cited; <span class="tag ill">illustrative</span> = a round teaching
+  number. WLS weights use the pooled share p̄ over the series (note B4, step 3). "True" standard errors are computed from the
+  simulation's own p<sub>t</sub>, n<sub>t</sub> and φ; "reported" ones are what each fit would print from the data. The p-value uses a normal
+  approximation for the slope (note B4, step 4). Self-tests: <span id="tests-sum">not run</span>.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  <span id="gen"></span> · Study aid for <em>device-log-anomaly-detection</em> (rung 3), notes A2 and B4. Numbers are from the listed
+  sources or labelled illustrative/derived; nothing here is a measurement from any device fleet.
+  WLS: <a href="https://www.itl.nist.gov/div898/handbook/pmd/section1/pmd143.htm">NIST/SEMATECH e-Handbook §4.1.4.3</a>;
+  score: Ewing &amp; Green, Genome Research 8:186–194, 1998; FDR: Benjamini &amp; Hochberg 1995.
+</footer>
+
+<script type="application/json" id="params" data-keys="phred_factor,score_examples,score_cap,z_95_two_sided,small_family_devices,large_family_devices,rare_reason_devices,rare_share_small_family_se,rare_share_large_family_se,trend_series_length,monitored_series,multiple_testing_false_alarms">
+{
+ "phred_factor": {
+  "value": 10,
+  "unit": "score points per decade of p",
+  "class": "public",
+  "source": "Ewing & Green, Genome Research 8:186-194, 1998: Q = -10 log10 P"
+ },
+ "score_examples": {
+  "value": {
+   "p_0.1": 10,
+   "p_0.01": 20,
+   "p_1e-5": 50,
+   "p_1e-10": 100
+  },
+  "unit": "score",
+  "class": "public",
+  "source": "my arithmetic from score = -10 log10(p)"
+ },
+ "score_cap": {
+  "value": 100,
+  "unit": "score",
+  "class": "illustrative",
+  "source": "illustrative cap (p = 1e-10)",
+  "used_in": "B4"
+ },
+ "z_95_two_sided": {
+  "value": 1.96,
+  "unit": "standard deviations",
+  "class": "public",
+  "source": "standard normal quantile; NIST/SEMATECH e-Handbook §7.2.4.1"
+ },
+ "small_family_devices": {
+  "value": 100,
+  "unit": "active devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2, C3"
+ },
+ "large_family_devices": {
+  "value": 10000,
+  "unit": "active devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2"
+ },
+ "rare_reason_devices": {
+  "value": 3,
+  "unit": "devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2, C3"
+ },
+ "rare_share_small_family_se": {
+  "value": 1.7,
+  "unit": "percentage points",
+  "class": "illustrative",
+  "source": "my arithmetic: sqrt(0.03*0.97/100), from illustrative inputs",
+  "used_in": "A2"
+ },
+ "rare_share_large_family_se": {
+  "value": 0.17,
+  "unit": "percentage points",
+  "class": "illustrative",
+  "source": "my arithmetic: sqrt(0.03*0.97/10000), from illustrative inputs",
+  "used_in": "A2"
+ },
+ "trend_series_length": {
+  "value": {
+   "weeks": 8,
+   "daily_points": 56
+  },
+  "unit": "weeks / days",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B4"
+ },
+ "monitored_series": {
+  "value": 10000,
+  "unit": "series per day",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B4"
+ },
+ "multiple_testing_false_alarms": {
+  "value": 100,
+  "unit": "series per day",
+  "class": "illustrative",
+  "source": "my arithmetic: 10 000 x 0.01, illustrative inputs",
+  "used_in": "B4"
+ }
+}
+</script>
+
+<script>
+// Lets the kit's shoot.py (written for story pages) run on this explorer: this page has no scenes.
+window.Story = window.Story || { scenes: {}, go(){} };
+</script>
+
+<script>
+/*MODEL-START*/
+var TR = (function(){
+  "use strict";
+  function rng(seed){ let a = seed >>> 0; return function(){ a = (a + 0x6D2B79F5) >>> 0; let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function gauss(u){ let a = 0; while (a === 0) a = u(); return Math.sqrt(-2 * Math.log(a)) * Math.cos(2 * Math.PI * u()); }
+
+  // erfc, Numerical Recipes erfcc (fractional error < 1.2e-7 everywhere, so tail p-values stay accurate).
+  function erfc(x){ const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+    const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+      t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? r : 2 - r; }
+  const Phi = z => 1 - 0.5 * erfc(z / Math.SQRT2);
+  // SE of a sample proportion: sqrt(p(1-p)/n)  (note A2; NIST e-Handbook §7.2.4)
+  function se_share_A2(p, n){ return Math.sqrt(p * (1 - p) / n); }
+  // one-sided p = P(beta > betaHat | s, se) = 1 - Phi((betaHat - s)/se)  (note B4, step 4)
+  function p_one_sided_B4(betaHat, s, se){ return 0.5 * erfc(((betaHat - s) / se) / Math.SQRT2); }
+  // score = -10 log10 p, capped  (note B4, step 5; Ewing & Green 1998)
+  function score_B4(p, factor, cap){ if (!(p > 0)) return cap; return Math.min(cap, Math.max(0, -factor * Math.log10(p))); }
+
+  // Devices active on day t for a pattern (illustrative).
+  function nDay(t, days, nbar, pat, v){
+    let n = nbar;
+    if (pat === "weekend" && (t % 7 === 5 || t % 7 === 6)) n = nbar * (1 - v);
+    if (pat === "ramp") n = nbar * (1 - v + 2 * v * (days > 1 ? t / (days - 1) : 0));
+    if (pat === "outage" && (t === Math.floor(days * 0.3) || t === Math.floor(days * 0.75))) n = nbar * (1 - v);
+    return Math.max(1, Math.round(n));
+  }
+  // Simulate the series: k_t ~ Binomial(n_t, p_t) (exact Bernoulli sum when small, normal approx when large),
+  // then extra noise phi inflates the deviation by sqrt(phi) (my model).
+  function simulate(o){
+    const u = rng(o.seed), pts = [];
+    for (let t = 0; t < o.days; t++){
+      const n = nDay(t, o.days, o.nbar, o.pat, o.v);
+      const p = Math.min(0.999, Math.max(0.0005, o.p0 + o.slopePerDay * t));
+      let k;
+      if (n * p * (1 - p) > 30) k = Math.round(n * p + gauss(u) * Math.sqrt(n * p * (1 - p)));
+      else { k = 0; for (let i = 0; i < n; i++) if (u() < p) k++; }
+      let ph = p + Math.sqrt(o.phi) * (k / n - p);
+      ph = Math.min(1, Math.max(0, Math.round(ph * n) / n));
+      pts.push({t, n, p, ph});
+    }
+    return pts;
+  }
+  // Weighted linear fit y = a + b t with weights w; returns slope and the sums needed for SEs.
+  function linfit(ts, ys, ws){
+    let W = 0, Wt = 0, Wy = 0; for (let i = 0; i < ts.length; i++){ W += ws[i]; Wt += ws[i] * ts[i]; Wy += ws[i] * ys[i]; }
+    const tb = Wt / W, yb = Wy / W; let Stt = 0, Sty = 0;
+    for (let i = 0; i < ts.length; i++){ Stt += ws[i] * (ts[i] - tb) ** 2; Sty += ws[i] * (ts[i] - tb) * (ys[i] - yb); }
+    const b = Sty / Stt, a = yb - b * tb; let rss = 0;
+    for (let i = 0; i < ts.length; i++) rss += ws[i] * (ys[i] - a - b * ts[i]) ** 2;
+    return {a, b, tb, Stt, rss, N: ts.length};
+  }
+  // OLS: reported se = sqrt(sigma^2 / Stt) with sigma^2 = RSS/(N-2) (assumes equal variances).
+  // WLS: w_t = n_t / (pbar(1-pbar)) (note B4, step 3); reported se = sqrt(1 / sum w (t - tw)^2).
+  // True SDs: Var(sum c_t y_t) = sum c_t^2 sigma_t^2 with sigma_t^2 = phi p_t(1-p_t)/n_t.
+  function fitBoth(pts, phi){
+    const ts = pts.map(q => q.t), ys = pts.map(q => q.ph);
+    const K = pts.reduce((s, q) => s + q.ph * q.n, 0), Nn = pts.reduce((s, q) => s + q.n, 0);
+    const pbar = Math.min(1 - 0.5 / Nn, Math.max(0.5 / Nn, K / Nn));          // floor so weights stay finite
+    const ols = linfit(ts, ys, ts.map(() => 1));
+    const wls = linfit(ts, ys, pts.map(q => q.n / (pbar * (1 - pbar))));
+    const olsSeRep = Math.sqrt(ols.rss / (ols.N - 2) / ols.Stt);
+    const wlsSeRep = Math.sqrt(1 / wls.Stt);
+    const chi2r = wls.rss / (wls.N - 2);
+    let vO = 0, vW = 0; const wt = pts.map(q => q.n);
+    const Wn = wt.reduce((a, b) => a + b, 0), twn = pts.reduce((s, q) => s + q.n * q.t, 0) / Wn;
+    const Sn = pts.reduce((s, q) => s + q.n * (q.t - twn) ** 2, 0);
+    for (const q of pts){ const var_t = phi * q.p * (1 - q.p) / q.n;
+      vO += ((q.t - ols.tb) / ols.Stt) ** 2 * var_t; vW += (q.n * (q.t - twn) / Sn) ** 2 * var_t; }
+    return {ols, wls, pbar, olsSeRep, wlsSeRep, olsSeTrue: Math.sqrt(vO), wlsSeTrue: Math.sqrt(vW), chi2r};
+  }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0; const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const f = P.phred_factor.value, cap = P.score_cap.value, ex = P.score_examples.value;
+    for (const [k, v] of Object.entries(ex)){ const p = Number(k.slice(2));
+      ok(Math.abs(score_B4(p, f, cap) - v) < 1e-9, "score(" + p + ") = " + v); }
+    ok(score_B4(1e-20, f, cap) === cap, "score is capped at " + cap);
+    ok(Math.abs(Phi(P.z_95_two_sided.value) - 0.975) < 1e-5, "Phi(1.96) = 0.975 (exact 0.9750021)");
+    ok(Math.abs(p_one_sided_B4(0.0, 0.0, 1) - 0.5) < 1e-7, "beta-hat = s gives p = 0.5");
+    const pr = P.rare_reason_devices.value / P.small_family_devices.value;
+    ok(Math.abs(100 * se_share_A2(pr, P.small_family_devices.value) - P.rare_share_small_family_se.value) < 0.05, "3 of 100: SE about 1.7 pp");
+    ok(Math.abs(100 * se_share_A2(pr, P.large_family_devices.value) - P.rare_share_large_family_se.value) < 0.005, "3 % of 10 000: SE about 0.17 pp");
+    const base = {p0: 0.03, slopePerDay: 0, days: 56, nbar: 500, v: 0.7, phi: 1, seed: 1};
+    const fc = fitBoth(simulate({...base, pat: "const"}), 1);
+    ok(Math.abs(fc.wlsSeTrue / fc.olsSeTrue - 1) < 1e-9, "constant n: WLS and OLS have the same true SE");
+    const fw = fitBoth(simulate({...base, pat: "weekend"}), 1);
+    ok(fw.wlsSeTrue < fw.olsSeTrue, "weekend dips: WLS true SE < OLS true SE");
+    const ts = [0, 1, 2, 3, 4, 5], ys = ts.map(t => 0.02 + 0.001 * t);
+    ok(Math.abs(linfit(ts, ys, ts.map(() => 1)).b - 0.001) < 1e-12 && Math.abs(linfit(ts, ys, [1, 9, 2, 7, 3, 5]).b - 0.001) < 1e-12, "noise-free line: OLS and WLS recover the slope exactly");
+    ok(Math.abs(fw.wlsSeRep / fw.wlsSeTrue - 1) < 0.15, "phi = 1: WLS reported SE close to its true SE");
+    ok(P.monitored_series.value * 0.01 === P.multiple_testing_false_alarms.value, "10 000 series x 0.01 = 100 chance crossings per day");
+    ok(P.trend_series_length.value.weeks * 7 === P.trend_series_length.value.daily_points, "8 weeks = 56 daily points");
+    return {passed, failed};
+  }
+  return {rng, erfc, Phi, se_share_A2, p_one_sided_B4, score_B4, nDay, simulate, linfit, fitBoth, selfTest};
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = TR;
+/*MODEL-END*/
+</script>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const P = JSON.parse($("params").textContent);
+  const fmt = (x, d = 2) => Number.isFinite(x) ? Number(x).toFixed(d) : "—";
+  const NLO = 20, NHI = 20000, nOf = t => NLO * Math.pow(NHI / NLO, t), tOf = n => Math.log(n / NLO) / Math.log(NHI / NLO);
+  const pRare = 100 * P.rare_reason_devices.value / P.small_family_devices.value;
+  const CASES = {
+    small:   {n: P.small_family_devices.value, pat: "weekend", v: 0.5, p0: pRare, b: 0,    s: 0.05, days: P.trend_series_length.value.daily_points, phi: 1, seed: 3},
+    large:   {n: P.large_family_devices.value, pat: "weekend", v: 0.3, p0: pRare, b: 0.1,  s: 0.05, days: P.trend_series_length.value.daily_points, phi: 1, seed: 4},
+    weekend: {n: 300, pat: "weekend", v: 0.9, p0: pRare, b: 0.08, s: 0.02, days: P.trend_series_length.value.daily_points, phi: 1, seed: 5},
+    cohort:  {n: 400, pat: "ramp", v: 0.9, p0: 5, b: 0.1, s: 0.05, days: P.trend_series_length.value.daily_points, phi: 1, seed: 6}
+  };
+  let seed = 3;
+
+  const res = TR.selfTest(P, console.assert);
+  $("tests-sum").textContent = res.passed + " passed, " + res.failed + " failed (open the console for details)";
+
+  function renderSources(){
+    const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+    for (const [k, o] of Object.entries(P)){
+      const val = typeof o.value === "object" ? JSON.stringify(o.value) : o.value;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>${k}</code></td><td>${val} ${o.unit || ""}</td><td>${o.class}</td><td>${o.source}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  const metric = (k, v, tag) => `<div class="metric"><div class="k">${k}<span class="tag ${tag[0]}">${tag[1]}</span></div><div class="v">${v}</div></div>`;
+  const DER = ["der", "derived"];
+  const ppw = b => 100 * 7 * b;                       // per-day fraction -> percentage points per week
+
+  function drawSeries(pts, F, o){
+    const W = 540, H = 340, L = 48, R = 12, T = 14, B = 92, pw = W - L - R, ph = H - T - B;
+    const maxY = Math.max(...pts.map(q => Math.max(q.ph, q.p))) * 1.12 || 0.01, nMax = Math.max(...pts.map(q => q.n));
+    const X = t => L + (t + 0.5) / o.days * pw, Y = y => T + ph - y / maxY * ph;
+    let s = `<line x1="${L}" y1="${T + ph}" x2="${L + pw}" y2="${T + ph}" stroke="#aeb6c4"/><line x1="${L}" y1="${T}" x2="${L}" y2="${T + ph}" stroke="#aeb6c4"/>`;
+    for (let i = 0; i <= 4; i++){ const y = maxY * i / 4;
+      s += `<text x="${L - 6}" y="${Y(y) + 4}" fill="#aeb6c4" font-size="11" text-anchor="end">${(100 * y).toFixed(maxY < 0.2 ? 1 : 0)}%</text>`; }
+    for (const q of pts){ const r = 1.5 + 4 * Math.sqrt(q.n / nMax);
+      s += `<circle cx="${X(q.t).toFixed(1)}" cy="${Y(q.ph).toFixed(1)}" r="${r.toFixed(1)}" fill="#eef1f6" fill-opacity="0.35" stroke="#eef1f6" stroke-width="0.8"/>`; }
+    const line = (a, b, col, dash, w) => `<line x1="${X(0)}" y1="${Y(a)}" x2="${X(o.days - 1)}" y2="${Y(a + b * (o.days - 1))}" stroke="${col}" stroke-width="${w}" ${dash ? `stroke-dasharray="${dash}"` : ""}/>`;
+    s += line(pts[0].p, o.slopePerDay, "#eef1f6", "6 4", 1.5);
+    s += line(F.ols.a, F.ols.b, "#ffa25e", "2 3", 2.5);
+    s += line(F.wls.a, F.wls.b, "#5ec8ff", "", 2.5);
+    // legend (line styles differ, not only colour)
+    const lg = [["true slope", "#eef1f6", "6 4"], ["OLS", "#ffa25e", "2 3"], ["WLS", "#5ec8ff", ""]];
+    lg.forEach(([t, c, d], i) => { const x = L + 10 + i * 100;
+      s += `<line x1="${x}" y1="${T + 10}" x2="${x + 24}" y2="${T + 10}" stroke="${c}" stroke-width="2.5" ${d ? `stroke-dasharray="${d}"` : ""}/><text x="${x + 30}" y="${T + 14}" fill="#eef1f6" font-size="11" stroke="#12151c" stroke-width="3" paint-order="stroke">${t}</text>`; });
+    s += `<text x="${L + pw - 4}" y="${T + 14}" fill="#aeb6c4" font-size="11" text-anchor="end" stroke="#12151c" stroke-width="3" paint-order="stroke">dot size ∝ √(devices that day)</text>`;
+    // n_t strip
+    const sT = T + ph + 30, sH = 40;
+    s += `<text x="${L - 6}" y="${sT + 10}" fill="#aeb6c4" font-size="11" text-anchor="end">n<tspan baseline-shift="sub" font-size="8">t</tspan></text>`;
+    for (const q of pts){ const h = sH * q.n / nMax;
+      s += `<rect x="${(X(q.t) - pw / o.days * 0.4).toFixed(1)}" y="${(sT + sH - h).toFixed(1)}" width="${(pw / o.days * 0.8).toFixed(1)}" height="${h.toFixed(1)}" fill="#aeb6c4" opacity="0.7"/>`; }
+    s += `<text x="${L + pw}" y="${sT - 3}" fill="#aeb6c4" font-size="10" text-anchor="end">max ${nMax} devices</text>`;
+    for (let d = 0; d < o.days; d += 14) s += `<text x="${X(d)}" y="${sT + sH + 13}" fill="#aeb6c4" font-size="11" text-anchor="middle">${d}</text>`;
+    s += `<text x="${L + pw}" y="${H - 2}" fill="#eef1f6" font-size="12" text-anchor="end">day →</text>`;
+    s += `<text x="12" y="${T + ph / 2}" fill="#eef1f6" font-size="12" text-anchor="middle" transform="rotate(-90 12 ${T + ph / 2})">share of devices p̂ₜ</text>`;
+    $("series").innerHTML = s;
+  }
+
+  function drawSE(F, scW, scO){
+    const W = 340, H = 340, L = 108, R = 46, T = 26;
+    const rows = [["OLS, reported", F.olsSeRep, "#ffa25e", "2 3"], ["OLS, true", F.olsSeTrue, "#ffa25e", ""],
+                  ["WLS, reported", F.wlsSeRep, "#5ec8ff", "2 3"], ["WLS, true", F.wlsSeTrue, "#5ec8ff", ""]];
+    const mx = Math.max(...rows.map(r => r[1])) || 1, pw = W - L - R;
+    let s = `<text x="10" y="16" fill="#eef1f6" font-size="12">Slope standard error (pp / week)</text>`;
+    rows.forEach(([lab, v, c, d], i) => { const y = T + i * 30, w = pw * v / mx;
+      s += `<text x="${L - 6}" y="${y + 13}" fill="#eef1f6" font-size="11" text-anchor="end">${lab}</text>`;
+      s += `<rect x="${L}" y="${y}" width="${Math.max(1, w).toFixed(1)}" height="18" fill="${c}" fill-opacity="${d ? 0.25 : 0.8}" stroke="${c}" stroke-width="1.5" ${d ? `stroke-dasharray="${d}"` : ""}/>`;
+      s += `<text x="${L + w + 4}" y="${y + 13}" fill="#eef1f6" font-size="11">${fmt(ppw(v), 3)}</text>`; });
+    // score ruler 0..cap with p ticks
+    s += `<text x="10" y="${T + 136}" fill="#aeb6c4" font-size="11">Solid = true spread of the estimate over repeat</text>`;
+    s += `<text x="10" y="${T + 150}" fill="#aeb6c4" font-size="11">draws; dashed = what the fit reports.</text>`;
+    const cap = P.score_cap.value, rT = 246, rL = 24, rW = W - 48, Xs = v => rL + rW * v / cap;
+    s += `<text x="10" y="${rT - 46}" fill="#eef1f6" font-size="12">Score = −10·log₁₀ p (capped at ${cap})</text>`;
+    // markers above the bar: WLS (solid triangle) and OLS (hollow triangle), legend text on its own row
+    const mk = (v, c, filled) => { const x = Xs(v);
+      return `<path d="M${x} ${rT - 2} l-6 -10 h12 z" fill="${filled ? c : "none"}" stroke="${c}" stroke-width="2"/>`; };
+    s += mk(scO, "#ffa25e", false) + mk(scW, "#5ec8ff", true);
+    s += `<text x="10" y="${rT - 26}" font-size="11" font-weight="700"><tspan fill="#5ec8ff">▼ WLS ${fmt(scW, 0)}</tspan><tspan fill="#ffa25e" dx="14">▽ OLS ${fmt(scO, 0)}</tspan></text>`;
+    s += `<rect x="${rL}" y="${rT}" width="${rW}" height="10" fill="#3a3f4a"/>`;
+    Object.entries(P.score_examples.value).forEach(([k, v], i) => { const x = Xs(v), dy = i % 2 ? 26 : 0;
+      s += `<line x1="${x}" y1="${rT}" x2="${x}" y2="${rT + 14 + dy}" stroke="#aeb6c4"/><text x="${x}" y="${rT + 26 + dy}" fill="#aeb6c4" font-size="10" text-anchor="${i === 3 ? "end" : "middle"}">${v} (p=${k.slice(2)})</text>`; });
+    $("se").innerHTML = s;
+  }
+
+  function read(){
+    return {nbar: Math.round(nOf(+$("n").value)), pat: $("pat").value, v: +$("v").value, p0: +$("p0").value / 100,
+            slopePerDay: +$("b").value / 100 / 7, sPerDay: +$("s").value / 100 / 7, days: +$("days").value, phi: +$("phi").value, seed};
+  }
+  function update(){
+    const o = read();
+    $("n_v").textContent = o.nbar.toLocaleString("en-US") + " devices"; $("v_v").textContent = fmt(o.v, 2);
+    $("p0_v").textContent = fmt(o.p0 * 100, 1) + " %"; $("b_v").textContent = (+$("b").value >= 0 ? "+" : "") + fmt(+$("b").value, 2) + " pp / week";
+    $("s_v").textContent = fmt(+$("s").value, 2) + " pp / week"; $("days_v").textContent = o.days + " days (" + o.days / 7 + " weeks)";
+    $("phi_v").textContent = fmt(o.phi, 1);
+    const pts = TR.simulate(o), F = TR.fitBoth(pts, o.phi);
+    const f = P.phred_factor.value, cap = P.score_cap.value;
+    const pW = TR.p_one_sided_B4(F.wls.b, o.sPerDay, F.wlsSeRep), pO = TR.p_one_sided_B4(F.ols.b, o.sPerDay, F.olsSeRep);
+    const scW = TR.score_B4(pW, f, cap), scO = TR.score_B4(pO, f, cap);
+    const pE = v => v < 1e-4 ? v.toExponential(1) : fmt(v, 4);
+    $("headline").innerHTML =
+      metric("WLS slope", (F.wls.b >= 0 ? "+" : "") + fmt(ppw(F.wls.b), 3) + " pp/wk", DER) +
+      metric("OLS slope", (F.ols.b >= 0 ? "+" : "") + fmt(ppw(F.ols.b), 3) + " pp/wk", DER) +
+      metric("WLS p-value", pE(pW), DER) +
+      metric("WLS score", fmt(scW, 0), DER) +
+      metric("OLS score", fmt(scO, 0), DER);
+    drawSeries(pts, F, o); drawSE(F, scW, scO);
+    const ratio = F.olsSeTrue / F.wlsSeTrue, nMin = Math.min(...pts.map(q => q.n));
+    let why = `Each day's share rests on ${nMin === o.nbar ? o.nbar : nMin + " to " + Math.max(...pts.map(q => q.n))} devices, so one day's sampling SE is about ${fmt(100 * TR.se_share_A2(Math.max(F.pbar, 1e-4), nMin), 2)} pp on the smallest day. `;
+    if (ratio > 1.05) why += `Because n<sub>t</sub> varies, the noisy days pull the OLS line around: its true SE is ${fmt(ratio, 2)}× the WLS one. WLS gives those days less say.`;
+    else why += `n<sub>t</sub> varies too little to matter here: WLS and OLS have nearly the same true SE (ratio ${fmt(ratio, 2)}). Weighting pays off when a few days rest on far fewer devices — try "Weekend dips".`;
+    const rep = F.olsSeRep / F.olsSeTrue;
+    if (Math.abs(rep - 1) > 0.15) why += ` OLS also mis-reports its own SE (${fmt(rep, 2)}× the truth), so its p-value is ${rep < 1 ? "too optimistic" : "too pessimistic"}.`;
+    $("why_text").innerHTML = why;
+    let call = `<strong>Testing against s = ${fmt(+$("s").value, 2)} pp/week, not 0.</strong> WLS gives p = ${pE(pW)} → score ${fmt(scW, 0)}. `;
+    if (F.wls.b < 0) call += `The slope is negative: the direction filter would drop it before scoring. `;
+    if (o.phi > 1.3) call += `With extra noise φ = ${fmt(o.phi, 1)}, the weights understate each day's variance: the reported WLS SE is ${fmt(F.wlsSeRep / F.wlsSeTrue, 2)}× its true SE and the score is inflated. The fit's own residuals show it: reduced χ² = ${fmt(F.chi2r, 2)} (≈ 1 if the weights are right). `;
+    call += `Run this test on ${P.monitored_series.value.toLocaleString("en-US")} series a day at p &lt; 0.01 and about ${P.multiple_testing_false_alarms.value} cross by chance (illustrative, note B4): rank by score or control the false discovery rate.`;
+    $("callout").innerHTML = call;
+    $("live").textContent = `WLS slope ${fmt(ppw(F.wls.b), 3)} pp per week, p ${pE(pW)}, score ${fmt(scW, 0)}; OLS score ${fmt(scO, 0)}.`;
+  }
+  function setCase(c){ $("n").value = tOf(c.n); $("pat").value = c.pat; $("v").value = c.v; $("p0").value = c.p0; $("b").value = c.b;
+    $("s").value = c.s; $("days").value = c.days; $("phi").value = c.phi; seed = c.seed; update(); }
+
+  let raf = null;
+  document.querySelectorAll("input[type=range],select").forEach(el => el.addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }));
+  document.querySelectorAll("[data-case]").forEach(b => b.addEventListener("click", () => setCase(CASES[b.dataset.case])));
+  $("redraw").addEventListener("click", () => { seed++; update(); });
+  $("gen").textContent = "Generated 2026-11-10";
+  renderSources(); setCase(CASES.small);   // defaults come from the params block via the first case
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,247 @@
+{
+ "_about": "Parameters loaded by the wifi-csi-sensing explorers. Entries with class public or illustrative are copied verbatim from ../constants.json. Entries with class assumption are model choices made by one explorer page to build its synthetic signal; they are not from any study and not measurements.",
+ "speed_of_light": {
+  "value": 299800000,
+  "unit": "m/s",
+  "class": "public",
+  "source": "CODATA defined constant"
+ },
+ "ofdm_subcarrier_spacing_11a_n_ac": {
+  "value": 312.5,
+  "unit": "kHz",
+  "class": "public",
+  "source": "IEEE 802.11 OFDM PHY (clauses 17/19/21): 20 MHz / 64-point FFT"
+ },
+ "fft_size_by_width": {
+  "value": {
+   "20MHz": 64,
+   "40MHz": 128,
+   "80MHz": 256,
+   "160MHz": 512
+  },
+  "unit": "points",
+  "class": "public",
+  "source": "IEEE 802.11n (HT) / 802.11ac (VHT) PHY"
+ },
+ "used_subcarriers_ht_20MHz": {
+  "value": 56,
+  "unit": "subcarriers (52 data + 4 pilot)",
+  "class": "public",
+  "source": "IEEE 802.11n HT20"
+ },
+ "used_subcarriers_ht_40MHz": {
+  "value": 114,
+  "unit": "subcarriers (108 data + 6 pilot)",
+  "class": "public",
+  "source": "IEEE 802.11n HT40"
+ },
+ "used_subcarriers_vht_80MHz": {
+  "value": 242,
+  "unit": "subcarriers (234 data + 8 pilot)",
+  "class": "public",
+  "source": "IEEE 802.11ac VHT80"
+ },
+ "wavelength_2g4": {
+  "value": 12.3,
+  "unit": "cm",
+  "class": "public",
+  "source": "my arithmetic: speed_of_light / 2.437 GHz (channel 6)"
+ },
+ "wavelength_5g": {
+  "value": 5.5,
+  "unit": "cm",
+  "class": "public",
+  "source": "my arithmetic: speed_of_light / 5.5 GHz (mid 5 GHz band)"
+ },
+ "link_length_illustrative": {
+  "value": 4,
+  "unit": "m",
+  "class": "illustrative",
+  "source": "round room-scale link length used for the Fresnel example in A1"
+ },
+ "fresnel_first_zone_mid_radius_example": {
+  "value": {
+   "5GHz_4m_link": 0.23,
+   "2g4_4m_link": 0.35
+  },
+  "unit": "m",
+  "class": "public",
+  "source": "my arithmetic: r1 = 0.5 x sqrt(lambda x d) at the midpoint of a link of illustrative length d = 4 m (link_length_illustrative); formula from Fresnel-zone model, Wang et al. UbiComp 2016"
+ },
+ "delay_resolution_by_width": {
+  "value": {
+   "20MHz": {
+    "ns": 50,
+    "path_m": 15
+   },
+   "80MHz": {
+    "ns": 12.5,
+    "path_m": 3.75
+   },
+   "160MHz": {
+    "ns": 6.25,
+    "path_m": 1.875
+   }
+  },
+  "unit": "ns and metres of path length",
+  "class": "public",
+  "source": "my arithmetic: delay resolution = 1/bandwidth; path = speed_of_light x delay"
+ },
+ "doppler_walk_example_5g": {
+  "value": 36,
+  "unit": "Hz (upper bound)",
+  "class": "public",
+  "source": "my arithmetic: reflected path length changes at up to 2 x 1 m/s for an illustrative 1 m/s walk; f = 2 / wavelength_5g"
+ },
+ "beacon_interval_default": {
+  "value": 100,
+  "unit": "TU (1 TU = 1024 us)",
+  "class": "public",
+  "source": "IEEE 802.11 default beacon interval"
+ },
+ "beacon_rate_default": {
+  "value": 9.77,
+  "unit": "Hz",
+  "class": "public",
+  "source": "my arithmetic from beacon_interval_default: 1 / (100 x 1024 us)"
+ },
+ "csi_rate_beacon_illustrative": {
+  "value": 10,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "round value for passive beacon-driven CSI; consistent with beacon_rate_default; internal I2/I7 report the same order"
+ },
+ "csi_rate_injected_illustrative": {
+  "value": 100,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "round nominal rate with injected traffic (pings or test frames); internal I7 reports the same order"
+ },
+ "near_device_radius_illustrative": {
+  "value": 1,
+  "unit": "m",
+  "class": "illustrative",
+  "source": "illustrative 'near a device' radius in the scenario script; internal I3"
+ },
+ "room_width_assumption": {
+  "value": 6,
+  "unit": "m",
+  "class": "assumption",
+  "source": "page model choice for explorer 01: a 6 m wide synthetic room around the link (my simplification; not from any study)"
+ },
+ "room_margin_assumption": {
+  "value": 1,
+  "unit": "m (room extends this far beyond each radio)",
+  "class": "assumption",
+  "source": "page model choice for explorer 01 (my simplification)"
+ },
+ "wall_reflectivity_assumption": {
+  "value": 0.5,
+  "unit": "amplitude reflection coefficient",
+  "class": "assumption",
+  "source": "page model choice for explorer 01: one first-order reflection per wall, image method (my simplification of A1's multipath sum)"
+ },
+ "window_short_illustrative": {
+  "value": 1,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "round analysis window used in early single-link work; internal I1/I2"
+ },
+ "window_long_illustrative": {
+  "value": 4,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "round analysis window used in later feature studies; internal I7"
+ },
+ "seconds_per_30_days": {
+  "value": 2592000,
+  "unit": "s",
+  "class": "public",
+  "source": "arithmetic: 30 x 86400"
+ },
+ "false_alarm_budget_illustrative": {
+  "value": 4,
+  "unit": "false alarms per home per month",
+  "class": "illustrative",
+  "source": "illustrative product-level false-alarm budget; internal I7"
+ },
+ "acf_vs_variance_illustrative": {
+  "value": {
+   "acf_tap1": 0.65,
+   "variance": 0.4
+  },
+  "unit": "TPR at 1% FPR",
+  "class": "illustrative",
+  "source": "illustrative gap between a self-normalised ACF feature and raw variance; internal I7"
+ },
+ "window_4s_vs_8s_gain_illustrative": {
+  "value": 1,
+  "unit": "TPR points",
+  "class": "illustrative",
+  "source": "illustrative: doubling the window adds about one point; internal I7"
+ },
+ "stream_length_assumption": {
+  "value": 240,
+  "unit": "s",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: length of the synthetic scripted stream"
+ },
+ "stream_subcarriers_assumption": {
+  "value": 8,
+  "unit": "subcarriers",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: a reduced subcarrier set after selection (B1 keeps a fraction); kept small so the page stays fast"
+ },
+ "hop_assumption": {
+  "value": 0.5,
+  "unit": "s",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: sliding-window hop (B3 sliding windows)"
+ },
+ "scatterers_assumption": {
+  "value": 8,
+  "unit": "moving scatterers per body",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: body as several scatterers with radial speeds spread up to the walking speed (my simplification of A1's Doppler bound)"
+ },
+ "fan_rate_assumption": {
+  "value": 2,
+  "unit": "Hz",
+  "class": "assumption",
+  "source": "page model choice for explorer 02: fluctuation rate of a fan (inanimate motion, C5)"
+ },
+ "single_link_range_illustrative": {
+  "value": 4,
+  "unit": "m from the line of sight",
+  "class": "illustrative",
+  "source": "illustrative distance beyond which walking motion is hard to see on one link; internal I1 reports the same order"
+ },
+ "devices_tpr_illustrative": {
+  "value": {
+   "1_device": 0.5,
+   "4_devices_ap_links_only": 0.75,
+   "4_devices_all_links": 0.95
+  },
+  "unit": "TPR at 1% FPR, home level",
+  "class": "illustrative",
+  "source": "illustrative relation: more endpoints help, device-to-device links help more; internal I7"
+ },
+ "device_spacing_assumption": {
+  "value": 4,
+  "unit": "m (AP to each device)",
+  "class": "assumption",
+  "source": "page model choice for explorer 03: both devices at the link_length_illustrative distance from the AP, at right angles"
+ },
+ "link_body_weight_assumption": {
+  "value": 0.3,
+  "unit": "relative weight",
+  "class": "assumption",
+  "source": "page model choice for explorer 03: weight of motion along a link body versus near its ends (A1: middle less sensitive than ends)"
+ },
+ "wall_attenuation_assumption": {
+  "value": 0.3,
+  "unit": "amplitude factor",
+  "class": "assumption",
+  "source": "page model choice for explorer 03: a wall between the motion and the links scales its effect (B4 through-wall)"
+ }
+}

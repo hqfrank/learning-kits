@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>An odd window is isolated in few random splits — isolation-forest explorer</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a; --warn:#ffd36b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:75ch;margin:4px 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 16px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  input:focus-visible,button:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:130px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;display:inline-block}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .figs{display:grid;grid-template-columns:3fr 2fr;gap:12px}
+  .figs>*{min-width:0}
+  @media(max-width:1100px){.figs{grid-template-columns:1fr}}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:nth-child(1){width:22%} #sources td:nth-child(2){width:14%} #sources td:nth-child(3){width:9%;overflow-wrap:normal}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>An odd log window is isolated after a few random splits — that short path is its anomaly score</h1>
+  <p class="sub">Each dot is one window of a device log, reduced to a <strong>count vector</strong> with two entries: how many
+  times a "connected" template and a "disconnected" template occurred in it (note B2). The windows and their counts are
+  <span class="tag ill">illustrative</span>, drawn by a seeded generator on this page. A real isolation forest (Liu, Ting, Zhou
+  2008) is built in your browser: each tree splits on a random feature at a random value until each window is alone. Windows
+  that need few splits score near 1; a window that needs the average number of splits scores 0.5 (note B3).</p>
+  <p class="sub">Move the tree count, the sub-sample size and the contamination; then move the probe window and watch its path
+  length and score.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="cases" role="group" aria-label="Preloaded probe windows (illustrative)">
+      <button type="button" data-case="typical">Typical window</button>
+      <button type="button" data-case="burst">Burst of disconnects</button>
+      <button type="button" data-case="silent">Silent component</button>
+      <button type="button" data-case="busy">Busy but normal</button>
+    </div>
+    <div class="ctrl">
+      <label for="trees">Trees <var>t</var> <span class="val" id="trees_v"></span></label>
+      <input id="trees" type="range" min="1" max="300" step="1" value="100">
+      <div class="hint">Default from the paper and scikit-learn (see sources). More trees average out the randomness of one tree.</div>
+    </div>
+    <div class="ctrl">
+      <label for="psi">Sub-sample size ψ per tree <span class="val" id="psi_v"></span></label>
+      <input id="psi" type="range" min="4" max="8" step="1" value="8">
+      <div class="hint">ψ = 2<sup>k</sup> points per tree, 16 … 256. The default is 256. ψ sets the height limit ⌈log₂ ψ⌉ and the normaliser <var>c</var>(ψ).</div>
+    </div>
+    <div class="ctrl">
+      <label for="cont">Contamination <span class="val" id="cont_v"></span></label>
+      <input id="cont" type="range" min="0" max="20" step="0.5" value="0">
+      <div class="hint">0 = <code>'auto'</code>: flag score &gt; 0.5. Otherwise the threshold flags that share of the training windows. You choose this number; the data do not.</div>
+    </div>
+    <div class="ctrl">
+      <label for="px">Probe window: "connected" count <span class="val" id="px_v"></span></label>
+      <input id="px" type="range" min="0" max="40" step="1" value="10">
+    </div>
+    <div class="ctrl">
+      <label for="py">Probe window: "disconnected" count <span class="val" id="py_v"></span></label>
+      <input id="py" type="range" min="0" max="20" step="1" value="2">
+      <div class="hint">The probe is scored by the forest; it is not in the training set.</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <div class="figs">
+      <svg id="map" viewBox="0 0 520 330" role="img" aria-labelledby="map_t"><title id="map_t">Score map over the two template counts, with training windows and the probe</title></svg>
+      <svg id="curve" viewBox="0 0 340 330" role="img" aria-labelledby="curve_t"><title id="curve_t">Score as a function of mean path length, with the probe marked</title></svg>
+    </div>
+    <div class="why">
+      <h3>What dominates right now</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters &amp; sources</h3>
+  <p class="hint">Every constant is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = a cited paper or documentation.
+  <span class="tag ill">illustrative</span> = a round teaching number, never a measurement. The training windows themselves are
+  generated on this page (seed 7, illustrative): "connected" ~ Poisson(λ), "disconnected" ~ Poisson(0.15 λ + 0.3), λ uniform in 4 … 16,
+  400 normal windows plus 6 planted odd ones. Self-tests: <span id="tests-sum">not run</span>.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  <span id="gen"></span> · Study aid for <em>device-log-anomaly-detection</em> (rung 3), notes B2 and B3. Numbers are from the listed
+  sources or labelled illustrative/derived; nothing here is a measurement from any device fleet.
+  Isolation forest: <a href="https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf">Liu, Ting, Zhou, ICDM 2008</a>;
+  <a href="https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html">scikit-learn IsolationForest</a>.
+</footer>
+
+<script type="application/json" id="params" data-keys="iforest_subsample_size_default,iforest_trees_default,iforest_height_limit_psi256,euler_mascheroni,iforest_c_256,iforest_score_at_average_path,iforest_score_3_splits_psi256,sklearn_iforest_offset_auto">
+{
+ "iforest_subsample_size_default": {
+  "value": 256,
+  "unit": "points per tree",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3 (psi = 256); scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (max_samples='auto' = min(256, n_samples))"
+ },
+ "iforest_trees_default": {
+  "value": 100,
+  "unit": "trees",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3 (t = 100); scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (n_estimators=100)"
+ },
+ "iforest_height_limit_psi256": {
+  "value": 8,
+  "unit": "splits",
+  "class": "public",
+  "source": "ceil(log2 256); Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3; scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (max depth ceil(log2 n))"
+ },
+ "euler_mascheroni": {
+  "value": 0.5772156649,
+  "unit": "dimensionless",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §2, approximation H(i) ~ ln(i) + 0.5772156649"
+ },
+ "iforest_c_256": {
+  "value": 10.24,
+  "unit": "splits",
+  "class": "public",
+  "source": "my arithmetic from c(n) = 2H(n-1) - 2(n-1)/n in Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf Eq. 1"
+ },
+ "iforest_score_at_average_path": {
+  "value": 0.5,
+  "unit": "score",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §2: E(h(x)) -> c(n) gives s -> 0.5"
+ },
+ "iforest_score_3_splits_psi256": {
+  "value": 0.82,
+  "unit": "score",
+  "class": "public",
+  "source": "my arithmetic: 2^(-3/10.24), from Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf Eq. 2"
+ },
+ "sklearn_iforest_offset_auto": {
+  "value": -0.5,
+  "unit": "score offset",
+  "class": "public",
+  "source": "scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (offset_ = -0.5 when contamination='auto')"
+ }
+}
+</script>
+
+<script>
+// Lets the kit's shoot.py (written for story pages) run on this explorer: this page has no scenes.
+window.Story = window.Story || { scenes: {}, go(){} };
+</script>
+
+<script>
+/*MODEL-START*/
+var IF = (function(){
+  "use strict";
+  // Seeded PRNG (mulberry32), so the forest and the data are reproducible.
+  function rng(seed){ let a = seed >>> 0; return function(){ a = (a + 0x6D2B79F5) >>> 0; let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function poisson(lam, u){ // Knuth; fine for lam < 30
+    const L = Math.exp(-lam); let k = 0, p = 1; do { k++; p *= u(); } while (p > L); return k - 1; }
+
+  // c(n): average path length of an unsuccessful BST search on n points (Liu et al. 2008, Eq. 1),
+  // H(i) ~ ln(i) + gamma. Edge cases as in scikit-learn: c(2) = 1, c(<=1) = 0.
+  function c_avg_path_eq1(n, gamma){
+    if (n <= 1) return 0; if (n === 2) return 1;
+    return 2 * (Math.log(n - 1) + gamma) - 2 * (n - 1) / n;
+  }
+  // s(x) = 2^(-E(h(x)) / c(psi))  (Liu et al. 2008, Eq. 2)
+  function score_eq2(meanPath, cpsi){ return Math.pow(2, -meanPath / cpsi); }
+  function heightLimit(psi){ return Math.ceil(Math.log2(psi)); }
+
+  // Illustrative training windows: 2-D count vectors [connected, disconnected].
+  function makeWindows(seed){
+    const u = rng(seed), pts = [];
+    for (let i = 0; i < 400; i++){ const lam = 4 + 12 * u();
+      pts.push({x: poisson(lam, u), y: poisson(0.15 * lam + 0.3, u), planted: false}); }
+    const odd = [[6,14],[4,11],[9,16],[0,0],[34,1],[2,9]];
+    for (const [x,y] of odd) pts.push({x, y, planted: true});
+    return pts;
+  }
+
+  // One isolation tree on a sub-sample (Liu et al. 2008, Algorithm 2).
+  function buildTree(X, depth, limit, u){
+    if (depth >= limit || X.length <= 1) return {size: X.length};
+    const q = u() < 0.5 ? "x" : "y";
+    let lo = Infinity, hi = -Infinity; for (const p of X){ if (p[q] < lo) lo = p[q]; if (p[q] > hi) hi = p[q]; }
+    if (lo === hi) return {size: X.length};               // cannot split on this feature: treat as leaf
+    const v = lo + (hi - lo) * u(), L = [], R = [];
+    for (const p of X) (p[q] < v ? L : R).push(p);
+    return {q, v, l: buildTree(L, depth + 1, limit, u), r: buildTree(R, depth + 1, limit, u)};
+  }
+  // Path length h(x) (Liu et al. 2008, Algorithm 3): edges walked + c(size) at an external node.
+  function pathLength(node, p, gamma, d){
+    d = d || 0;
+    if (node.size !== undefined) return d + c_avg_path_eq1(node.size, gamma);
+    return pathLength(p[node.q] < node.v ? node.l : node.r, p, gamma, d + 1);
+  }
+  function buildForest(data, t, psi, seed){
+    const u = rng(seed), limit = heightLimit(psi), trees = [];
+    for (let k = 0; k < t; k++){
+      const idx = data.map((_, i) => i);                   // sample psi without replacement
+      for (let i = 0; i < psi; i++){ const j = i + Math.floor(u() * (idx.length - i)); [idx[i], idx[j]] = [idx[j], idx[i]]; }
+      trees.push(buildTree(idx.slice(0, psi).map(i => data[i]), 0, limit, u));
+    }
+    return {trees, psi, limit};
+  }
+  function scorePoint(F, p, gamma){
+    let s = 0, s2 = 0; const n = F.trees.length;
+    for (const T of F.trees){ const h = pathLength(T, p, gamma); s += h; s2 += h * h; }
+    const mean = s / n, sd = Math.sqrt(Math.max(0, s2 / n - mean * mean));
+    const cpsi = c_avg_path_eq1(F.psi, gamma);
+    return {meanPath: mean, sePath: n > 1 ? sd / Math.sqrt(n) : NaN, score: score_eq2(mean, cpsi), cpsi};
+  }
+  // Threshold: 'auto' -> s > -offset (= 0.5, scikit-learn); numeric contamination -> the (1-c) quantile of training scores.
+  function threshold(trainScores, contPct, offsetAuto){
+    if (!(contPct > 0)) return -offsetAuto;
+    const s = trainScores.slice().sort((a, b) => a - b);
+    const k = Math.min(s.length - 1, Math.max(0, Math.floor((1 - contPct / 100) * s.length)));
+    return s[k] - 1e-12;                                  // flag scores strictly above the quantile
+  }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0; const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const g = P.euler_mascheroni.value, psi = P.iforest_subsample_size_default.value;
+    const c256 = c_avg_path_eq1(psi, g);
+    ok(Math.abs(c256 - P.iforest_c_256.value) < 0.005, "c(256) reproduces " + P.iforest_c_256.value + " (got " + c256.toFixed(4) + ")");
+    ok(Math.abs(score_eq2(3, c256) - P.iforest_score_3_splits_psi256.value) < 0.005, "3 splits at psi=256 scores 0.82");
+    ok(Math.abs(score_eq2(c256, c256) - P.iforest_score_at_average_path.value) < 1e-12, "E(h) = c(psi) scores exactly 0.5");
+    ok(heightLimit(psi) === P.iforest_height_limit_psi256.value, "height limit ceil(log2 256) = 8");
+    ok(c_avg_path_eq1(2, g) === 1 && c_avg_path_eq1(1, g) === 0, "c(2) = 1, c(1) = 0 (scikit-learn edge cases)");
+    ok(threshold([0.1, 0.9], 0, P.sklearn_iforest_offset_auto.value) === 0.5, "auto threshold = -offset = 0.5");
+    const data = makeWindows(7), F = buildForest(data, P.iforest_trees_default.value, psi, 11);
+    const sc = data.map(p => scorePoint(F, p, g).score);
+    const normal = sc.filter((_, i) => !data[i].planted).sort((a, b) => a - b);
+    const p95 = normal[Math.floor(0.95 * normal.length)];
+    const burst = sc.filter((_, i) => data[i].planted && data[i].y >= 9);
+    ok(burst.length === 4 && burst.every(s => s > p95), "every planted disconnect burst scores above the 95th percentile of normal windows");
+    const thr = threshold(sc, 5, P.sklearn_iforest_offset_auto.value), share = sc.filter(s => s > thr).length / sc.length;
+    ok(share >= 0.04 && share <= 0.07, "contamination 5 % flags about 5 % of training windows (got " + (100 * share).toFixed(1) + " %)");
+    const F2 = buildForest(data, 100, psi, 11);
+    ok(scorePoint(F2, {x: 6, y: 14}, g).score === scorePoint(F, {x: 6, y: 14}, g).score, "same seed gives the same score");
+    const se1 = scorePoint(buildForest(data, 10, psi, 3), {x: 10, y: 2}, g).sePath,
+          se2 = scorePoint(buildForest(data, 300, psi, 3), {x: 10, y: 2}, g).sePath;
+    ok(se2 < se1, "more trees shrink the standard error of the mean path length");
+    return {passed, failed};
+  }
+  return {rng, c_avg_path_eq1, score_eq2, heightLimit, makeWindows, buildForest, scorePoint, threshold, selfTest};
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = IF;
+/*MODEL-END*/
+</script>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const P = JSON.parse($("params").textContent);
+  const fmt = (x, d = 2) => Number.isFinite(x) ? Number(x).toFixed(d) : "—";
+  const G = P.euler_mascheroni.value;
+  const DATA = IF.makeWindows(7);
+  const CASES = { typical: [10, 2], burst: [6, 14], silent: [0, 0], busy: [30, 5] };
+  let forest = null, forestKey = "", trainScores = [], grid = [];
+
+  const res = IF.selfTest(P, console.assert);
+  $("tests-sum").textContent = res.passed + " passed, " + res.failed + " failed (open the console for details)";
+
+  function renderSources(){
+    const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+    for (const [k, o] of Object.entries(P)){
+      const val = typeof o.value === "object" ? JSON.stringify(o.value) : o.value;
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>${k}</code></td><td>${val} ${o.unit || ""}</td><td>${o.class}</td><td>${o.source}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  const metric = (k, v, tag) => `<div class="metric"><div class="k">${k}<span class="tag ${tag[0]}">${tag[1]}</span></div><div class="v">${v}</div></div>`;
+  const DER = ["der", "derived"], PUB = ["pub", "public"];
+
+  // Colour ramp for the score map (dark blue -> amber -> red). Flags are also shown by shape, not colour only.
+  function ramp(s){ const t = Math.max(0, Math.min(1, (s - 0.3) / 0.5));
+    const r = Math.round(25 + 230 * t), g = Math.round(40 + 120 * t * (1 - t) * 2.2), b = Math.round(90 * (1 - t) + 20);
+    return `rgb(${r},${g},${b})`; }
+
+  function ensureForest(t, psi){
+    const key = t + "/" + psi; if (key === forestKey) return;
+    forest = IF.buildForest(DATA, t, psi, 11); forestKey = key;
+    trainScores = DATA.map(p => IF.scorePoint(forest, p, G).score);
+    grid = [];
+    for (let y = 0; y <= 20; y++) for (let x = 0; x <= 40; x++) grid.push({x, y, s: IF.scorePoint(forest, {x, y}, G).score});
+  }
+
+  function drawMap(thr, probe){
+    const W = 520, H = 330, L = 44, R = 12, T = 14, B = 44, pw = W - L - R, ph = H - T - B;
+    const X = x => L + (x + 0.5) / 41 * pw, Y = y => T + ph - (y + 0.5) / 21 * ph, cw = pw / 41, ch = ph / 21;
+    let s = "";
+    for (const g of grid) s += `<rect x="${(X(g.x) - cw / 2).toFixed(1)}" y="${(Y(g.y) - ch / 2).toFixed(1)}" width="${(cw + 0.4).toFixed(1)}" height="${(ch + 0.4).toFixed(1)}" fill="${ramp(g.s)}" opacity="0.55"/>`;
+    // threshold boundary: draw only the edges between a flagged and an unflagged lattice cell
+    const F = (x, y) => x >= 0 && x <= 40 && y >= 0 && y <= 20 && grid[y * 41 + x].s > thr;
+    let e = "";
+    for (const g of grid){ if (F(g.x, g.y)) continue;
+      const x0 = X(g.x) - cw / 2, x1 = x0 + cw, y0 = Y(g.y) - ch / 2, y1 = y0 + ch;
+      if (F(g.x + 1, g.y)) e += `M${x1.toFixed(1)} ${y0.toFixed(1)}V${y1.toFixed(1)}`;
+      if (F(g.x - 1, g.y)) e += `M${x0.toFixed(1)} ${y0.toFixed(1)}V${y1.toFixed(1)}`;
+      if (F(g.x, g.y + 1)) e += `M${x0.toFixed(1)} ${y0.toFixed(1)}H${x1.toFixed(1)}`;
+      if (F(g.x, g.y - 1)) e += `M${x0.toFixed(1)} ${y1.toFixed(1)}H${x1.toFixed(1)}`; }
+    s += `<path d="${e}" fill="none" stroke="#ffd36b" stroke-width="2"/>`;
+    // training windows (jittered slightly so stacked integer points stay visible)
+    const u = IF.rng(5);
+    DATA.forEach((p, i) => { const jx = (u() - 0.5) * cw * 0.7, jy = (u() - 0.5) * ch * 0.7, f = trainScores[i] > thr;
+      s += f ? `<rect x="${(X(p.x) + jx - 3).toFixed(1)}" y="${(Y(p.y) + jy - 3).toFixed(1)}" width="6" height="6" fill="none" stroke="#fff" stroke-width="1.3"/>`
+             : `<circle cx="${(X(p.x) + jx).toFixed(1)}" cy="${(Y(p.y) + jy).toFixed(1)}" r="1.8" fill="#eef1f6" opacity="0.85"/>`; });
+    // probe
+    const px = X(probe.x), py = Y(probe.y);
+    s += `<line x1="${px - 11}" y1="${py}" x2="${px + 11}" y2="${py}" stroke="#5ec8ff" stroke-width="2.5"/><line x1="${px}" y1="${py - 11}" x2="${px}" y2="${py + 11}" stroke="#5ec8ff" stroke-width="2.5"/>`;
+    const lx = probe.x > 28 ? px - 8 : px + 14, anchor = probe.x > 28 ? "end" : "start", ly = probe.y > 17 ? py + 22 : py - 8;
+    s += `<text x="${lx}" y="${ly}" fill="#5ec8ff" font-size="13" text-anchor="${anchor}" font-weight="700" stroke="#0f1115" stroke-width="4" paint-order="stroke">probe s = ${fmt(probe.score, 2)}</text>`;
+    // axes
+    s += `<line x1="${L}" y1="${T + ph}" x2="${L + pw}" y2="${T + ph}" stroke="#aeb6c4"/><line x1="${L}" y1="${T}" x2="${L}" y2="${T + ph}" stroke="#aeb6c4"/>`;
+    for (let x = 0; x <= 40; x += 10) s += `<text x="${X(x)}" y="${T + ph + 15}" fill="#aeb6c4" font-size="11" text-anchor="middle">${x}</text>`;
+    for (let y = 0; y <= 20; y += 5) s += `<text x="${L - 6}" y="${Y(y) + 4}" fill="#aeb6c4" font-size="11" text-anchor="end">${y}</text>`;
+    s += `<text x="${L + pw / 2}" y="${H - 8}" fill="#eef1f6" font-size="12" text-anchor="middle">"connected" count per window</text>`;
+    s += `<text x="12" y="${T + ph / 2}" fill="#eef1f6" font-size="12" text-anchor="middle" transform="rotate(-90 12 ${T + ph / 2})">"disconnected" count</text>`;
+    s += `<text x="${L + pw - 4}" y="${T + 14}" fill="#eef1f6" font-size="11" text-anchor="end" stroke="#0f1115" stroke-width="3" paint-order="stroke">• window · □ flagged window · yellow line = flag boundary</text>`;
+    $("map").innerHTML = s;
+  }
+
+  function drawCurve(probe, cpsi, limit){
+    const W = 340, H = 330, L = 44, R = 14, T = 16, B = 44, pw = W - L - R, ph = H - T - B, hMax = Math.max(16, limit + 4);
+    const X = h => L + h / hMax * pw, Y = sv => T + ph - sv * ph;
+    let s = `<line x1="${L}" y1="${T + ph}" x2="${L + pw}" y2="${T + ph}" stroke="#aeb6c4"/><line x1="${L}" y1="${T}" x2="${L}" y2="${T + ph}" stroke="#aeb6c4"/>`;
+    let d = ""; for (let i = 0; i <= 80; i++){ const h = i / 80 * hMax; d += (i ? "L" : "M") + X(h).toFixed(1) + " " + Y(IF.score_eq2(h, cpsi)).toFixed(1); }
+    s += `<path d="${d}" fill="none" stroke="#eef1f6" stroke-width="2"/>`;
+    s += `<line x1="${X(cpsi)}" y1="${T}" x2="${X(cpsi)}" y2="${T + ph}" stroke="#aeb6c4" stroke-dasharray="4 3"/>`;
+    s += `<text x="${X(cpsi) + 4}" y="${T + 12}" fill="#aeb6c4" font-size="11">c(ψ) = ${fmt(cpsi, 2)}</text>`;
+    s += `<line x1="${L}" y1="${Y(0.5)}" x2="${L + pw}" y2="${Y(0.5)}" stroke="#aeb6c4" stroke-dasharray="2 4"/>`;
+    s += `<text x="${L + pw - 2}" y="${Y(0.5) - 4}" fill="#aeb6c4" font-size="11" text-anchor="end">s = 0.5</text>`;
+    s += `<line x1="${X(limit)}" y1="${T + ph}" x2="${X(limit)}" y2="${T + ph - 8}" stroke="#ffd36b" stroke-width="2"/>`;
+    s += `<text x="${X(limit)}" y="${T + ph - 11}" fill="#ffd36b" font-size="10" text-anchor="middle">height limit ${limit}</text>`;
+    const hx = X(Math.min(hMax, probe.meanPath)), hy = Y(probe.score);
+    s += `<circle cx="${hx}" cy="${hy}" r="6" fill="none" stroke="#5ec8ff" stroke-width="2.5"/>`;
+    s += `<text x="${hx + 9}" y="${hy - 8}" fill="#5ec8ff" font-size="12" font-weight="700">probe</text>`;
+    for (let h = 0; h <= hMax; h += 4) s += `<text x="${X(h)}" y="${T + ph + 15}" fill="#aeb6c4" font-size="11" text-anchor="middle">${h}</text>`;
+    for (const v of [0, 0.5, 1]) s += `<text x="${L - 6}" y="${Y(v) + 4}" fill="#aeb6c4" font-size="11" text-anchor="end">${v}</text>`;
+    s += `<text x="${L + pw / 2}" y="${H - 8}" fill="#eef1f6" font-size="12" text-anchor="middle">mean path length E(h)</text>`;
+    s += `<text x="12" y="${T + ph / 2}" fill="#eef1f6" font-size="12" text-anchor="middle" transform="rotate(-90 12 ${T + ph / 2})">score s</text>`;
+    $("curve").innerHTML = s;
+  }
+
+  function update(){
+    const t = +$("trees").value, psi = Math.pow(2, +$("psi").value), cont = +$("cont").value,
+          x = +$("px").value, y = +$("py").value;
+    $("trees_v").textContent = t; $("psi_v").textContent = psi;
+    $("cont_v").textContent = cont > 0 ? cont.toFixed(1) + " %" : "auto";
+    $("px_v").textContent = x; $("py_v").textContent = y;
+    ensureForest(t, psi);
+    const thr = IF.threshold(trainScores, cont, P.sklearn_iforest_offset_auto.value);
+    const pr = IF.scorePoint(forest, {x, y}, G); pr.x = x; pr.y = y;
+    const flaggedN = trainScores.filter(s => s > thr).length, planted = DATA.filter(p => p.planted).length,
+          caught = DATA.filter((p, i) => p.planted && trainScores[i] > thr).length;
+    const flag = pr.score > thr;
+    // score band from the standard error of the mean path length (my estimate of the forest's own randomness)
+    const sLo = IF.score_eq2(pr.meanPath + pr.sePath, pr.cpsi), sHi = IF.score_eq2(pr.meanPath - pr.sePath, pr.cpsi);
+    $("headline").innerHTML =
+      metric("Probe score s", fmt(pr.score, 3), DER) +
+      metric("± from tree randomness", t > 1 ? "±" + fmt((sHi - sLo) / 2, 3) : "—", DER) +
+      metric("Mean path E(h)", fmt(pr.meanPath, 2) + " splits", DER) +
+      metric("Threshold", fmt(thr, 3), cont > 0 ? DER : PUB) +
+      metric("Training windows flagged", flaggedN + " / " + DATA.length, DER) +
+      metric("Planted odd windows caught", caught + " / " + planted, DER);
+    drawMap(thr, pr); drawCurve(pr, pr.cpsi, forest.limit);
+    let why;
+    if (pr.score > 0.6) why = `The probe (${x} connected, ${y} disconnected) sits away from the bulk, so a random split on either count soon separates it: it is isolated after ${fmt(pr.meanPath, 1)} splits on average, against an average of c(ψ) = ${fmt(pr.cpsi, 2)} for a typical point. Short path → high score.`;
+    else if (pr.score >= 0.45) why = `The probe needs about as many splits as a typical point (${fmt(pr.meanPath, 1)} vs c(ψ) = ${fmt(pr.cpsi, 2)}), so its score is near 0.5: nothing distinct about it.`;
+    else why = `The probe sits in the dense part of the cloud. Random splits keep landing on both sides of it, so it reaches the height limit (${forest.limit}) still sharing a leaf; its path is longer than c(ψ) and its score is below 0.5.`;
+    why += ` With ${t} tree${t > 1 ? "s" : ""}, the forest's own randomness moves the score by about ${t > 1 ? "±" + fmt((sHi - sLo) / 2, 3) : "an unknown amount (one tree)"}.`;
+    $("why_text").textContent = why;
+    const notProb = ` The probe is ${flag ? "<strong>flagged</strong>" : "not flagged"}. Its score of ${fmt(pr.score, 2)} is a normalised path length, not "${Math.round(pr.score * 100)} % likely to be a fault" (note B3).`;
+    $("callout").innerHTML = cont > 0
+      ? `<strong>Contamination is your alarm budget.</strong> At ${cont.toFixed(1)} % the threshold is set so that ${flaggedN} of ${DATA.length} training windows are flagged, whatever the data contain.` + notProb
+      : `<strong>'auto' uses the paper's threshold:</strong> flag s &gt; 0.5 (scikit-learn offset ${P.sklearn_iforest_offset_auto.value}). Here that flags ${flaggedN} of ${DATA.length} training windows (${fmt(100 * flaggedN / DATA.length, 0)} %)` +
+        (flaggedN / DATA.length > 0.1 ? ` — far more than the ${planted} planted odd ones. On low-dimensional integer counts, many sparse-edge windows are easy to isolate; 'auto' is not tuned to your alarm budget. Try 2 % contamination.` : `.`) + notProb;
+    $("live").textContent = `Probe score ${fmt(pr.score, 2)}, ${flag ? "flagged" : "not flagged"}; ${flaggedN} training windows flagged.`;
+  }
+
+  let raf = null;
+  document.querySelectorAll("input[type=range]").forEach(el => el.addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }));
+  document.querySelectorAll("[data-case]").forEach(b => b.addEventListener("click", () => {
+    const [x, y] = CASES[b.dataset.case]; $("px").value = x; $("py").value = y; update(); }));
+  $("gen").textContent = "Generated 2026-11-10";
+  // defaults come from the params block, not from HTML literals
+  $("trees").value = P.iforest_trees_default.value;
+  $("psi").value = Math.log2(P.iforest_subsample_size_default.value);
+  renderSources(); update();
+})();
+</script>
+</body>
+</html>

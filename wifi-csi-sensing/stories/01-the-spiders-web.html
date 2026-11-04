@@ -1,0 +1,869 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The spider's web — how Wi-Fi feels a moving person, and why it takes several devices to say where</title>
+<meta name="description" content="A visual story: the home's Wi-Fi multipath as a spider's web. The access point is the hub spider, sensing devices are listener spiders, a moving person is a fly. CSI versus RSSI, where a link is sensitive, portable features, joint detection, and the false-alarm budget.">
+<link rel="stylesheet" href="../../stories/story.css">
+<style>
+  /* palette meaning: sun = AP (hub spider) · sky = sensing devices and links · coral = motion (fly, tremble) · leaf = a correct decision · plum = things that fool the spider · stone = the static room */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--ink-2);margin:10px 4px 0}
+  .legend i{display:inline-block;width:16px;height:12px;border-radius:4px;border:1.5px solid var(--navy);margin-right:6px;vertical-align:-1px}
+  .hero-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+  .hero h1{max-width:30ch;font-size:clamp(26px,3.2vw,40px)}
+  svg text.halo{paint-order:stroke;stroke:#FBF3E6;stroke-width:5px;stroke-linejoin:round}
+  .kicker{line-height:1.6}
+  /* ambient: a trembling thread is a vibrating string (scaleY flips through zero) */
+  @keyframes trem{0%{transform:scaleY(1)}100%{transform:scaleY(-1)}}
+  .trem{animation:trem .3s ease-in-out infinite alternate;transform-box:fill-box;transform-origin:center}
+  @keyframes buzz{0%,100%{transform:translate(0,0)}25%{transform:translate(2px,-3px)}50%{transform:translate(-2px,1px)}75%{transform:translate(1px,3px)}}
+  .buzz{animation:buzz .45s linear infinite;transform-box:fill-box}
+  @keyframes beacon{0%{opacity:0;transform:scale(.6)}30%{opacity:1}100%{opacity:0;transform:scale(1.5)}}
+  .beacon{animation:beacon 1.6s ease-out infinite;transform-box:fill-box;transform-origin:center bottom}
+  /* still mode: a representative frame (full tremble, beacon visible) */
+  .st-still .trem{animation:none;transform:none}
+  .st-still .buzz{animation:none;transform:none}
+  .st-still .beacon{animation:none;opacity:.8;transform:none}
+  .st-scene .lit.is-lit, .st-scene .is-lit .lit{stroke:var(--coral-d)!important;stroke-width:3.5!important}
+  .readout{font:700 16px/1.5 var(--body);margin:10px 0 0}
+  .readout b{font-family:var(--mono);color:var(--coral-d)}
+  .readout .ap{color:var(--sky-d)}
+  details{margin-top:10px;font-size:15px;color:var(--ink-2)} summary{cursor:pointer;font-weight:700;color:var(--ink)}
+  code{font:600 .92em var(--mono);background:var(--card-2);padding:1px 5px;border-radius:5px}
+  .breaks li{margin:4px 0}
+  .chk{display:flex;gap:8px;align-items:center;font:700 15px var(--body);margin:10px 0}
+  .chk input{width:20px;height:20px;accent-color:var(--sky-d)}
+  .tbar{transition:width .3s var(--ease),height .3s var(--ease),y .3s var(--ease)}
+</style>
+</head>
+<body>
+<a class="skip" href="#s1">Skip to the first scene</a>
+<noscript><p class="wrap" style="background:#FFF4DE;padding:10px;border-radius:10px">This story draws its pictures with JavaScript. The written version is in <a href="../notes/A1-csi-and-multipath.md">the notes</a>.</p></noscript>
+
+<!-- the cast: drawn once, reused with <use>. Colours come in through --c. Outlines are presentation attributes. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#CFC8B8"/><line x1="0" y1="0" x2="0" y2="8" stroke="#8C8670" stroke-width="3"/></pattern>
+  <pattern id="rush" width="7" height="7" patternUnits="userSpaceOnUse"><rect width="7" height="7" fill="#F1DDEB"/><circle cx="3.5" cy="3.5" r="1.8" fill="#B4669D"/></pattern>
+  <symbol id="i-spider" viewBox="0 0 80 70">
+   <g fill="none" stroke="#141C2E" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 36 L16 22 L6 30"/><path d="M29 40 L12 37 L4 47"/><path d="M31 44 L17 51 L11 63"/><path d="M34 47 L26 59 L24 68"/>
+    <path d="M50 36 L64 22 L74 30"/><path d="M51 40 L68 37 L76 47"/><path d="M49 44 L63 51 L69 63"/><path d="M46 47 L54 59 L56 68"/>
+   </g>
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <ellipse cx="40" cy="44" rx="15" ry="14" style="fill:var(--c,#5E9FB8)"/>
+    <circle cx="40" cy="25" r="11" style="fill:var(--c,#5E9FB8)"/>
+   </g>
+   <path d="M31 40 Q34 33 41 32" fill="none" stroke="#FFFDF8" stroke-width="2.5" stroke-linecap="round" opacity=".6"/>
+   <circle cx="35.5" cy="23" r="3.4" fill="#FFFDF8" stroke="#141C2E" stroke-width="1.5"/><circle cx="44.5" cy="23" r="3.4" fill="#FFFDF8" stroke="#141C2E" stroke-width="1.5"/>
+   <circle cx="36" cy="23.6" r="1.6" fill="#141C2E"/><circle cx="45" cy="23.6" r="1.6" fill="#141C2E"/>
+   <ellipse cx="32" cy="29" rx="2.4" ry="1.4" fill="#EE8E78" opacity=".8"/><ellipse cx="48" cy="29" rx="2.4" ry="1.4" fill="#EE8E78" opacity=".8"/>
+   <path d="M37 29.5 Q40 32 43 29.5" fill="none" stroke="#141C2E" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-fly" viewBox="0 0 50 40">
+   <g stroke="#141C2E" stroke-width="2" stroke-linejoin="round">
+    <ellipse cx="16" cy="12" rx="11" ry="7" fill="#DCEFF5" transform="rotate(-25 16 12)"/>
+    <ellipse cx="34" cy="12" rx="11" ry="7" fill="#DCEFF5" transform="rotate(25 34 12)"/>
+    <ellipse cx="25" cy="27" rx="10" ry="9" style="fill:var(--c,#EE6A45)"/>
+    <circle cx="25" cy="17" r="7" fill="#2E3646"/>
+   </g>
+   <circle cx="22" cy="16" r="2.5" fill="#FFFDF8"/><circle cx="28" cy="16" r="2.5" fill="#FFFDF8"/>
+   <circle cx="22.4" cy="16.6" r="1.2" fill="#141C2E"/><circle cx="28.4" cy="16.6" r="1.2" fill="#141C2E"/>
+   <path d="M17.5 28 H32.5 M19 32 H31" stroke="#B33F1D" stroke-width="1.6" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-web" viewBox="0 0 80 80">
+   <g fill="none" stroke="#8C8670" stroke-width="1.8" stroke-linejoin="round">
+    <path d="M40 4 V76 M4 40 H76 M14 14 L66 66 M66 14 L14 66"/>
+    <path d="M40 16 L57 23 L64 40 L57 57 L40 64 L23 57 L16 40 L23 23 Z"/>
+    <path d="M40 28 L48.5 31.5 L52 40 L48.5 48.5 L40 52 L31.5 48.5 L28 40 L31.5 31.5 Z"/>
+   </g>
+  </symbol>
+  <symbol id="i-notes" viewBox="0 0 70 50">
+   <g stroke="#141C2E" stroke-width="2" fill="#5E9FB8">
+    <rect x="4" y="22" width="7" height="24" rx="2"/><rect x="13" y="12" width="7" height="34" rx="2"/><rect x="22" y="30" width="7" height="16" rx="2"/><rect x="31" y="38" width="7" height="8" rx="2"/>
+    <rect x="40" y="18" width="7" height="28" rx="2"/><rect x="49" y="8" width="7" height="38" rx="2"/><rect x="58" y="26" width="7" height="20" rx="2"/>
+   </g>
+  </symbol>
+  <symbol id="i-meter" viewBox="0 0 60 50">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="3" y="3" width="54" height="44" rx="8" fill="#FFFDF8"/><path d="M12 38 A18 18 0 0 1 48 38" fill="none" stroke="#5E9FB8" stroke-width="5"/></g>
+   <path d="M30 38 L40 20" stroke="#141C2E" stroke-width="3" stroke-linecap="round"/><circle cx="30" cy="38" r="3.5" fill="#141C2E"/>
+  </symbol>
+  <symbol id="i-thread" viewBox="0 -15 90 60">
+   <path d="M10 15 H80" stroke="#5E9FB8" stroke-width="3"/><path d="M10 15 C25 3 30 3 45 15 C60 27 65 27 80 15" fill="none" stroke="#EE6A45" stroke-width="2.5"/>
+   <circle cx="10" cy="15" r="6" fill="#F2C64A" stroke="#141C2E" stroke-width="2"/><circle cx="80" cy="15" r="6" fill="#5E9FB8" stroke="#141C2E" stroke-width="2"/>
+  </symbol>
+  <symbol id="i-wind" viewBox="0 0 70 50">
+   <g fill="none" stroke="#B4669D" stroke-width="4" stroke-linecap="round">
+    <path d="M4 16 H44 a8 8 0 1 0 -8 -8"/><path d="M4 28 H58 a7 7 0 1 1 -7 7"/><path d="M12 40 H34"/>
+   </g>
+  </symbol>
+  <symbol id="i-house" viewBox="0 0 72 62">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><path d="M6 30 L36 6 L66 30 V58 H6 Z" fill="#FFF4DE"/>
+    <rect x="28" y="38" width="16" height="20" rx="2" fill="#8C8670"/><rect x="12" y="34" width="11" height="10" rx="2" fill="#A7C8D6"/><rect x="49" y="34" width="11" height="10" rx="2" fill="#A7C8D6"/></g>
+  </symbol>
+ </defs>
+</svg>
+
+<!-- ================================ HERO ================================ -->
+<header class="hero wrap">
+ <div class="hero-top">
+  <div>
+   <div class="kicker">Wi-Fi CSI sensing · story 1</div>
+   <h1><span class="lbl-k">Wi-Fi feels a moving person the way a spider feels a fly. One spider knows something moved; it usually takes several to say where.</span><span class="lbl-e">A moving person makes the CSI fluctuate. One link can sense that motion happened; it usually takes several devices to say where.</span></h1>
+  </div>
+  <div class="st-switch" data-view-switch role="group" aria-label="Label style">
+   <button data-view="web" aria-pressed="true">Web view</button><button data-view="eng" aria-pressed="false">Engineer view</button>
+  </div>
+ </div>
+ <p class="lede">The radio waves in a home bounce along many paths at once — think of them as <b>one big web</b>. The router is the <b>hub spider</b>; each sensing device is a <b>listener spider</b>. A person who moves is a <b>fly</b>: the threads near it tremble. Flip to <b>Engineer view</b> at any time for the real names.</p>
+ <figure class="panel" style="padding:10px 10px 4px">
+  <svg id="hero" data-wide viewBox="0 0 1000 470" role="img" aria-labelledby="hero-t"><title id="hero-t">A web strung across a home: the hub spider (the access point) and two listener spiders (sensing devices) with threads between all three. A fly buzzes near spider A; both of A's threads tremble while the thread between the hub and spider B stays calm. A side panel reads the three threads and concludes that the fly is near A.</title></svg>
+  <figcaption class="legend"><span><i style="background:var(--sun)"></i><span class="lbl-k">hub spider</span><span class="lbl-e">access point (AP)</span></span><span><i style="background:var(--sky)"></i><span class="lbl-k">listener spiders, threads</span><span class="lbl-e">sensing devices, links</span></span><span><i style="background:var(--coral)"></i><span class="lbl-k">fly, tremble</span><span class="lbl-e">motion, CSI change</span></span><span><i style="background:var(--leaf)"></i><span class="lbl-k">a right call</span><span class="lbl-e">a correct decision</span></span><span><i style="background:var(--plum)"></i><span class="lbl-k">wind, next door</span><span class="lbl-e">false triggers</span></span><span><i style="background:var(--stone)"></i><span class="lbl-k">strands, walls</span><span class="lbl-e">static paths</span></span><span>Picture, not data: the pattern of <a href="../notes/B4-multi-device-joint-detection.md">B4</a>, not one home.</span></figcaption>
+ </figure>
+ <div class="cast" aria-label="The cast">
+  <div class="c" data-ref="web"><svg viewBox="0 0 80 80" role="img" aria-label="web"><use href="#i-web"/></svg><b>The web</b><span>the room's multipath: every path the signal takes</span></div>
+  <div class="c" data-ref="hub"><svg viewBox="0 0 80 70" role="img" aria-label="hub spider"><use href="#i-spider" style="--c:#F2C64A"/></svg><b>Hub spider</b><span>the Wi-Fi access point (AP), sending beacons</span></div>
+  <div class="c" data-ref="listener"><svg viewBox="0 0 80 70" role="img" aria-label="listener spider"><use href="#i-spider"/></svg><b>Listener spider</b><span>a sensing device (endpoint) that receives</span></div>
+  <div class="c" data-ref="thread"><svg viewBox="0 0 90 30" role="img" aria-label="thread" style="width:110px;height:auto"><use href="#i-thread"/></svg><b>Thread</b><span>a link: one sender–receiver pair</span></div>
+  <div class="c" data-ref="notes"><svg viewBox="0 0 70 50" role="img" aria-label="notes"><use href="#i-notes"/></svg><b>Notes of the hum</b><span>OFDM subcarriers; their loudness is the CSI</span></div>
+  <div class="c" data-ref="meter"><svg viewBox="0 0 60 50" role="img" aria-label="loudness meter"><use href="#i-meter"/></svg><b>Loudness meter</b><span>RSSI: one number per frame</span></div>
+  <div class="c" data-ref="fly"><svg viewBox="0 0 50 40" role="img" aria-label="fly"><use href="#i-fly"/></svg><b>The fly</b><span>a person moving</span></div>
+  <div class="c" data-ref="wind"><svg viewBox="0 0 70 50" role="img" aria-label="wind"><use href="#i-wind"/></svg><b>Wind</b><span>inanimate motion: fans, vents, curtains</span></div>
+ </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================================ 1. notes of the hum (live) ================================ -->
+<section class="scene" id="s1" data-title="1 · Notes, not loudness">
+ <h2><span class="num">1</span><span class="lbl-k">The listener hears every note</span><span class="lbl-e">CSI keeps every subcarrier</span></h2>
+ <p class="sub">With every frame the hub plucks a chord of <b>{{used_subcarriers_ht_20MHz}} notes</b>. The listener hears how loud each note arrives. The strands add up differently for each note, so some notes ring and some fade. Move the fly a few centimetres and listen.</p>
+ <div class="st-predict" id="p-notes">
+  <p class="q">The fly moves {{@s1cm}} cm. What changes more?</p>
+  <div class="opts">
+   <button class="btn" data-choice="meter" data-why="The meter adds up every note. When some notes rise and others fall, the sum moves less than the biggest single note. Here the meter moves {{@s1rssi}} dB.">The loudness meter (RSSI)</button>
+   <button class="btn" data-choice="note" data-right data-why="The fly's strand joins the fixed strands at a different angle for each note. Here one note swings {{@s1note}} dB while the meter moves only {{@s1rssi}} dB.">One single note (CSI)</button>
+   <button class="btn" data-choice="same" data-why="They would move together only if every note changed the same way. Multipath makes each note change differently (frequency-selective fading).">Both the same</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="panel">
+  <svg id="csi" data-wide viewBox="0 0 1000 340" role="img" aria-label="Left: a room seen from above with the hub, the listener, two wall strands, the direct strand and the fly's strand. Middle: one bar per subcarrier showing its loudness in dB, with a dashed outline of the bars before the fly moved. Right: one loudness meter for the whole frame."></svg>
+  <figcaption><span class="tag ill">model</span> One synthetic room: the case "Near the receiver, 20 MHz" of <a href="../explorers/01-csi-vs-rssi-subcarriers.html">explorer 01</a>, 5 GHz, a {{link_length_illustrative}} m link. Dashed outline = before the move.</figcaption>
+ </figure>
+ <div class="ctl"><label for="cm"><span><span class="lbl-k">How far the fly moved</span><span class="lbl-e">Body displacement</span> (cm)</span><output id="cm-v">4.5</output></label><input id="cm" data-k="cm" type="range" min="0" max="6" step="0.5" value="4.5"></div>
+ <p class="readout" id="csi-read" aria-live="polite"></p>
+ <details><summary>The model</summary>H(f) = Σ aᵢ · exp(−j2π f τᵢ): the direct path, first- and second-order wall reflections (image method) and one path via the body, at {{used_subcarriers_ht_20MHz}} subcarriers {{ofdm_subcarrier_spacing_11a_n_ac}} kHz apart around c / λ, λ = {{wavelength_5g}} cm. Note loudness = |H|² in dB; meter = the mean power over all subcarriers in dB. Same model as explorer 01 (<a href="../notes/A1-csi-and-multipath.md">A1</a>). <a class="read-note" href="../notes/A1-csi-and-multipath.md">A1</a></details>
+</section>
+
+<!-- ================================ 2. where the fly lands ================================ -->
+<section class="scene" id="s2" data-title="2 · Where the fly lands">
+ <h2><span class="num">2</span><span class="lbl-k">Where the fly lands matters</span><span class="lbl-e">Where one link is sensitive</span></h2>
+ <p class="sub">Therefore placement decides what a thread can feel.</p>
+ <div class="st-predict" id="p-where">
+  <p class="q">A fly lands right beside the thread. Where does the thread tremble most?</p>
+  <div class="opts">
+   <button class="btn" data-choice="mid" data-why="The middle is where the first Fresnel zone is widest, so a body fills less of it. In this model mid-link gives {{@s2mid}} % of the near-end tremble.">In the middle</button>
+   <button class="btn" data-choice="ends" data-right data-why="Near a radio, the zone is narrow and the path via the fly is short on one side, so the fly's strand is strong. It works the same at either end.">Near either spider</button>
+   <button class="btn" data-choice="same" data-why="Sensitivity changes along the thread: most at the ends, less in the middle, much less far away (A1).">The same all along</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-where" data-dwell="3200" aria-label="Scene: where one link is sensitive">
+  <svg data-wide viewBox="0 0 1000 440" role="img" aria-label="A thread between the hub and the listener with its first Fresnel zone; a fly near the listener, at the middle, far away, and behind a wall; a meter shows how much the thread trembles in each case."></svg>
+  <ol class="st-cap">
+   <li><b>The thread has a waist.</b> The first <span class="lbl-k">tremble zone</span><span class="lbl-e">Fresnel zone</span> is narrow near each radio and widest mid-link: about {{fresnel_first_zone_mid_radius_example.5GHz_4m_link}} m for a {{link_length_illustrative}} m link at 5 GHz. <a class="read-note" href="../notes/A1-csi-and-multipath.md">A1</a></li>
+   <li><b>Near a spider: a big tremble.</b> Close to the listener, the fly's strand is strong. Call it <b>100 %</b>.</li>
+   <li><b>But the middle trembles less:</b> {{@s2mid}} % here. The ends of a link are more sensitive than its middle.</li>
+   <li><b>Far from the thread: faint.</b> {{@s2far}} % here. Walking was hard to see beyond an illustrative {{single_link_range_illustrative}} m from the line. <a class="read-note" href="../notes/A1-csi-and-multipath.md">A1</a></li>
+   <li><b>Behind a wall: almost nothing.</b> {{@s2wall}} % here. A wall between the fly and the thread removes most of the effect. <a class="read-note" href="../notes/B4-multi-device-joint-detection.md">B4</a></li>
+  </ol>
+  <figcaption><span class="tag ill">model</span> Tremble = the amplitude of the path via the fly, γ·L / (d₁·d₂), from explorers 01 and 03; positions are explorer 01's preloaded cases.</figcaption>
+ </figure>
+</section>
+
+<!-- ================================ 3. every web hums differently ================================ -->
+<section class="scene" id="s3" data-title="3 · Every web hums">
+ <h2><span class="num">3</span><span class="lbl-k">But every web hums differently</span><span class="lbl-e">Features must not depend on the room</span></h2>
+ <p class="sub">The listener must turn trembling into a yes or no. "How much does it shake?" depends on the web. "Does it still look like it did a moment ago?" does not, or much less.</p>
+ <figure class="st-scene panel" id="s-hum" data-dwell="3400" aria-label="Scene: variance versus ACF across two homes">
+  <svg data-wide viewBox="0 0 1000 470" role="img" aria-label="Two homes. A shake-size threshold set in home A gives a false alarm in home B; a moment-ago similarity threshold works in both; a final card shows that the best and worst homes still differ widely."></svg>
+  <ol class="st-cap">
+   <li><b>Home A.</b> Empty: small shake. Fly: big shake. A line between them works. <a class="read-note" href="../notes/B2-features.md">B2</a></li>
+   <li><b>But home B's web hums when empty.</b> The same line now calls a fly every window. <span class="lbl-k">Shake size</span><span class="lbl-e">Variance</span> needs calibration per room.</li>
+   <li><b>Ask a different question:</b> <span class="lbl-k">does the thread still look like it did a moment ago?</span><span class="lbl-e">lag-1 autocorrelation (ACF)</span> It lies between −1 and 1 in every room, so one line works in both homes.</li>
+   <li><b>But homes still differ.</b> Self-normalised features reduce calibration; they do not remove it. Judge a feature by its spread across homes. <a class="read-note" href="../notes/B2-features.md">B2</a></li>
+  </ol>
+  <figcaption><span class="tag ill">illustrative</span> Bar heights in steps 1–3 are a picture of the idea; the TPR values come from <code>constants.json</code>.</figcaption>
+ </figure>
+</section>
+
+<!-- ================================ 4. which end? ================================ -->
+<section class="scene" id="s4" data-title="4 · Which end?">
+ <h2><span class="num">4</span><span class="lbl-k">One thread cannot tell which end</span><span class="lbl-e">One link cannot tell AP side from client side</span></h2>
+ <p class="sub">This is the largest single-link problem. Spiders that compare their threads solve it.</p>
+ <div class="st-predict" id="p-end">
+  <p class="q">One thread joins the hub and spider A. It trembles hard. Where is the fly?</p>
+  <div class="opts">
+   <button class="btn" data-choice="mid" data-why="The middle is the least sensitive part of a thread (scene 2). A hard tremble points to an end.">In the middle of the thread</button>
+   <button class="btn" data-choice="a" data-why="It could just as well be near the hub. A fly near either end shakes the thread in the same way.">Near spider A</button>
+   <button class="btn" data-choice="either" data-right data-why="Near one of the two ends, and one thread cannot say which. Only a comparison across threads resolves it.">Near an end — can't tell which</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-end" data-dwell="3400" aria-label="Scene: joint detection across links">
+  <svg data-wide viewBox="0 0 1000 430" role="img" aria-label="A hub and three listener spiders A, B and C. Threads tremble together when the fly is near the hub, alone when it is near A; spider-to-spider threads cross the room between B and C; summed tremble per spider points at A."></svg>
+  <ol class="st-cap">
+   <li><b>One thread, two suspects.</b> A fly near the hub and a fly near A shake it alike. <a class="read-note" href="../notes/B4-multi-device-joint-detection.md">B4</a></li>
+   <li><b>All hub threads tremble together →</b> the fly is near the hub (AP side). The threads share that end, so they change at the same time: high <span class="lbl-k">agreement</span><span class="lbl-e">cross-correlation</span>.</li>
+   <li><b>Only A's thread trembles →</b> the fly is near A (client side).</li>
+   <li><b>Spiders spin threads to each other.</b> Each device runs a small access point (a softAP), so the others can hear it. The new threads cross rooms the hub's threads never reach.</li>
+   <li><b>Add up each spider's tremble.</b> The spider with the largest sum is probably nearest. Call it only when one sum is clearly larger, by a margin; three equal sums mean "near several". <a class="read-note" href="../notes/B4-multi-device-joint-detection.md">B4</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 5. more spiders (live) ================================ -->
+<section class="scene" id="s5" data-title="5 · More spiders">
+ <h2><span class="num">5</span><span class="lbl-k">More spiders, many more threads</span><span class="lbl-e">Links grow with the square of the devices</span></h2>
+ <p class="sub">Therefore extra spiders help mostly because of the threads between them.</p>
+ <div class="grid2">
+  <figure class="panel">
+   <svg id="net" viewBox="0 0 600 330" role="img" aria-label="A hub spider in the centre and N listener spiders around it, with a thread from the hub to each, and optionally threads between every pair of listeners."></svg>
+   <svg id="tpr" viewBox="0 0 600 170" role="img" aria-label="Three bars: home-level detection rate for one device with its AP link, four devices with AP links only, and four devices with all links."></svg>
+   <figcaption><span class="tag ill">illustrative</span> Detection rate (TPR) at 1% FPR, home level, from one multi-home study shape (<code>devices_tpr_illustrative</code>).</figcaption>
+  </figure>
+  <div>
+   <div class="ctl"><label for="nS"><span><span class="lbl-k">Listener spiders</span><span class="lbl-e">Sensing devices</span> (N)</span><output id="nS-v">4</output></label><input id="nS" data-k="N" type="range" min="1" max="6" step="1" value="4"></div>
+   <label class="chk"><input id="d2d" type="checkbox" data-k="d2d" checked><span><span class="lbl-k">Spiders spin threads to each other</span><span class="lbl-e">Device-to-device links (softAP)</span></span></label>
+   <p class="readout" id="net-read" aria-live="polite"></p>
+   <details><summary>The count</summary>N devices hear the AP: N links. If every device also hears every other, each ordered pair is one more directed link: N(N − 1). Together N + N(N − 1) = N². The new links also cross rooms that AP links never cross (<a href="../notes/B4-multi-device-joint-detection.md">B4</a>). <a class="read-note" href="../notes/B4-multi-device-joint-detection.md">B4</a></details>
+  </div>
+ </div>
+</section>
+
+<!-- ================================ 6. the false-alarm budget ================================ -->
+<section class="scene" id="s6" data-title="6 · Running out for nothing">
+ <h2><span class="num">6</span><span class="lbl-k">The spider that runs out for nothing</span><span class="lbl-e">Fix the false-alarm budget first</span></h2>
+ <p class="sub">Research papers report the detection rate at <b>1 % false positives</b>. That sounds small. A user lives with it per month.</p>
+ <div class="st-predict" id="p-fa">
+  <p class="q">The spider decides once every {{window_short_illustrative}} s. It runs out with no fly in 1 % of decisions. In an empty home, how many false rushes per month?</p>
+  <div class="opts">
+   <button class="btn" data-choice="4" data-why="That is the budget a product can live with (an illustrative {{false_alarm_budget_illustrative}} a month). 1 % of windows is far more.">About 4</button>
+   <button class="btn" data-choice="260" data-why="Off by a factor of 100: a month holds {{seconds_per_30_days}} one-second windows, and 1 % of them is {{@s6month}}.">About 260</button>
+   <button class="btn" data-choice="26k" data-right data-why="30 days hold {{seconds_per_30_days}} one-second windows. 1 % of them is {{@s6month}} false windows: {{@s6day}} a day.">About 26 000</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="panel st-gated" data-gate="p-fa">
+  <svg id="cal" data-wide viewBox="0 0 1000 340" role="img" aria-label="Two month calendars. Left: every day is full of false rushes, {{@s6day}} a day. Right: the budget, four false alarms in the whole month."></svg>
+  <figcaption><span class="tag ill">illustrative</span> Window and budget are illustrative; the month is arithmetic. Merging touching false windows into one event, or asking for several positive windows in a row, closes part of the gap — at the cost of a later detection. <a class="read-note" href="../notes/C1-kpis.md">C1</a></figcaption>
+ </figure>
+</section>
+
+<!-- ================================ 7. what still fools the spider ================================ -->
+<section class="scene" id="s7" data-title="7 · What fools the spider">
+ <h2><span class="num">7</span><span class="lbl-k">What still fools the spider</span><span class="lbl-e">Limits and open problems</span></h2>
+ <p class="sub">The lab looks fine. Homes have fans, pets, thin walls and one device. Tap a card. The full list is in <a href="../notes/C5-limits-and-open-problems.md">C5</a>.</p>
+ <div class="st-cards" id="cards"></div>
+</section>
+
+<section class="scene" id="s8" data-title="Your turn">
+ <h2>Your turn</h2>
+ <p class="sub">Play with the real knobs, then check what stuck.</p>
+ <div class="next">
+  <a href="../explorers/01-csi-vs-rssi-subcarriers.html"><b>Notes sandbox</b><span>Move the body, change band and width; CSI versus RSSI (explorer 01).</span></a>
+  <a href="../explorers/02-acf-variance-detector.html"><b>Tremble detector</b><span>Window length and threshold: delay, misses, false alarms (explorer 02).</span></a>
+  <a href="../explorers/03-two-endpoint-correlation.html"><b>Two spiders compare</b><span>Move the motion between AP and client; watch the correlation decide (explorer 03).</span></a>
+  <a href="../../quiz/"><b>Quiz yourself</b><span>Spaced-repetition questions for every note.</span></a>
+  <a href="../README.md"><b>Read the notes</b><span>13 notes: the signal, the chain, making it real.</span></a>
+ </div>
+</section>
+
+<footer class="st-foot">
+ <h3>Where the web breaks</h3>
+ <ul class="breaks">
+  <li>Radio waves need no threads. They fill the whole room and pass through walls; the "web" is only the set of paths.</li>
+  <li>A fly touches the web. A person touches no path: they reflect, block and diffract the waves near them.</li>
+  <li>A real spider feels a still fly's weight. CSI barely sees a still person: only breathing and absorption remain (<a href="../notes/C5-limits-and-open-problems.md">C5</a>).</li>
+  <li>The "notes" are not sound. Subcarriers are radio tones {{ofdm_subcarrier_spacing_11a_n_ac}} kHz apart, all sent at once in every frame.</li>
+  <li>Spiders "comparing" threads is computation. Device-to-device links cost power and must follow the AP when it changes channel (<a href="../notes/B4-multi-device-joint-detection.md">B4</a>).</li>
+ </ul>
+ <h3>Numbers on this page</h3>
+ <div class="tbl"><table id="src"><thead><tr><th>What</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+ <p>Every number is public, labelled illustrative, or a labelled model assumption; none is a measurement from any study. Kit: <a href="../README.md">Wi-Fi CSI sensing</a> · <a href="../SOURCES.md">sources</a> · <a href="../glossary.md">glossary</a>.</p>
+</footer>
+</main>
+
+<script type="application/json" id="params">
+{
+ "speed_of_light": {
+  "value": 299800000.0,
+  "unit": "m/s",
+  "class": "public",
+  "source": "CODATA defined constant"
+ },
+ "ofdm_subcarrier_spacing_11a_n_ac": {
+  "value": 312.5,
+  "unit": "kHz",
+  "class": "public",
+  "source": "IEEE 802.11 OFDM PHY (clauses 17/19/21): 20 MHz / 64-point FFT"
+ },
+ "used_subcarriers_ht_20MHz": {
+  "value": 56,
+  "unit": "subcarriers (52 data + 4 pilot)",
+  "class": "public",
+  "source": "IEEE 802.11n HT20"
+ },
+ "wavelength_5g": {
+  "value": 5.5,
+  "unit": "cm",
+  "class": "public",
+  "source": "my arithmetic: speed_of_light / 5.5 GHz (mid 5 GHz band)"
+ },
+ "link_length_illustrative": {
+  "value": 4,
+  "unit": "m",
+  "class": "illustrative",
+  "source": "round room-scale link length used for the Fresnel example in A1"
+ },
+ "fresnel_first_zone_mid_radius_example": {
+  "value": {
+   "5GHz_4m_link": 0.23,
+   "2g4_4m_link": 0.35
+  },
+  "unit": "m",
+  "class": "public",
+  "source": "my arithmetic: r1 = 0.5 x sqrt(lambda x d) at the midpoint of a link of illustrative length d = 4 m (link_length_illustrative); formula from Fresnel-zone model, Wang et al. UbiComp 2016"
+ },
+ "single_link_range_illustrative": {
+  "value": 4,
+  "unit": "m from the line of sight",
+  "class": "illustrative",
+  "source": "illustrative distance beyond which walking motion is hard to see on one link; internal I1 reports the same order"
+ },
+ "acf_vs_variance_illustrative": {
+  "value": {
+   "acf_tap1": 0.65,
+   "variance": 0.4
+  },
+  "unit": "TPR at 1% FPR",
+  "class": "illustrative",
+  "source": "illustrative gap between a self-normalised ACF feature and raw variance; internal I7"
+ },
+ "home_spread_illustrative": {
+  "value": {
+   "best_home_tpr": 0.95,
+   "worst_home_tpr": 0.05
+  },
+  "unit": "TPR at 1% FPR",
+  "class": "illustrative",
+  "source": "illustrative spread for a simple ACF+variance+SVM detector in leave-one-home-out tests; internal I7"
+ },
+ "devices_tpr_illustrative": {
+  "value": {
+   "1_device": 0.5,
+   "4_devices_ap_links_only": 0.75,
+   "4_devices_all_links": 0.95
+  },
+  "unit": "TPR at 1% FPR, home level",
+  "class": "illustrative",
+  "source": "illustrative relation: more endpoints help, device-to-device links help more; internal I7"
+ },
+ "seconds_per_30_days": {
+  "value": 2592000,
+  "unit": "s",
+  "class": "public",
+  "source": "arithmetic: 30 x 86400"
+ },
+ "window_short_illustrative": {
+  "value": 1,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "round analysis window used in early single-link work; internal I1/I2"
+ },
+ "false_alarm_budget_illustrative": {
+  "value": 4,
+  "unit": "false alarms per home per month",
+  "class": "illustrative",
+  "source": "illustrative product-level false-alarm budget; internal I7"
+ },
+ "single_device_home_fraction_illustrative": {
+  "value": 0.7,
+  "unit": "fraction of homes",
+  "class": "illustrative",
+  "source": "illustrative: most homes own one sensing-capable device; internal I7"
+ },
+ "beacon_rate_default": {
+  "value": 9.77,
+  "unit": "Hz",
+  "class": "public",
+  "source": "my arithmetic from beacon_interval_default: 1 / (100 x 1024 us)"
+ },
+ "room_width_assumption": {
+  "value": 6,
+  "unit": "m",
+  "class": "assumption",
+  "source": "page model choice for explorer 01: a 6 m wide synthetic room around the link (my simplification; not from any study)"
+ },
+ "room_margin_assumption": {
+  "value": 1,
+  "unit": "m (room extends this far beyond each radio)",
+  "class": "assumption",
+  "source": "page model choice for explorer 01 (my simplification)"
+ },
+ "wall_reflectivity_assumption": {
+  "value": 0.5,
+  "unit": "amplitude reflection coefficient",
+  "class": "assumption",
+  "source": "page model choice for explorer 01: one first-order reflection per wall, image method (my simplification of A1's multipath sum)"
+ },
+ "wall_attenuation_assumption": {
+  "value": 0.3,
+  "unit": "amplitude factor",
+  "class": "assumption",
+  "source": "page model choice for explorer 03: a wall between the motion and the links scales its effect (B4 through-wall)"
+ },
+ "story_body_case_assumption": {
+  "value": {
+   "x": 3.7,
+   "y": 0.3,
+   "gamma": 0.15
+  },
+  "unit": "m, m, amplitude reflectivity",
+  "class": "assumption",
+  "source": "explorers/01-csi-vs-rssi-subcarriers.html, preloaded case 'Near the receiver, 20 MHz' (body position and reflectivity; a page model choice, not from any study). Story scene 1 moves the body perpendicular to the link."
+ },
+ "story_positions_assumption": {
+  "value": {
+   "near": [
+    3.7,
+    0.3
+   ],
+   "mid": [
+    2,
+    0.3
+   ],
+   "far": [
+    2,
+    2.6
+   ]
+  },
+  "unit": "m (along the link, off the link)",
+  "class": "assumption",
+  "source": "explorers/01-csi-vs-rssi-subcarriers.html, preloaded cases 'Near the receiver', 'Mid-link, beside the LoS', 'Far off the link'"
+ },
+ "story_research_fpr_illustrative": {
+  "value": 0.01,
+  "unit": "fraction of decision windows",
+  "class": "illustrative",
+  "source": "C1/B3: 'TPR at 1% FPR' is the usual research operating point; used in C1's false-alarm arithmetic"
+ }
+}
+</script>
+
+<script>
+/* ===================== drawing: everything below builds SVG; story.js then runs the scenes ===================== */
+const NS = "http://www.w3.org/2000/svg", NAVY = "#141C2E";
+const P = JSON.parse(document.getElementById("params").textContent);
+const C = {coral:"#EE6A45", coralD:"#B33F1D", sun:"#F2C64A", sunD:"#8A6800", sky:"#5E9FB8", skyD:"#2C6A82", leaf:"#3AA88D", leafD:"#1D7660",
+  plum:"#B4669D", plumD:"#7E3A6C", stone:"#8C8670", ink:"#1D2A44", ink2:"#55607A", card:"#FFFAF2", card2:"#EFE5D4", line:"#DCCDB4"};
+function el(t, a = {}, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+function tx(p, x, y, s, a = {}) { const t = el("text", Object.assign({x, y}, a), p); t.textContent = s; return t; }
+function dual(p, x, y, k, e, a = {}) { const g = el("g", {}, p); const c = a.class || ""; tx(g, x, y, k, Object.assign({}, a, {class: ("lbl-k " + c).trim()})); tx(g, x, y, e, Object.assign({}, a, {class: ("lbl-e " + c).trim()})); return g; }
+function use(p, id, x, y, w, h, style = "", a = {}) { return el("use", Object.assign({href: "#" + id, x, y, width: w, height: h, style}, a), p); }
+const OL = {stroke: NAVY, "stroke-width": 2.5, "stroke-linejoin": "round"};
+const svgOf = id => document.querySelector(`#${id} svg`) || document.getElementById(id);
+
+/* ---- numbers: read from the params block, never retyped ---- */
+function V(path) { const [k, ...rest] = path.split("."); const o = P[k]; if (!o) { console.error("missing param " + k); return NaN; }
+  let v = o.value; for (const r of rest) v = v == null ? undefined : v[r]; if (v === undefined) console.error("missing param " + path); return v; }
+const CALC = {};
+const fmt = v => typeof v !== "number" ? String(v) : Math.abs(v) >= 10000 ? Math.round(v).toLocaleString("en-US").replace(/,/g, " ") : String(+v.toPrecision(6));
+function tpl(s) { return s.replace(/\{\{([@\w.]+)\}\}/g, (m, k) => k[0] === "@" ? (k.slice(1) in CALC ? CALC[k.slice(1)] : (console.error("missing calc " + k), "??")) : fmt(V(k))); }
+function runTemplates() {
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), ns = []; while (w.nextNode()) ns.push(w.currentNode);
+  ns.forEach(n => { if (n.parentNode && n.parentNode.nodeName !== "SCRIPT" && n.nodeValue.includes("{{")) n.nodeValue = tpl(n.nodeValue); });
+  document.querySelectorAll("[data-why],[aria-label]").forEach(e => { for (const a of ["data-why", "aria-label"]) { const v = e.getAttribute(a); if (v && v.includes("{{")) e.setAttribute(a, tpl(v)); } });
+}
+
+/* a thread from a to b: a calm sky line, plus (amp > 0) a coral standing wave that vibrates */
+function thread(p, a, b, o = {}) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = Math.hypot(dx, dy), ang = Math.atan2(dy, dx) * 180 / Math.PI;
+  const g = el("g", Object.assign({transform: `translate(${a[0]} ${a[1]}) rotate(${ang})`}, o.attrs || {}), p);
+  if (!o.waveOnly) { const ln = el("line", {x1: 0, y1: 0, x2: L, y2: 0, stroke: o.color || C.sky, "stroke-width": o.w || 3, "stroke-linecap": "round"}, g); if (o.dash) ln.setAttribute("stroke-dasharray", o.dash); }
+  if (o.amp) { let d = ""; const N = 90, cyc = o.cycles || Math.max(3, Math.round(L / 34));
+    for (let i = 0; i <= N; i++) { const t = i / N, y = o.amp * Math.sin(Math.PI * t) * Math.sin(cyc * Math.PI * t); d += (i ? "L" : "M") + (t * L).toFixed(1) + " " + y.toFixed(1); }
+    el("path", {d, fill: "none", stroke: o.wc || C.coral, "stroke-width": o.ww || 2.5, "stroke-linecap": "round", class: "trem st-loop", style: `animation-delay:${o.delay || 0}s;animation-duration:${o.dur || 0.3}s`}, g); }
+  return g;
+}
+function spider(p, x, y, kind, size = 1, a = {}) { const w = 70 * size, h = 61 * size; return use(p, "i-spider", x - w / 2, y - h * 0.55, w, h, `--c:${kind === "hub" ? C.sun : C.sky}`, a); }
+function fly(p, x, y, size = 1, a = {}) { return use(p, "i-fly", x - 20 * size, y - 16 * size, 40 * size, 32 * size, "", Object.assign({class: "buzz st-loop"}, a)); }
+function chip(p, x, y, w, k, e, col, a = {}) { const g = el("g", a, p); el("rect", {x: x - w / 2, y: y - 20, width: w, height: 32, rx: 16, fill: col, stroke: NAVY, "stroke-width": 2}, g);
+  dual(g, x, y + 2, k, e, {"text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: "#fff"}); return g; }
+function tick(p, x, y, ok) { const g = el("g", {}, p); el("circle", {cx: x, cy: y, r: 12, fill: ok ? C.leaf : C.plum, stroke: NAVY, "stroke-width": 2}, g);
+  el("path", {d: ok ? `M${x - 6} ${y} l4 4 8 -9` : `M${x - 5} ${y - 5} l10 10 M${x + 5} ${y - 5} l-10 10`, fill: "none", stroke: "#fff", "stroke-width": 3, "stroke-linecap": "round"}, g); return g; }
+
+/* ===================== the CSI model (A1), same physics as explorer 01 ===================== */
+const CSI = (() => {
+  const TAU = 2 * Math.PI, c = V("speed_of_light"), lam = V("wavelength_5g") / 100, fc = c / lam, df = V("ofdm_subcarrier_spacing_11a_n_ac") * 1e3;
+  const n = V("used_subcarriers_ht_20MHz"), ks = []; for (let k = -n / 2; k <= n / 2; k++) if (k) ks.push(k);
+  const L = V("link_length_illustrative"), W = V("room_width_assumption"), pad = V("room_margin_assumption"), G = V("wall_reflectivity_assumption"), BODY = V("story_body_case_assumption");
+  const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]), tx0 = [0, 0], rx0 = [L, 0];
+  // direct path + first/second-order wall images in the room [-pad, L+pad] x [-W/2, W/2] + one body path
+  function paths(body, gamma) {
+    const out = [{d: L, a: 1}], xa = -pad, xb = L + pad, ya = -W / 2, yb = W / 2;
+    const xs = [[0, 0], [2 * xa, 1], [2 * xb, 1], [2 * (xb - xa), 2], [-2 * (xb - xa), 2]], ys = [[0, 0], [2 * ya, 1], [2 * yb, 1], [2 * (yb - ya), 2], [-2 * (yb - ya), 2]];
+    for (const [ix, ox] of xs) for (const [iy, oy] of ys) { const o = ox + oy; if (o === 0 || o > 2) continue; const d = dist([ix, iy], rx0); out.push({d, a: Math.pow(G, o) * L / d}); }
+    if (body) out.push({d: dist(tx0, body) + dist(body, rx0), a: bodyAmp(body, gamma)});
+    return out;
+  }
+  // amplitude of the path via the body, relative to the direct path: gamma * L / (d1 * d2), d clamped at 0.1 m (explorer 01)
+  function bodyAmp(body, gamma = BODY.gamma) { return gamma * L / (Math.max(0.1, dist(tx0, body)) * Math.max(0.1, dist(body, rx0))); }
+  function db(ps) { return ks.map(k => { const f = fc + k * df; let re = 0, im = 0; for (const p of ps) { const ph = -TAU * f * p.d / c; re += p.a * Math.cos(ph); im += p.a * Math.sin(ph); } return 10 * Math.log10(re * re + im * im + 1e-30); }); }
+  const rssi = d => 10 * Math.log10(d.reduce((s, x) => s + Math.pow(10, x / 10), 0) / d.length);
+  const base = db(paths([BODY.x, BODY.y], BODY.gamma)), r0 = rssi(base);
+  function model(s) {   // pure: displacement in cm -> per-subcarrier dB, RSSI change, biggest single-note change
+    const H = db(paths([BODY.x, BODY.y + s.cm / 100], BODY.gamma)), d = H.map((x, i) => x - base[i]);
+    let mi = 0; d.forEach((v, i) => { if (Math.abs(v) > Math.abs(d[mi])) mi = i; });
+    return {cm: s.cm, H, base, dR: rssi(H) - r0, maxNote: Math.abs(d[mi]), maxI: mi, rssi: rssi(H), r0};
+  }
+  return {model, bodyAmp, paths, ks, L, lam, BODY};
+})();
+// self-tests: the page's claims
+(() => {
+  const m = CSI.model({cm: 4.5});
+  console.assert(m.maxNote > 3 * Math.abs(m.dR), "scene 1: at 4.5 cm one note changes > 3x the RSSI change");
+  let found = false; for (let cm = 0.5; cm <= 6; cm += 0.5) { const o = CSI.model({cm}); if (Math.abs(o.dR) < 2 && o.maxNote > 8) found = true; }
+  console.assert(found, "scene 1: some move leaves RSSI within 2 dB while one note moves > 8 dB");
+  console.assert(Math.abs(0.5 * Math.sqrt(CSI.lam * CSI.L) - V("fresnel_first_zone_mid_radius_example.5GHz_4m_link")) < 0.01, "Fresnel mid radius matches constants.json");
+  CALC.s1cm = "4.5"; CALC.s1note = m.maxNote.toFixed(0); CALC.s1rssi = Math.abs(m.dR).toFixed(1);
+})();
+
+/* ---------------- HERO ---------------- */
+(() => {
+  const s = document.getElementById("hero");
+  el("rect", {x: 0, y: 0, width: 1000, height: 470, fill: "#F3E6D0"}, s);
+  el("rect", {x: 20, y: 24, width: 610, height: 426, rx: 14, fill: "#FBF3E6", stroke: C.stone, "stroke-width": 6}, s);
+  dual(s, 40, 50, "the home", "one home", {"font-size": 14, "font-weight": 700, fill: C.ink2});
+  const H = [130, 130], A = [500, 120], Bp = [300, 380], F = [462, 196];
+  // the web around the hub: radial strands to the walls and rings (the room's many paths)
+  const web = el("g", {"data-ref": "web"}, s);
+  const rad = [[20, 24], [130, 24], [330, 24], [630, 24], [630, 240], [400, 450], [130, 450], [20, 450], [20, 240], [20, 130]];
+  rad.forEach(q => el("line", {x1: H[0], y1: H[1], x2: q[0], y2: q[1], stroke: "#CFC3AE", "stroke-width": 1.6}, web));
+  for (const r of [26, 46, 66, 86]) { const pts = rad.map(q => { const a = Math.atan2(q[1] - H[1], q[0] - H[0]); return [H[0] + r * Math.cos(a), H[1] + r * Math.sin(a)]; }).sort((u, v) => Math.atan2(u[1] - H[1], u[0] - H[0]) - Math.atan2(v[1] - H[1], v[0] - H[0]));
+    el("polygon", {points: pts.map(p => p.map(v => v.toFixed(1)).join(",")).join(" "), fill: "none", stroke: "#CFC3AE", "stroke-width": 1.6}, web); }
+  for (const [p, qs] of [[A, [[630, 24], [630, 240], [420, 24]]], [Bp, [[20, 450], [400, 450], [630, 450], [20, 300]]]]) qs.forEach(q => el("line", {x1: p[0], y1: p[1], x2: q[0], y2: q[1], stroke: "#CFC3AE", "stroke-width": 1.6}, web));
+  // the three threads (links): two of them tremble because the fly is near A
+  const th = el("g", {"data-ref": "thread"}, s);
+  thread(th, H, A, {amp: 11, w: 3.5, ww: 3});
+  thread(th, A, Bp, {amp: 11, w: 3.5, ww: 3, delay: -0.11});
+  thread(th, H, Bp, {w: 3.5});
+  // spiders
+  const hub = el("g", {"data-ref": "hub"}, s);
+  for (const r of [16, 28]) el("path", {d: `M${H[0] - r} ${H[1] - 38 - r * 0.2} a${r} ${r} 0 0 1 ${2 * r} 0`, fill: "none", stroke: C.sunD, "stroke-width": 3, "stroke-linecap": "round", class: "beacon st-loop", style: `animation-delay:${-r / 30}s`}, hub);
+  spider(hub, H[0], H[1], "hub", 1.15);
+  dual(hub, H[0], H[1] + 58, "Hub spider", "Access point (AP)", {"text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: C.sunD, class: "halo"});
+  const li = el("g", {"data-ref": "listener"}, s);
+  spider(li, A[0], A[1], "dev"); spider(li, Bp[0], Bp[1], "dev");
+  dual(li, A[0] + 44, A[1] - 26, "Spider A", "Device A", {"font-size": 15, "font-weight": 800, fill: C.skyD, class: "halo"});
+  dual(li, Bp[0] + 46, Bp[1] + 10, "Spider B", "Device B", {"font-size": 15, "font-weight": 800, fill: C.skyD, class: "halo"});
+  const fl = el("g", {"data-ref": "fly"}, s);
+  fly(fl, F[0], F[1], 1.2);
+  dual(fl, F[0] - 36, F[1] + 6, "a fly", "a person moving", {"text-anchor": "end", "font-size": 15, "font-weight": 800, fill: C.coralD, class: "halo"});
+  // what the spiders feel
+  el("rect", {x: 652, y: 24, width: 330, height: 426, rx: 18, fill: C.card, stroke: NAVY, "stroke-width": 2.5}, s);
+  dual(s, 817, 62, "What each thread feels", "What each link shows", {"text-anchor": "middle", "font-size": 18, "font-weight": 800});
+  const rows = [["hub ↔ A", "AP ↔ A", 0.92], ["A ↔ B", "A ↔ B", 0.85], ["hub ↔ B", "AP ↔ B", 0.08]];
+  rows.forEach(([k, e, v], i) => { const y = 112 + i * 64;
+    dual(s, 676, y + 6, k, e, {"font-size": 16, "font-weight": 800});
+    el("rect", {x: 776, y: y - 12, width: 180, height: 24, rx: 12, fill: C.card2, stroke: NAVY, "stroke-width": 1.8}, s);
+    el("rect", {x: 776, y: y - 12, width: Math.max(14, 180 * v), height: 24, rx: 12, fill: v > 0.5 ? C.coral : C.sky, stroke: NAVY, "stroke-width": 1.8}, s);
+    dual(s, 776 + 180, y + 30, v > 0.5 ? "trembles" : "calm", v > 0.5 ? "fluctuates" : "steady", {"text-anchor": "end", "font-size": 13, fill: v > 0.5 ? C.coralD : C.skyD, "font-weight": 700}); });
+  el("rect", {x: 672, y: 300, width: 290, height: 64, rx: 16, fill: C.leaf, stroke: NAVY, "stroke-width": 2.5}, s);
+  dual(s, 817, 326, "Both of A's threads shake", "Both of A's links fluctuate", {"text-anchor": "middle", "font-size": 16, "font-weight": 800, fill: "#fff"});
+  dual(s, 817, 350, "→ the fly is near A", "→ motion near device A", {"text-anchor": "middle", "font-size": 16, "font-weight": 800, fill: "#fff"});
+  dual(s, 817, 400, "One thread alone says only:", "One link alone says only:", {"text-anchor": "middle", "font-size": 14, fill: C.ink2});
+  dual(s, 817, 420, "“something moved”.", "“motion happened”.", {"text-anchor": "middle", "font-size": 14, fill: C.ink2, "font-weight": 700});
+})();
+
+/* ---------------- SCENE 1: notes vs loudness (live) ---------------- */
+(() => {
+  const s = document.getElementById("csi");
+  // left: the room from above
+  el("rect", {x: 14, y: 30, width: 350, height: 284, rx: 12, fill: "#FBF3E6", stroke: C.stone, "stroke-width": 5}, s);
+  const H = [58, 196], R = [318, 196];
+  for (const yy of [30, 314]) el("polyline", {points: `${H[0]},${H[1]} ${(H[0] + R[0]) / 2},${yy} ${R[0]},${R[1]}`, fill: "none", stroke: "#BDB29C", "stroke-width": 2, "stroke-dasharray": "6 5"}, s);
+  el("line", {x1: H[0], y1: H[1], x2: R[0], y2: R[1], stroke: "#BDB29C", "stroke-width": 2.5}, s);
+  dual(s, 188, 252, "strands: direct + wall bounces", "paths: line of sight + reflections", {"text-anchor": "middle", "font-size": 12, fill: C.ink2});
+  el("polyline", {id: "dyn", points: "", fill: "none", stroke: C.coral, "stroke-width": 3}, s);
+  spider(s, H[0], H[1], "hub", 0.8); spider(s, R[0], R[1], "dev", 0.8);
+  dual(s, H[0], H[1] + 42, "hub", "AP", {"text-anchor": "middle", "font-size": 13, "font-weight": 800, fill: C.sunD});
+  dual(s, R[0], R[1] + 42, "listener", "device", {"text-anchor": "middle", "font-size": 13, "font-weight": 800, fill: C.skyD});
+  el("line", {x1: 296, y1: 150, x2: 296, y2: 60, stroke: C.line, "stroke-width": 2, "stroke-dasharray": "3 4"}, s);
+  el("g", {id: "flyg"}, s); fly(document.getElementById("flyg"), 0, 0, 0.9);
+  tx(s, 188, 60, "", {id: "flylab", "text-anchor": "end", "font-size": 12, fill: C.coralD, "font-weight": 700});
+  // middle: one bar per subcarrier
+  const X0 = 425, X1 = 870, Y0 = 290, top = 40, dbLo = -20, dbHi = 6, yOf = v => Y0 - (Y0 - top) * (Math.max(dbLo, Math.min(dbHi, v)) - dbLo) / (dbHi - dbLo);
+  window.S1 = {X0, X1, Y0, yOf};
+  dual(s, X0, 22, "How loud each note arrives", "|CSI| per subcarrier", {"font-size": 15, "font-weight": 800});
+  for (const v of [0, -10, -20]) { el("line", {x1: X0 - 4, y1: yOf(v), x2: X1, y2: yOf(v), stroke: C.line, "stroke-width": 1.5, "stroke-dasharray": v ? "3 4" : ""}, s); tx(s, X0 - 8, yOf(v) + 4, `${v} dB`, {"text-anchor": "end", "font-size": 11, fill: C.ink2}); }
+  const n = CSI.ks.length, bw = (X1 - X0) / n;
+  const gB = el("g", {id: "bars"}, s), gG = el("g", {id: "ghost"}, s);
+  for (let i = 0; i < n; i++) { el("rect", {x: X0 + i * bw + 0.8, width: bw - 1.6, y: Y0, height: 0, fill: C.sky, stroke: NAVY, "stroke-width": 0.8, class: "tbar"}, gB);
+    el("line", {x1: X0 + i * bw + 0.5, x2: X0 + (i + 1) * bw - 0.5, y1: 0, y2: 0, stroke: C.ink, "stroke-width": 2}, gG); }
+  el("circle", {id: "maxmark", r: 6, fill: "none", stroke: C.coralD, "stroke-width": 2.5}, s);
+  tx(s, (X0 + X1) / 2, 318, "{{used_subcarriers_ht_20MHz}} notes, {{ofdm_subcarrier_spacing_11a_n_ac}} kHz apart", {"text-anchor": "middle", "font-size": 13, fill: C.ink2, class: "lbl-k"});
+  tx(s, (X0 + X1) / 2, 318, "{{used_subcarriers_ht_20MHz}} subcarriers (HT20), {{ofdm_subcarrier_spacing_11a_n_ac}} kHz apart", {"text-anchor": "middle", "font-size": 13, fill: C.ink2, class: "lbl-e"});
+  tx(s, (X0 + X1) / 2, 336, "— = before the move", {"text-anchor": "middle", "font-size": 12, fill: C.ink2});
+  // right: the meter
+  dual(s, 930, 22, "Loudness", "RSSI", {"text-anchor": "middle", "font-size": 15, "font-weight": 800});
+  el("rect", {x: 904, y: top, width: 52, height: Y0 - top, rx: 10, fill: C.card2, stroke: NAVY, "stroke-width": 2}, s);
+  el("rect", {id: "meter", x: 908, width: 44, y: Y0, height: 0, rx: 6, fill: C.sky, stroke: NAVY, "stroke-width": 1.5, class: "tbar"}, s);
+  el("line", {id: "meter0", x1: 898, x2: 962, stroke: C.ink, "stroke-width": 2.5}, s);
+  tx(s, 930, 318, "one number", {"text-anchor": "middle", "font-size": 13, fill: C.ink2});
+  window.drawCSI = o => {
+    const bars = document.querySelectorAll("#bars rect"), gh = document.querySelectorAll("#ghost line");
+    o.H.forEach((v, i) => { const y = yOf(v); bars[i].setAttribute("y", y); bars[i].setAttribute("height", Math.max(0, Y0 - y)); bars[i].setAttribute("fill", i === o.maxI && o.maxNote > 1 ? C.coral : C.sky); gh[i].setAttribute("y1", yOf(o.base[i])); gh[i].setAttribute("y2", yOf(o.base[i])); });
+    const mm = document.getElementById("maxmark"); mm.setAttribute("cx", X0 + (o.maxI + 0.5) * bw); mm.setAttribute("cy", yOf(o.H[o.maxI]) - 10); mm.style.display = o.maxNote > 1 ? "" : "none";
+    const m = document.getElementById("meter"), ym = yOf(o.rssi); m.setAttribute("y", ym); m.setAttribute("height", Y0 - ym);
+    const m0 = document.getElementById("meter0"); m0.setAttribute("y1", yOf(o.r0)); m0.setAttribute("y2", yOf(o.r0));
+    const fy = 150 - o.cm * 14, F = [296, fy]; document.getElementById("flyg").setAttribute("transform", `translate(${F[0]} ${F[1]})`);
+    document.getElementById("dyn").setAttribute("points", `${H[0]},${H[1]} ${F[0]},${F[1] + 8} ${R[0]},${R[1]}`);
+    const fl = document.getElementById("flylab"); fl.setAttribute("x", 280); fl.setAttribute("y", fy + 4); fl.textContent = o.cm ? `moved ${o.cm} cm (drawn ×14)` : "the fly";
+  };
+})();
+
+/* ---------------- SCENE 2: where the fly lands ---------------- */
+(() => {
+  const s = svgOf("s-where"), L = CSI.L, sc = 120, x0 = 110, y0 = 100, X = m => x0 + m * sc, Y = m => y0 + m * sc;
+  const POS = V("story_positions_assumption"), WA = V("wall_attenuation_assumption");
+  const near = CSI.bodyAmp(POS.near), rel = {near: 1, mid: CSI.bodyAmp(POS.mid) / near, far: CSI.bodyAmp(POS.far) / near};
+  rel.wall = rel.far * WA;
+  console.assert(rel.mid < 1 && rel.far < rel.mid && rel.wall < rel.far, "scene 2: near > mid > far > behind a wall");
+  CALC.s2mid = Math.round(100 * rel.mid); CALC.s2far = Math.round(100 * rel.far); CALC.s2wall = Math.round(100 * rel.wall);
+  const base = el("g", {"data-s": "0"}, s);
+  el("rect", {x: 20, y: 20, width: 620, height: 410, rx: 14, fill: "#FBF3E6", stroke: C.line, "stroke-width": 2}, base);
+  el("line", {x1: X(0), y1: y0, x2: X(L), y2: y0, stroke: C.sky, "stroke-width": 3.5, "stroke-linecap": "round"}, base);
+  spider(base, X(0), y0, "hub", 0.9); spider(base, X(L), y0, "dev", 0.9);
+  dual(base, X(0), y0 - 38, "hub", "AP", {"text-anchor": "middle", "font-size": 14, "font-weight": 800, fill: C.sunD});
+  dual(base, X(L), y0 - 38, "listener", "device", {"text-anchor": "middle", "font-size": 14, "font-weight": 800, fill: C.skyD});
+  tx(base, (X(0) + X(L)) / 2, y0 - 14, `${L} m`, {"text-anchor": "middle", "font-size": 13, fill: C.ink2});
+  // the first Fresnel zone, drawn to scale: r(x) = sqrt(lambda * x * (L - x) / L)
+  let up = "", dn = ""; for (let i = 0; i <= 60; i++) { const m = L * i / 60, r = Math.sqrt(CSI.lam * m * (L - m) / L) * sc; up += (i ? "L" : "M") + X(m).toFixed(1) + " " + (y0 - r).toFixed(1); dn = "L" + X(m).toFixed(1) + " " + (y0 + r).toFixed(1) + dn; }
+  const z = el("g", {"data-s": "1"}, s);
+  el("path", {d: up + dn + "Z", fill: C.sky, "fill-opacity": .22, stroke: C.skyD, "stroke-width": 2, "stroke-dasharray": "5 4", class: "lit"}, z);
+  dual(z, (X(0) + X(L)) / 2, y0 + 52, "tremble zone: widest mid-thread", "first Fresnel zone, to scale", {"text-anchor": "middle", "font-size": 13, "font-weight": 700, fill: C.skyD});
+  // meter
+  el("rect", {x: 690, y: 20, width: 290, height: 410, rx: 18, fill: C.card, stroke: NAVY, "stroke-width": 2.5}, base);
+  dual(base, 835, 54, "How hard the thread trembles", "Dynamic-path amplitude", {"text-anchor": "middle", "font-size": 15, "font-weight": 800});
+  el("rect", {x: 800, y: 90, width: 70, height: 300, rx: 12, fill: C.card2, stroke: NAVY, "stroke-width": 2}, base);
+  tx(s, 835, 250, "—", {class: "st-at", "data-s": "1", "text-anchor": "middle", "font-size": 30, "font-weight": 800, fill: C.ink2});
+  const cases = [["near", POS.near, 2, "near the listener", "near the device"], ["mid", POS.mid, 3, "middle of the thread", "mid-link"], ["far", POS.far, 4, "far from the thread", "far off the link"], ["wall", POS.far, 5, "far, behind a wall", "far, through a wall"]];
+  cases.forEach(([k, p, step, lk, le]) => {
+    const g = el("g", {class: "st-at", "data-s": String(step)}, s), r = rel[k], h = Math.max(4, 296 * r);
+    el("rect", {x: 802, y: 388 - h, width: 66, height: h, rx: 10, fill: C.coral, stroke: NAVY, "stroke-width": 2}, g);
+    tx(g, 835, Math.min(380, 388 - h - 10), `${Math.round(100 * r)} %`, {"text-anchor": "middle", "font-size": 22, "font-weight": 800, fill: C.coralD});
+    dual(g, 835, 416, lk, le, {"text-anchor": "middle", "font-size": 13, "font-weight": 700, fill: C.ink2});
+    thread(g, [X(0), y0], [X(L), y0], {waveOnly: true, amp: Math.max(1.5, 26 * r), ww: 3, cycles: 13});
+    fly(g, X(p[0]), Y(p[1]));
+    el("line", {x1: X(p[0]), y1: y0, x2: X(p[0]), y2: Y(p[1]) - 18, stroke: C.coralD, "stroke-width": 1.5, "stroke-dasharray": "3 3"}, g);
+    tx(g, X(p[0]) + 26, (y0 + Y(p[1])) / 2 + 12, `${p[1]} m`, {"font-size": 12, fill: C.coralD, "font-weight": 700});
+  });
+  const w = el("g", {class: "st-at", "data-s": "5"}, s);
+  el("rect", {x: X(0.7), y: Y(1.8) - 8, width: X(3.3) - X(0.7), height: 16, rx: 3, fill: "url(#hatch)", stroke: NAVY, "stroke-width": 2}, w);
+  dual(w, X(3.3) + 10, Y(1.8) + 5, "wall", "wall", {"font-size": 13, "font-weight": 800, fill: C.ink2});
+})();
+
+/* ---------------- SCENE 3: every web hums differently ---------------- */
+(() => {
+  const s = svgOf("s-hum"), AV = V("acf_vs_variance_illustrative"), HS = V("home_spread_illustrative");
+  const by = 370, bh = 150, yv = v => by - bh * v, xe = 120, xf = 290;   // bar centres inside each panel
+  const panels = [["A", 30, "Home A: a still web", "Home A: quiet empty room"], ["B", 520, "Home B: hums when empty", "Home B: higher empty-room variance"]];
+  const base = el("g", {"data-s": "0"}, s);
+  panels.forEach(([h, x0, k, e]) => {
+    el("rect", {x: x0, y: 14, width: 450, height: 400, rx: 18, fill: C.card, stroke: NAVY, "stroke-width": 2.5}, base);
+    use(base, "i-house", x0 + 16, 26, 52, 45);
+    dual(base, x0 + 80, 56, k, e, {"font-size": 16, "font-weight": 800});
+    // a small web with a listener; home B's strands hum on their own (a higher empty-room baseline)
+    const wx = x0 + 225, wy = 112; use(base, "i-web", wx - 42, wy - 36, 84, 72);
+    thread(base, [wx - 150, wy], [wx - 20, wy], {amp: h === "B" ? 6 : 0, color: C.sky, wc: C.plum, ww: 2, dur: 0.42, cycles: 7});
+    thread(base, [wx + 20, wy], [wx + 150, wy], {amp: h === "B" ? 6 : 0, color: C.sky, wc: C.plum, ww: 2, dur: 0.42, delay: -0.2, cycles: 7});
+    spider(base, wx, wy, "dev", 0.65);
+    el("line", {x1: x0 + 30, y1: by, x2: x0 + 430, y2: by, stroke: NAVY, "stroke-width": 2}, base);
+    dual(base, x0 + xe, 396, "empty", "nobody", {"text-anchor": "middle", "font-size": 14, "font-weight": 700, fill: C.ink2});
+    dual(base, x0 + xf, 396, "fly", "person moving", {"text-anchor": "middle", "font-size": 14, "font-weight": 700, fill: C.ink2});
+  });
+  const bar = (p, x, v, col) => el("rect", {x: x - 42, y: yv(v), width: 84, height: bh * v, rx: 8, fill: col, stroke: NAVY, "stroke-width": 2}, p);
+  const thr = (p, x0, v, k, e) => { el("line", {x1: x0 + 30, y1: yv(v), x2: x0 + 430, y2: yv(v), stroke: C.ink, "stroke-width": 2.5, "stroke-dasharray": "8 5"}, p); dual(p, x0 + 430, yv(v) - 8, k, e, {"text-anchor": "end", "font-size": 12, "font-weight": 700, fill: C.ink, class: "halo"}); };
+  const head = (p, x0, k, e, col) => dual(p, x0 + 225, 176, k, e, {"text-anchor": "middle", "font-size": 14, "font-weight": 800, fill: col});
+  const home = (p, x0, still, mov, line, sk, se, okStill) => { bar(p, x0 + xe, still, okStill ? C.stone : C.plum); bar(p, x0 + xf, mov, C.coral);
+    thr(p, x0, line, sk, se); tick(p, x0 + xe, yv(still) - 20, okStill); tick(p, x0 + xf, yv(mov) - 20, true); };
+  // steps 1-2: shake size (variance)
+  const sA = el("g", {class: "st-at", "data-s": "1 2"}, s);
+  head(sA, 30, "how much it shakes", "variance", C.coralD); home(sA, 30, 0.16, 0.8, 0.42, "home A's line", "home A threshold", true);
+  const sB = el("g", {class: "st-at", "data-s": "2"}, s);
+  head(sB, 520, "how much it shakes", "variance", C.coralD); home(sB, 520, 0.6, 0.92, 0.42, "same line", "same threshold", false);
+  dual(sB, 520 + xe, yv(0.6) - 42, "alarm, nobody there", "false alarm", {"text-anchor": "middle", "font-size": 13, "font-weight": 800, fill: C.plumD});
+  // step 3: does it still look like a moment ago (lag-1 ACF)
+  const s3 = el("g", {class: "st-at", "data-s": "3"}, s);
+  [[30, 0.95, 0.42], [520, 0.92, 0.48]].forEach(([x0, still, mov]) => { head(s3, x0, "still looks like a moment ago", "lag-1 ACF (0 to 1 here)", C.skyD); home(s3, x0, still, mov, 0.66, "one line", "one threshold", true); });
+  chip(s3, 500, 448, 560, `moment-ago test ${AV.acf_tap1} vs shake size ${AV.variance} TPR at 1% FPR`, `lag-1 ACF ${AV.acf_tap1} vs variance ${AV.variance} TPR at 1% FPR`, C.skyD);
+  // step 4: homes still differ
+  const s4 = el("g", {class: "st-at", "data-s": "4"}, s);
+  el("rect", {x: 30, y: 160, width: 940, height: 254, rx: 18, fill: C.card, stroke: NAVY, "stroke-width": 2.5}, s4);
+  dual(s4, 500, 198, "Same simple detector, tested on homes it never saw", "ACF + variance + SVM, leave-one-home-out", {"text-anchor": "middle", "font-size": 17, "font-weight": 800});
+  [["best home", HS.best_home_tpr, 252], ["worst home", HS.worst_home_tpr, 332]].forEach(([k, v, y]) => {
+    use(s4, "i-house", 70, y - 30, 52, 45); tx(s4, 136, y + 2, k, {"font-size": 16, "font-weight": 800});
+    el("rect", {x: 260, y: y - 16, width: 600, height: 32, rx: 16, fill: C.card2, stroke: NAVY, "stroke-width": 2}, s4);
+    el("rect", {x: 260, y: y - 16, width: Math.max(32, 600 * v), height: 32, rx: 16, fill: v > 0.5 ? C.leaf : C.plum, stroke: NAVY, "stroke-width": 2}, s4);
+    tx(s4, 870, y + 7, `TPR ${v}`, {"font-size": 17, "font-weight": 800, fill: v > 0.5 ? C.leafD : C.plumD}); });
+  tx(s4, 500, 392, "In the worst home, empty and moving looked the same.", {"text-anchor": "middle", "font-size": 14, fill: C.ink2});
+})();
+
+/* ---------------- SCENE 4: which end? ---------------- */
+(() => {
+  const s = svgOf("s-end"), H = [150, 215], A = [500, 90], B = [500, 345], Cc = [860, 215];
+  const base = el("g", {"data-s": "0"}, s);
+  el("rect", {x: 20, y: 14, width: 960, height: 404, rx: 14, fill: "#FBF3E6", stroke: C.line, "stroke-width": 2}, base);
+  // step 1: one thread; steps 2+: the other hub threads; steps 4+: spider-to-spider threads
+  thread(base, H, A, {w: 3.5});
+  const hubT = el("g", {"data-s": "2"}, s); thread(hubT, H, B, {w: 3.5}); thread(hubT, H, Cc, {w: 3.5});
+  const d2d = el("g", {"data-s": "4"}, s); for (const [p, q] of [[A, B], [A, Cc], [B, Cc]]) thread(d2d, p, q, {w: 3, color: C.skyD, dash: "9 6"});
+  const sp = el("g", {"data-s": "0"}, s);
+  spider(sp, H[0], H[1], "hub", 1.05); dual(sp, H[0], H[1] + 52, "hub", "AP", {"text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: C.sunD});
+  [[A, "A", 0, -40], [B, "B", -84, 6], [Cc, "C", 0, 54]].forEach(([p, n, dx, dy]) => { const g = el("g", {"data-s": n === "A" ? "0" : "2"}, s);
+    spider(g, p[0], p[1], "dev"); dual(g, p[0] + dx, p[1] + dy, "spider " + n, "device " + n, {"text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: C.skyD}); });
+  const shake = (g, p, q, dl = 0) => thread(g, p, q, {waveOnly: true, amp: 11, ww: 3, delay: dl});
+  // step 1: two suspects
+  const s1 = el("g", {class: "st-at", "data-s": "1"}, s); shake(s1, H, A);
+  for (const [x, y] of [[226, 150], [430, 128]]) { use(s1, "i-fly", x - 20, y - 16, 40, 32, "opacity:.55"); tx(s1, x + 26, y - 6, "?", {"font-size": 26, "font-weight": 800, fill: C.coralD}); }
+  dual(s1, 330, 250, "near the hub, or near A?", "AP side or client side?", {"text-anchor": "middle", "font-size": 16, "font-weight": 800, fill: C.coralD});
+  // step 2: near the hub -> all hub threads together
+  const s2 = el("g", {class: "st-at", "data-s": "2"}, s); shake(s2, H, A); shake(s2, H, B); shake(s2, H, Cc);
+  fly(s2, 210, 172); chip(s2, 680, 400, 470, "all together → near the hub", "all correlated → AP-side motion", C.leafD);
+  // step 3: near A -> only A's thread
+  const s3 = el("g", {class: "st-at", "data-s": "3"}, s); shake(s3, H, A); fly(s3, 452, 138);
+  chip(s3, 680, 400, 470, "only A's thread → near A", "one link active → near device A", C.leafD);
+  // step 4: a fly between B and C: only a spider-to-spider thread feels it
+  const s4 = el("g", {class: "st-at", "data-s": "4"}, s); shake(s4, B, Cc); fly(s4, 700, 318);
+  chip(s4, 330, 400, 560, "3 hub threads + 6 spider-to-spider threads", "3 AP links + 6 directed device links = 3²", C.skyD);
+  // step 5: summed tremble per spider
+  const s5 = el("g", {class: "st-at", "data-s": "5"}, s); shake(s5, H, A); shake(s5, A, B, -0.1); shake(s5, A, Cc, -0.2); fly(s5, 540, 150);
+  [[H, 1, -78, -30], [A, 3, 56, -20], [B, 1, 50, -20], [Cc, 1, -24, -84]].forEach(([p, v, dx, dy]) => { const x = p[0] + dx, y = p[1] + dy;
+    el("rect", {x, y: y - 20 * v, width: 22, height: 20 * v, rx: 4, fill: C.coral, stroke: NAVY, "stroke-width": 2}, s5);
+    tx(s5, x + 11, y + 16, `Σ${v}`, {"text-anchor": "middle", "font-size": 13, "font-weight": 800, fill: C.coralD}); });
+  chip(s5, 680, 400, 470, "A's threads add up most → near A", "largest node sum w → nearest A", C.leafD);
+})();
+
+/* ---------------- SCENE 5: more spiders (live) ---------------- */
+const netModel = s => { const N = s.N, d2d = s.d2d && N > 1, ap = N, dd = d2d ? N * (N - 1) : 0, TP = V("devices_tpr_illustrative");
+  const key = N === 1 ? "1_device" : N === 4 ? (d2d ? "4_devices_all_links" : "4_devices_ap_links_only") : null;
+  return {N, d2d, ap, dd, links: ap + dd, key, tpr: key ? TP[key] : null}; };
+console.assert(netModel({N: 4, d2d: true}).links === 16 && netModel({N: 4, d2d: false}).links === 4 && netModel({N: 1, d2d: true}).links === 1, "scene 5: N^2 links with device-to-device threads, N without");
+(() => {
+  const s = document.getElementById("net");
+  el("rect", {x: 0, y: 0, width: 600, height: 330, rx: 16, fill: "#FBF3E6"}, s);
+  el("g", {id: "net-th"}, s); el("g", {id: "net-sp"}, s);
+  tx(s, 300, 318, "", {id: "net-n", "text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: C.ink});
+  const t = document.getElementById("tpr"), TP = V("devices_tpr_illustrative");
+  const rows = [["1_device", "1 spider, hub thread", "1 device, AP link"], ["4_devices_ap_links_only", "4 spiders, hub threads only", "4 devices, AP links only"], ["4_devices_all_links", "4 spiders, all threads", "4 devices, all links"]];
+  rows.forEach(([k, lk, le], i) => { const y = 30 + i * 46;
+    dual(t, 10, y + 6, lk, le, {"font-size": 14, "font-weight": 700});
+    el("rect", {x: 240, y: y - 12, width: 300, height: 24, rx: 12, fill: C.card2, stroke: NAVY, "stroke-width": 1.8}, t);
+    el("rect", {x: 240, y: y - 12, width: 300 * TP[k], height: 24, rx: 12, fill: C.leaf, stroke: NAVY, "stroke-width": 1.8, id: "tp-" + i}, t);
+    tx(t, 550, y + 6, TP[k], {"font-size": 15, "font-weight": 800, fill: C.leafD}); });
+  window.drawNet = o => {
+    const th = document.getElementById("net-th"), sp = document.getElementById("net-sp"); th.innerHTML = ""; sp.innerHTML = "";
+    const H = [300, 160], R = 120, pts = []; for (let i = 0; i < o.N; i++) { const a = -Math.PI / 2 + 2 * Math.PI * i / o.N + (o.N === 1 ? Math.PI / 2 : 0); pts.push([H[0] + R * 1.7 * Math.cos(a), H[1] + R * Math.sin(a)]); }
+    if (o.d2d) for (let i = 0; i < o.N; i++) for (let j = i + 1; j < o.N; j++) {   // bowed, so a link between opposite spiders does not hide under the hub's links
+      const [p, q] = [pts[i], pts[j]], mx = (p[0] + q[0]) / 2, my = (p[1] + q[1]) / 2, dx = q[0] - p[0], dy = q[1] - p[1], L = Math.hypot(dx, dy) || 1, k = 0.18 * L;
+      el("path", {d: `M${p[0]} ${p[1]} Q${mx - dy / L * k} ${my + dx / L * k} ${q[0]} ${q[1]}`, fill: "none", stroke: C.skyD, "stroke-width": 2.5, "stroke-dasharray": "8 5"}, th); }
+    pts.forEach(p => thread(th, H, p, {w: 3.5}));
+    spider(sp, H[0], H[1], "hub", 0.9); pts.forEach(p => spider(sp, p[0], p[1], "dev", 0.75));
+    rows.forEach(([k], i) => document.getElementById("tp-" + i).setAttribute("stroke-width", k === o.key ? 4 : 1.8));
+  };
+})();
+
+/* ---------------- SCENE 6: the calendar of false rushes ---------------- */
+(() => {
+  const SEC = V("seconds_per_30_days"), WIN = V("window_short_illustrative"), FPR = V("story_research_fpr_illustrative"), BUD = V("false_alarm_budget_illustrative");
+  const month = SEC / WIN * FPR, day = month / 30, need = BUD * WIN / SEC, ratio = FPR / need;
+  console.assert(Math.round(month) === 25920 && Math.round(day) === 864, "scene 6: 1% of 1 s windows over 30 days = 25 920 (864 a day)");
+  console.assert(ratio > 1e3 && ratio < 1e4, "scene 6: the budget is three to four orders of magnitude stricter (C1)");
+  CALC.s6month = fmt(Math.round(month)); CALC.s6day = fmt(Math.round(day));
+  const e = Math.floor(Math.log10(need)), mant = (need / Math.pow(10, e)).toFixed(1), sup = String(e).replace("-", "⁻").replace(/\d/g, d => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d]);
+  CALC.s6need = `${mant} × 10${sup}`; CALC.s6ratio = fmt(Math.round(ratio / 10) * 10);
+  const s = document.getElementById("cal");
+  const cal = (x0, title, te, fillDay) => {
+    dual(s, x0 + 200, 30, title, te, {"text-anchor": "middle", "font-size": 17, "font-weight": 800});
+    for (let d = 0; d < 30; d++) { const c = d % 6, r = Math.floor(d / 6), x = x0 + c * 66, y = 50 + r * 50;
+      el("rect", {x, y, width: 60, height: 44, rx: 7, fill: fillDay(d) === "full" ? "url(#rush)" : C.card, stroke: NAVY, "stroke-width": 1.8}, s);
+      if (fillDay(d) !== "full") tx(s, x + 6, y + 14, d + 1, {"font-size": 10, fill: C.ink2});
+      if (fillDay(d) === "full") tx(s, x + 32, y + 34, fmt(Math.round(day)), {"text-anchor": "middle", "font-size": 13, "font-weight": 800, fill: C.plumD});
+      if (fillDay(d) === "one") el("circle", {cx: x + 34, cy: y + 26, r: 8, fill: C.plum, stroke: NAVY, "stroke-width": 2}, s); } };
+  cal(20, "1 % of decisions wrong", "per-window FPR 1 %", () => "full");
+  cal(560, `Budget: ${BUD} a month`, `False-alarm budget: ${BUD} per month`, d => [3, 11, 19, 26].includes(d) ? "one" : "");
+  el("path", {d: "M440 160 H540 M528 150 L540 160 L528 170", fill: "none", stroke: C.ink, "stroke-width": 3, "stroke-linecap": "round"}, s);
+  dual(s, 490, 140, "a product needs", "a product needs", {"text-anchor": "middle", "font-size": 13, "font-weight": 700, fill: C.ink2});
+  dual(s, 220, 322, `≈ ${CALC.s6month} false rushes a month`, `≈ ${CALC.s6month} false windows per month`, {"text-anchor": "middle", "font-size": 16, "font-weight": 800, fill: C.plumD});
+  dual(s, 760, 322, `wrong in ${CALC.s6need} of decisions: ~${CALC.s6ratio}× stricter`, `per-window FPR ≈ ${CALC.s6need}: ~${CALC.s6ratio}× stricter`, {"text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: C.leafD});
+})();
+
+/* ---------------- SCENE 7: flip cards (C5, B4) ---------------- */
+(() => {
+  const cards = [
+    {k: "Wind in the web", e: "Inanimate motion", art: "wind", looks: "A tremble just like a fly's.", really: "Fans, air vents and other moving objects change the CSI like a person does.", rule: "The hardest problem for a strict false-alarm budget. Fusion with another sensor; explicit 'inanimate' training data. (C5)"},
+    {k: "The sleeping fly", e: "Still presence", art: "sleep", looks: "An empty web.", really: "A still person changes the CSI only by breathing and by absorbing energy. Single-stream amplitude at beacon rates (about {{beacon_rate_default}} Hz) is a poor fit.", rule: "A different signal: multi-antenna CSI and phase-cancelling methods. KPI stages 3–4. (C5, C1)"},
+    {k: "The neighbour's web", e: "Through-wall motion", art: "wall", looks: "A fly in this room.", really: "Thin walls let the next room's motion through, weakened.", rule: "More endpoints, so the right room's link responds much more; per-home sensitivity; fusion with a sensor that does not see through walls. (B4)"},
+    {k: "The lonely spider", e: "One-device homes", art: "lonely", looks: "A home sensor.", really: "Most homes own one sensing-capable device (an illustrative {{single_device_home_fraction_illustrative}} of homes). One link senses only a zone around itself.", rule: "More endpoints, cheap sensing nodes, or fusion. (C5)"},
+    {k: "The web that sags overnight", e: "Environment drift", art: "sag", looks: "Yesterday's model, still fine.", really: "Furniture, doors, an AP channel change, temperature: the static channel drifts, and accuracy falls on the next day.", rule: "Test on held-out days. Self-normalised features slow drift; continuous adaptation is still open. (C5, B3)"},
+    {k: "Big fly or small bird?", e: "Adults, children, pets", art: "sizes", looks: "One kind of tremble.", really: "Bodies of different size perturb the CSI by different amounts. A large dog near a device and a child far from it can look alike.", rule: "Open research; needs labelled data that contains pets. (C5)"}];
+  const box = document.getElementById("cards");
+  cards.forEach(c => {
+    const b = document.createElement("button"); b.className = "st-card"; b.setAttribute("aria-label", `${c.k} (${c.e}). Tap to reveal.`);
+    b.innerHTML = `<div class="in"><div class="face front"><svg viewBox="0 0 220 130" aria-hidden="true"></svg><h3>${c.k}</h3><div style="font-size:14px;color:var(--ink-2)">${c.e}</div><div class="hint">tap to reveal ↻</div></div>
+     <div class="face back"><h3>${c.k}</h3><dl><dt>Looks like</dt><dd>${c.looks}</dd><dt>Really</dt><dd>${c.really}</dd><dt>Caught by</dt><dd>${c.rule}</dd></dl></div></div>`;
+    box.appendChild(b);
+    const s = b.querySelector("svg");
+    el("rect", {x: 0, y: 0, width: 220, height: 130, rx: 14, fill: "#F3E6D0"}, s);
+    if (c.art === "wind") { use(s, "i-web", 110, 20, 96, 90); use(s, "i-wind", 14, 34, 90, 64); thread(s, [118, 112], [204, 112], {amp: 6, ww: 2, color: C.stone, wc: C.plum, cycles: 5}); }
+    if (c.art === "sleep") { use(s, "i-web", 20, 18, 96, 94); use(s, "i-fly", 50, 48, 40, 32); tx(s, 130, 52, "z z Z", {"font-size": 22, "font-weight": 800, fill: C.skyD, class: "hand"}); thread(s, [120, 100], [205, 100], {color: C.sky}); }
+    if (c.art === "wall") { use(s, "i-web", 14, 24, 80, 80); use(s, "i-web", 126, 24, 80, 80); el("rect", {x: 104, y: 10, width: 12, height: 110, fill: "url(#hatch)", stroke: NAVY, "stroke-width": 2}, s); use(s, "i-fly", 148, 40, 34, 27); spider(s, 54, 66, "dev", 0.55); }
+    if (c.art === "lonely") { use(s, "i-house", 20, 14, 180, 108); thread(s, [70, 84], [150, 84], {color: C.sky}); spider(s, 70, 84, "hub", 0.45); spider(s, 150, 84, "dev", 0.45); }
+    if (c.art === "sag") { el("path", {d: "M20 30 Q110 110 200 30", fill: "none", stroke: C.stone, "stroke-width": 3}, s); el("path", {d: "M20 30 Q110 60 200 30", fill: "none", stroke: C.line, "stroke-width": 2.5, "stroke-dasharray": "5 4"}, s);
+      el("circle", {cx: 170, cy: 92, r: 22, fill: "#fff", stroke: NAVY, "stroke-width": 2.5}, s); el("path", {d: "M170 92 V78 M170 92 L180 98", stroke: NAVY, "stroke-width": 2.5, "stroke-linecap": "round"}, s); spider(s, 110, 72, "dev", 0.5); }
+    if (c.art === "sizes") { use(s, "i-fly", 26, 30, 80, 64); use(s, "i-fly", 150, 62, 30, 24, "--c:#B4669D"); tx(s, 118, 64, "≈", {"font-size": 30, "font-weight": 800, fill: C.ink2}); }
+  });
+})();
+
+/* ---------------- sources table from the params block ---------------- */
+(() => { const tb = document.querySelector("#src tbody");
+  for (const [k, o] of Object.entries(P)) { if (k[0] === "_") continue;
+    const v = typeof o.value === "object" ? (Array.isArray(o.value) ? o.value.join(", ") : Object.entries(o.value).map(([a, b]) => `${a} ${b}`).join(", ")) : o.value;
+    const tr = document.createElement("tr"); tr.innerHTML = `<td><code>${k}</code></td><td>${v} ${o.unit}</td><td><span class="tag ${o.class === "public" ? "pub" : "ill"}">${o.class}</span></td><td>${o.source}</td>`; tb.appendChild(tr); } })();
+
+runTemplates();
+</script>
+<script src="../../stories/story.js"></script>
+<script>
+/* live figures: one pure model each, bound after story.js */
+Story.bind(document.getElementById("s1"), CSI.model, o => {
+  document.getElementById("cm-v").textContent = o.cm;
+  drawCSI(o);
+  const sgn = v => (v >= 0 ? "+" : "−") + Math.abs(v).toFixed(1);
+  document.getElementById("csi-read").innerHTML = o.cm === 0 ? `The fly has not moved yet. Drag the slider.`
+    : `<span class="lbl-k">Loudness meter</span><span class="lbl-e">RSSI</span>: <b class="ap">${sgn(o.dR)} dB</b>. <span class="lbl-k">Biggest single note</span><span class="lbl-e">Largest subcarrier change</span>: <b>${o.maxNote.toFixed(1)} dB</b>.<br>` +
+      (o.maxNote > 3 * Math.abs(o.dR) ? `One note changed ${Math.abs(o.dR) < 0.1 ? "far" : (o.maxNote / Math.abs(o.dR)).toFixed(0) + "×"} more than the meter.` : `Here the meter moves too; the note shape still carries more.`);
+});
+Story.bind(document.getElementById("s5"), netModel, o => {
+  document.getElementById("nS-v").textContent = o.N;
+  drawNet(o);
+  document.getElementById("net-n").textContent = `${o.N} + ${o.dd} = ${o.links} threads`;
+  document.getElementById("net-read").innerHTML = `<b>${o.N}</b> <span class="lbl-k">hub threads</span><span class="lbl-e">AP links</span>` + (o.d2d ? ` + <b>${o.dd}</b> <span class="lbl-k">spider-to-spider threads (each way)</span><span class="lbl-e">directed device-to-device links</span> = <b>${o.links}</b> = ${o.N}².` : `. Tick the box to let the spiders hear each other.`) +
+    (o.tpr != null ? `<br>Studied setup: TPR <b>${o.tpr}</b> <span class="tag ill">illustrative</span>` : `<br><span style="color:var(--ink-2)">No study row for this setup; the bars show the three that were studied.</span>`);
+});
+</script>
+</body>
+</html>

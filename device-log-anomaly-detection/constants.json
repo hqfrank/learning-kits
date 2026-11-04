@@ -1,0 +1,499 @@
+{
+ "_about": "Numbers cited by the device-log-anomaly-detection kit. Every entry has class 'public' (a cited public paper, standard or documentation; real value) or 'illustrative' (a round number invented to explain an idea, of the same order of magnitude as real practice; never a measurement). No number here is copied from any internal source. Derived values say 'my arithmetic' in their source. Load this file; do not retype the numbers.",
+ "iforest_subsample_size_default": {
+  "value": 256,
+  "unit": "points per tree",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3 (psi = 256); scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (max_samples='auto' = min(256, n_samples))"
+ },
+ "iforest_trees_default": {
+  "value": 100,
+  "unit": "trees",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3 (t = 100); scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (n_estimators=100)"
+ },
+ "iforest_height_limit_psi256": {
+  "value": 8,
+  "unit": "splits",
+  "class": "public",
+  "source": "ceil(log2 256); Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §3; scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (max depth ceil(log2 n))"
+ },
+ "euler_mascheroni": {
+  "value": 0.5772156649,
+  "unit": "dimensionless",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §2, approximation H(i) ~ ln(i) + 0.5772156649"
+ },
+ "iforest_c_256": {
+  "value": 10.24,
+  "unit": "splits",
+  "class": "public",
+  "source": "my arithmetic from c(n) = 2H(n-1) - 2(n-1)/n in Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf Eq. 1"
+ },
+ "iforest_score_at_average_path": {
+  "value": 0.5,
+  "unit": "score",
+  "class": "public",
+  "source": "Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf §2: E(h(x)) -> c(n) gives s -> 0.5"
+ },
+ "iforest_score_3_splits_psi256": {
+  "value": 0.82,
+  "unit": "score",
+  "class": "public",
+  "source": "my arithmetic: 2^(-3/10.24), from Liu, Ting, Zhou, 'Isolation Forest', ICDM 2008, https://cs.nju.edu.cn/zhouzh/zhouzh.files/publication/icdm08b.pdf Eq. 2"
+ },
+ "sklearn_iforest_offset_auto": {
+  "value": -0.5,
+  "unit": "score offset",
+  "class": "public",
+  "source": "scikit-learn IsolationForest documentation, https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.IsolationForest.html (offset_ = -0.5 when contamination='auto')"
+ },
+ "drain_runtime_improvement": {
+  "value": [
+   51.85,
+   81.47
+  ],
+  "unit": "%",
+  "class": "public",
+  "source": "He, Zhu, Zheng, Lyu, 'Drain', ICWS 2017, https://jiemingzhu.github.io/pub/pjhe_icws2017.pdf abstract (vs best online parser of its time)"
+ },
+ "drain_eval_datasets": {
+  "value": 5,
+  "unit": "data sets",
+  "class": "public",
+  "source": "He, Zhu, Zheng, Lyu, 'Drain', ICWS 2017, https://jiemingzhu.github.io/pub/pjhe_icws2017.pdf abstract"
+ },
+ "drain_eval_messages_min": {
+  "value": 10000000,
+  "unit": "log messages",
+  "class": "public",
+  "source": "He, Zhu, Zheng, Lyu, 'Drain', ICWS 2017, https://jiemingzhu.github.io/pub/pjhe_icws2017.pdf abstract ('more than 10 million')"
+ },
+ "deeplog_top_g": {
+  "value": 9,
+  "unit": "candidates",
+  "class": "public",
+  "source": "Du, Li, Zheng, Srikumar, 'DeepLog', CCS 2017, https://nlp.cs.utah.edu/assets/pdfs/du2017deeplog.pdf §5.1.3 defaults"
+ },
+ "deeplog_history_h": {
+  "value": 10,
+  "unit": "log keys",
+  "class": "public",
+  "source": "Du, Li, Zheng, Srikumar, 'DeepLog', CCS 2017, https://nlp.cs.utah.edu/assets/pdfs/du2017deeplog.pdf §5.1.3 defaults"
+ },
+ "deeplog_layers_L": {
+  "value": 2,
+  "unit": "LSTM layers",
+  "class": "public",
+  "source": "Du, Li, Zheng, Srikumar, 'DeepLog', CCS 2017, https://nlp.cs.utah.edu/assets/pdfs/du2017deeplog.pdf §5.1.3 defaults"
+ },
+ "deeplog_memory_units_alpha": {
+  "value": 64,
+  "unit": "units per LSTM block",
+  "class": "public",
+  "source": "Du, Li, Zheng, Srikumar, 'DeepLog', CCS 2017, https://nlp.cs.utah.edu/assets/pdfs/du2017deeplog.pdf §5.1.3 defaults"
+ },
+ "deeplog_hdfs_entries": {
+  "value": 11197954,
+  "unit": "log entries",
+  "class": "public",
+  "source": "Du, Li, Zheng, Srikumar, 'DeepLog', CCS 2017, https://nlp.cs.utah.edu/assets/pdfs/du2017deeplog.pdf §5.1.2",
+  "note": "Loghub lists HDFS_v1 as 11,175,629 lines; the two counts differ slightly"
+ },
+ "deeplog_hdfs_abnormal_share": {
+  "value": 2.9,
+  "unit": "%",
+  "class": "public",
+  "source": "Du, Li, Zheng, Srikumar, 'DeepLog', CCS 2017, https://nlp.cs.utah.edu/assets/pdfs/du2017deeplog.pdf §5.1.2 ('about 2.9% are abnormal')"
+ },
+ "loghub_hdfs_v1_lines": {
+  "value": 11175629,
+  "unit": "lines",
+  "class": "public",
+  "source": "Loghub (Zhu et al.), https://github.com/logpai/loghub"
+ },
+ "loghub_bgl_span": {
+  "value": 214.7,
+  "unit": "days",
+  "class": "public",
+  "source": "Loghub (Zhu et al.), https://github.com/logpai/loghub"
+ },
+ "he2016_hdfs_count_vectors": {
+  "value": 575061,
+  "unit": "session count vectors",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-A"
+ },
+ "he2016_hdfs_anomalies": {
+  "value": 16838,
+  "unit": "session count vectors",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-A"
+ },
+ "he2016_bgl_messages": {
+  "value": 4747963,
+  "unit": "log messages",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-A; also Loghub (Zhu et al.), https://github.com/logpai/loghub"
+ },
+ "he2016_bgl_failures": {
+  "value": 348460,
+  "unit": "log messages",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-A"
+ },
+ "he2016_fixed_window_default": {
+  "value": 1,
+  "unit": "h",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-B"
+ },
+ "he2016_sliding_window_default": {
+  "value": {
+   "window": 6,
+   "step": 1
+  },
+  "unit": "h",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-B"
+ },
+ "he2016_supervised_train_split": {
+  "value": 80,
+  "unit": "% of data (first, by time)",
+  "class": "public",
+  "source": "He, Zhu, He, Lyu, 'Experience Report: System Log Analysis for Anomaly Detection', ISSRE 2016, https://jiemingzhu.github.io/pub/slhe_issre2016.pdf §IV-B"
+ },
+ "phred_factor": {
+  "value": 10,
+  "unit": "score points per decade of p",
+  "class": "public",
+  "source": "Ewing & Green, Genome Research 8:186-194, 1998: Q = -10 log10 P"
+ },
+ "score_examples": {
+  "value": {
+   "p_0.1": 10,
+   "p_0.01": 20,
+   "p_1e-5": 50,
+   "p_1e-10": 100
+  },
+  "unit": "score",
+  "class": "public",
+  "source": "my arithmetic from score = -10 log10(p)"
+ },
+ "z_95_two_sided": {
+  "value": 1.96,
+  "unit": "standard deviations",
+  "class": "public",
+  "source": "standard normal quantile; NIST/SEMATECH e-Handbook §7.2.4.1"
+ },
+ "ieee80211_reason_prev_auth_not_valid": {
+  "value": 2,
+  "unit": "reason code",
+  "class": "public",
+  "source": "IEEE Std 802.11 reason-code table; wpa_supplicant src/common/ieee802_11_defs.h (WLAN_REASON_PREV_AUTH_NOT_VALID)"
+ },
+ "ieee80211_reason_deauth_leaving": {
+  "value": 3,
+  "unit": "reason code",
+  "class": "public",
+  "source": "IEEE Std 802.11 reason-code table; wpa_supplicant ieee802_11_defs.h (WLAN_REASON_DEAUTH_LEAVING)"
+ },
+ "ieee80211_reason_4way_handshake_timeout": {
+  "value": 15,
+  "unit": "reason code",
+  "class": "public",
+  "source": "IEEE Std 802.11 reason-code table; wpa_supplicant ieee802_11_defs.h (WLAN_REASON_4WAY_HANDSHAKE_TIMEOUT)"
+ },
+ "tkip_deprecated_in": {
+  "value": 2012,
+  "unit": "year of standard",
+  "class": "public",
+  "source": "IEEE Std 802.11-2012 (TKIP deprecated); Wi-Fi Alliance guidance"
+ },
+ "support_unresolved_share": {
+  "value": 5,
+  "unit": "% of support contacts",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A0"
+ },
+ "lines_per_device_day": {
+  "value": 500000,
+  "unit": "lines",
+  "class": "illustrative",
+  "source": "illustrative (order of magnitude endorsed by the kit brief)",
+  "used_in": "A0, A1"
+ },
+ "ring_buffer_size": {
+  "value": 4,
+  "unit": "MB (a few megabytes)",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A1"
+ },
+ "wifi_component_share_kept": {
+  "value": 1,
+  "unit": "% of lines",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A1"
+ },
+ "uploaded_log_retention": {
+  "value": 60,
+  "unit": "days",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A1, C3"
+ },
+ "on_device_retention": {
+  "value": 14,
+  "unit": "days",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A1"
+ },
+ "small_family_devices": {
+  "value": 100,
+  "unit": "active devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2, C3"
+ },
+ "rare_reason_devices": {
+  "value": 3,
+  "unit": "devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2, C3"
+ },
+ "rare_share_small_family_se": {
+  "value": 1.7,
+  "unit": "percentage points",
+  "class": "illustrative",
+  "source": "my arithmetic: sqrt(0.03*0.97/100), from illustrative inputs",
+  "used_in": "A2"
+ },
+ "large_family_devices": {
+  "value": 10000,
+  "unit": "active devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A2"
+ },
+ "rare_share_large_family_se": {
+  "value": 0.17,
+  "unit": "percentage points",
+  "class": "illustrative",
+  "source": "my arithmetic: sqrt(0.03*0.97/10000), from illustrative inputs",
+  "used_in": "A2"
+ },
+ "templates_per_component_set": {
+  "value": 400,
+  "unit": "templates",
+  "class": "illustrative",
+  "source": "illustrative ('a few hundred')",
+  "used_in": "B1, C2"
+ },
+ "component_print_statements": {
+  "value": 100,
+  "unit": "print statements",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B1"
+ },
+ "component_error_warning_share": {
+  "value": 50,
+  "unit": "% of print statements",
+  "class": "illustrative",
+  "source": "illustrative ('about half')",
+  "used_in": "B1"
+ },
+ "miner_templates_found": {
+  "value": 20,
+  "unit": "templates",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B1"
+ },
+ "window_example": {
+  "value": {
+   "day": 24,
+   "window": 1,
+   "step": 0.25,
+   "windows": 93
+  },
+  "unit": "h / count",
+  "class": "illustrative",
+  "source": "illustrative inputs; windows = (24-1)/0.25 + 1, my arithmetic",
+  "used_in": "B2"
+ },
+ "trend_series_length": {
+  "value": {
+   "weeks": 8,
+   "daily_points": 56
+  },
+  "unit": "weeks / days",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B4"
+ },
+ "score_cap": {
+  "value": 100,
+  "unit": "score",
+  "class": "illustrative",
+  "source": "illustrative cap (p = 1e-10)",
+  "used_in": "B4"
+ },
+ "family_reports_per_week": {
+  "value": 1,
+  "unit": "reports",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B4"
+ },
+ "monitored_series": {
+  "value": 10000,
+  "unit": "series per day",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B4"
+ },
+ "multiple_testing_false_alarms": {
+  "value": 100,
+  "unit": "series per day",
+  "class": "illustrative",
+  "source": "my arithmetic: 10 000 x 0.01, illustrative inputs",
+  "used_in": "B4"
+ },
+ "user_reported_tickets_per_year": {
+  "value": 1000,
+  "unit": "tickets",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "B6"
+ },
+ "ground_truth_candidates": {
+  "value": 60,
+  "unit": "cases",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C1"
+ },
+ "ground_truth_usable": {
+  "value": 10,
+  "unit": "cases",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C1"
+ },
+ "ground_truth_detected": {
+  "value": 6,
+  "unit": "cases",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C1"
+ },
+ "detection_rate_wilson95_6of10": {
+  "value": [
+   31,
+   83
+  ],
+  "unit": "%",
+  "class": "illustrative",
+  "source": "my arithmetic: Wilson score interval for 6/10 (illustrative counts)",
+  "used_in": "C1"
+ },
+ "detection_rate_wald95_6of10": {
+  "value": [
+   30,
+   90
+  ],
+  "unit": "%",
+  "class": "illustrative",
+  "source": "my arithmetic: normal (Wald) interval for 6/10, clipped/rounded (illustrative counts)",
+  "used_in": "C1"
+ },
+ "detection_rate_wilson95_60of100": {
+  "value": [
+   50,
+   69
+  ],
+  "unit": "%",
+  "class": "illustrative",
+  "source": "my arithmetic: Wilson score interval for 60/100 (illustrative counts)",
+  "used_in": "C1"
+ },
+ "pilot_tickets": {
+  "value": 10,
+  "unit": "tickets",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C1, C4"
+ },
+ "pilot_environmental": {
+  "value": 4,
+  "unit": "tickets",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C1, C4"
+ },
+ "template_check_devices": {
+  "value": {
+   "healthy": 10,
+   "problem": 5
+  },
+  "unit": "devices",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C2"
+ },
+ "timestamp_inversion_share": {
+  "value": 3,
+  "unit": "% of records",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C3"
+ },
+ "flagged_windows": {
+  "value": 20,
+  "unit": "windows",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C4"
+ },
+ "windows_scanned": {
+  "value": 50000,
+  "unit": "windows",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C4"
+ },
+ "manual_log_download": {
+  "value": 15,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C5"
+ },
+ "time_per_case_before": {
+  "value": 90,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A0, C5"
+ },
+ "time_per_case_after": {
+  "value": 15,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "A0, C5"
+ },
+ "survey_respondents": {
+  "value": 10,
+  "unit": "users",
+  "class": "illustrative",
+  "source": "illustrative",
+  "used_in": "C5"
+ }
+}

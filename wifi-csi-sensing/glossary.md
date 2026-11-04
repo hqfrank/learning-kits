@@ -1,0 +1,124 @@
+# Glossary — Wi-Fi sensing with channel state information
+
+One line per term, alphabetical, each defined once. The note where a term is introduced is named in
+parentheses. Numbers are not repeated here; they live in [`constants.json`](constants.json).
+
+- **2 × 2 factorial design** — an experiment that crosses two factors at two levels each ([[notes/C3-coexistence|C3]]).
+- **access point (AP)** — the Wi-Fi device that a home's clients connect to ([[notes/A0-why-sense-with-wifi|A0]]).
+- **ACF (autocorrelation function)** — the normalised similarity of a series with a lagged copy of itself ([[notes/B2-features|B2]]).
+- **ACF tap / lag** — one lag value of the ACF, in reports ([[notes/B2-features|B2]]).
+- **AGC (automatic gain control)** — the receiver function that rescales each frame's gain ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **airtime (utilisation)** — the fraction of time a channel is occupied by transmissions ([[notes/C3-coexistence|C3]]).
+- **amplitude / phase (of CSI)** — the magnitude and angle of one CSI entry ([[notes/A1-csi-and-multipath|A1]]).
+- **antenna pair** — one transmit antenna and one receive antenna; each pair has its own CSI ([[notes/A1-csi-and-multipath|A1]]).
+- **AP-side / client-side motion** — motion near the shared AP / near one client device ([[notes/B4-multi-device-joint-detection|B4]]).
+- **AUC** — the area under the ROC curve ([[notes/B3-classifiers-and-windows|B3]]).
+- **background (CSI)** — the slowly varying static channel, estimated by a moving average ([[notes/B1-preprocessing|B1]]).
+- **beacon** — the periodic management frame an AP broadcasts; a free source of CSI ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **blind-spot ratio** — the fraction of area or rooms where errors exceed a threshold ([[notes/C1-kpis|C1]]).
+- **BSSID** — the MAC address that identifies an access point's network ([[notes/C4-sensing-endpoint-architecture|C4]]).
+- **calibration walk** — a one-time walk through each room to record reference CSI ([[notes/B5-room-localisation-by-metric-learning|B5]]).
+- **CFO / STO / SFO** — carrier frequency offset / sampling time offset / sampling frequency offset; sources of random CSI phase ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **classifier** — a function from a feature vector to a score or label ([[notes/B3-classifiers-and-windows|B3]]).
+- **co-channel interference** — transmissions on the same channel from another network or device ([[notes/C3-coexistence|C3]]).
+- **co-existence** — whether two radio systems in one place disturb each other's operation or measurements ([[notes/C3-coexistence|C3]]).
+- **collection tool** — the automation that sets up devices, filters, and recording ([[notes/C2-data-collection-campaigns|C2]]).
+- **companion app** — the phone application that controls the feature ([[notes/C4-sensing-endpoint-architecture|C4]]).
+- **conjugate multiplication / CSI ratio** — combining two antennas' CSI so that common offsets cancel ([[notes/B1-preprocessing|B1]]).
+- **contrastive loss** — a pair loss that pulls similar pairs together and pushes dissimilar pairs at least a margin apart ([[notes/B5-room-localisation-by-metric-learning|B5]]).
+- **coverage limit** — the area that a home's links can sense ([[notes/C5-limits-and-open-problems|C5]]).
+- **cross-correlation (across links)** — the similarity of CSI variation over time on two links ([[notes/B4-multi-device-joint-detection|B4]]).
+- **CSI (channel state information)** — the complex channel gain per subcarrier per antenna pair, estimated from one frame ([[notes/A1-csi-and-multipath|A1]]).
+- **CSI report** — one CSI matrix with metadata, produced for one received frame ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **data collection campaign** — a planned set of recordings in real homes with ground truth ([[notes/C2-data-collection-campaigns|C2]]).
+- **DC bin** — the zero-frequency FFT bin; the window mean ([[notes/B2-features|B2]]).
+- **decision margin (T)** — the minimum difference needed before one value is called larger than another ([[notes/B4-multi-device-joint-detection|B4]]).
+- **delay resolution** — the smallest delay difference the channel width can separate, 1/bandwidth ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **deployment type** — the geometric class of a link: free-space LoS, wall between, several walls, NLoS ([[notes/B4-multi-device-joint-detection|B4]]).
+- **detection latency** — the time from the start of an event to the decision ([[notes/B3-classifiers-and-windows|B3]]).
+- **device-based tracking** — locating an object by its own radio transmissions ([[notes/A0-why-sense-with-wifi|A0]]).
+- **device-free sensing** — sensing a person who carries no radio ([[notes/A0-why-sense-with-wifi|A0]]).
+- **Doppler (frequency)** — the rate of phase rotation of a path whose length changes, in Hz ([[notes/A1-csi-and-multipath|A1]]).
+- **DWT (discrete wavelet transform)** — a transform that localises frequency content in time ([[notes/B2-features|B2]]).
+- **dynamics (CSI)** — amplitude minus background; the part caused by motion ([[notes/B1-preprocessing|B1]]).
+- **edge + cloud split** — per-link decisions on the device, joint decisions in the cloud ([[notes/C4-sensing-endpoint-architecture|C4]]).
+- **effective-coverage ratio** — the fraction of area or rooms where both TPR and TNR exceed a threshold ([[notes/C1-kpis|C1]]).
+- **eigenvalue spread** — how the variance is shared across principal components ([[notes/B2-features|B2]]).
+- **embedding** — the fixed-length vector a network produces for one input ([[notes/B5-room-localisation-by-metric-learning|B5]]).
+- **endpoint** — a device that measures CSI and runs (part of) the sensing pipeline ([[notes/A0-why-sense-with-wifi|A0]]).
+- **ensemble vote** — combining several classifiers by majority ([[notes/B3-classifiers-and-windows|B3]]).
+- **environment drift** — slow change of the static channel over hours and days ([[notes/C5-limits-and-open-problems|C5]]).
+- **environment-independent feature** — a feature whose decision threshold transfers across rooms ([[notes/B2-features|B2]]).
+- **exponential moving average (EMA)** — a recursive low-pass filter ([[notes/B1-preprocessing|B1]]).
+- **false-alarm budget** — the allowed false alarms per home per unit time ([[notes/C1-kpis|C1]]).
+- **feature** — a function of a window used as classifier input ([[notes/B2-features|B2]]).
+- **FFT feature** — the per-subcarrier spectrum of amplitude over a window ([[notes/B2-features|B2]]).
+- **frequency-selective fading** — the variation of channel gain across subcarriers caused by multipath ([[notes/A1-csi-and-multipath|A1]]).
+- **Fresnel zone** — an ellipsoid around a link where a reflected path is a whole number of half-wavelengths longer than the LoS ([[notes/A1-csi-and-multipath|A1]]).
+- **ground truth** — the reference record of where people were and what they did ([[notes/C2-data-collection-campaigns|C2]]).
+- **guard band** — unused subcarriers at the band edges and centre ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **Hampel filter** — an outlier filter that compares each sample with the median of its neighbours in units of scaled MAD ([[notes/B1-preprocessing|B1]]).
+- **IEEE 802.11bf** — the IEEE amendment that standardises WLAN sensing ([[notes/A0-why-sense-with-wifi|A0]]).
+- **inanimate motion** — CSI change caused by objects, not people: fans, vents, curtains, appliances ([[notes/C5-limits-and-open-problems|C5]]).
+- **informed consent** — documented agreement of each occupant to be recorded ([[notes/C2-data-collection-campaigns|C2]]).
+- **injected traffic** — frames sent only to generate CSI reports at a higher rate ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **joint detection** — a decision made from many links together ([[notes/B4-multi-device-joint-detection|B4]]).
+- **KPI** — a metric with a target that gates a product decision ([[notes/C1-kpis|C1]]).
+- **line of sight (LoS) / non-line of sight (NLoS)** — the direct path between radios exists / is blocked ([[notes/A1-csi-and-multipath|A1]]).
+- **link (sensing)** — one transmitter–receiver pair whose CSI is measured; device-to-device links are directed ([[notes/B4-multi-device-joint-detection|B4]]).
+- **link labelling** — assigning a ground-truth label to each link's window, not to the whole home ([[notes/B3-classifiers-and-windows|B3]]).
+- **MAC filter (CSI)** — a list of transmitter addresses whose frames are kept for CSI ([[notes/B4-multi-device-joint-detection|B4]]).
+- **MAD (median absolute deviation)** — the median of absolute deviations from the median; a robust spread ([[notes/B1-preprocessing|B1]]).
+- **mesh Wi-Fi access point** — one node of a multi-node home Wi-Fi system ([[notes/C3-coexistence|C3]]).
+- **metric learning** — training a network so that distances between its outputs encode similarity ([[notes/B5-room-localisation-by-metric-learning|B5]]).
+- **MLP (multi-layer perceptron)** — a small fully connected neural network ([[notes/B3-classifiers-and-windows|B3]]).
+- **multi-target detection** — detecting and locating more than one person at the same time ([[notes/C5-limits-and-open-problems|C5]]).
+- **multipath** — propagation by several paths with different delays ([[notes/A1-csi-and-multipath|A1]]).
+- **nearest-neighbour decision** — returning the label of the closest reference embedding ([[notes/B5-room-localisation-by-metric-learning|B5]]).
+- **node variation (w)** — the summed variation of all links at one node ([[notes/B4-multi-device-joint-detection|B4]]).
+- **OFDM** — a modulation that splits a channel into many orthogonal narrow subcarriers ([[notes/A1-csi-and-multipath|A1]]).
+- **outlier (CSI)** — a report whose amplitude jumps for reasons unrelated to the room ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **Parseval's theorem** — the energy of a series equals the energy of its spectrum ([[notes/B2-features|B2]]).
+- **PCA (principal component analysis)** — eigen-decomposition of a covariance into ordered components ([[notes/B2-features|B2]]).
+- **per-scenario breakdown** — reporting each KPI separately for each scenario ([[notes/C1-kpis|C1]]).
+- **per-second mean / standard deviation (CSI)** — the average / spread of a subcarrier's amplitude over the reports in one second ([[notes/C3-coexistence|C3]]).
+- **phase sanitisation** — removing the random offsets from CSI phase ([[notes/B1-preprocessing|B1]]).
+- **power normalisation** — dividing each report by its norm to remove gain jumps ([[notes/B1-preprocessing|B1]]).
+- **preprocessing** — the steps that turn raw CSI reports into clean input for the feature extractor ([[notes/B1-preprocessing|B1]]).
+- **presence** — a person is in the area, moving or still. Contrast **motion**, where the person moves ([[notes/A0-why-sense-with-wifi|A0]]).
+- **random / held-out-day / held-out-home split** — test data drawn at random / from an unseen day / from unseen homes ([[notes/B3-classifiers-and-windows|B3]]).
+- **reference embedding** — a stored embedding that represents one room of one home ([[notes/B5-room-localisation-by-metric-learning|B5]]).
+- **report rate** — CSI reports per second on one link ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **result task / health-monitor task** — scheduled jobs that publish decisions / check that the CSI stream is alive ([[notes/C4-sensing-endpoint-architecture|C4]]).
+- **ROC curve** — TPR against FPR as the decision threshold moves ([[notes/B3-classifiers-and-windows|B3]]).
+- **RSSI** — one received-power value per frame ([[notes/A1-csi-and-multipath|A1]]).
+- **scenario script** — the list of session types with start, action, and end conditions ([[notes/C2-data-collection-campaigns|C2]]).
+- **scenario taxonomy** — attributes that place each target position and each link set-up in a coverage grid ([[notes/C2-data-collection-campaigns|C2]]).
+- **sensing daemon** — the long-running on-device program that runs the CSI pipeline ([[notes/C4-sensing-endpoint-architecture|C4]]).
+- **sensing endpoint** — a device whose software turns its CSI into decisions ([[notes/C4-sensing-endpoint-architecture|C4]]).
+- **sensing symmetry** — the inability of one link to tell which end the motion is near ([[notes/C5-limits-and-open-problems|C5]]).
+- **sensor fusion** — combining two sensors whose failure cases are independent so that each covers the other ([[notes/A0-why-sense-with-wifi|A0]]).
+- **session** — one scripted recording of one scenario ([[notes/C2-data-collection-campaigns|C2]]).
+- **Siamese network** — one network with shared weights applied to every member of a pair or triplet ([[notes/B5-room-localisation-by-metric-learning|B5]]).
+- **single-stream (1×1)** — one transmit and one receive antenna; one antenna pair ([[notes/A2-what-the-hardware-gives-you|A2]]).
+- **sliding window** — overlapping windows that advance by less than their length ([[notes/B3-classifiers-and-windows|B3]]).
+- **softAP** — a software access point run on a client device so that other devices can measure CSI from it ([[notes/B4-multi-device-joint-detection|B4]]).
+- **static / dynamic paths** — paths whose length does not / does change with motion ([[notes/A1-csi-and-multipath|A1]]).
+- **still presence** — a person present without gross motion; sensed through breathing and absorption ([[notes/C5-limits-and-open-problems|C5]]).
+- **subcarrier** — one narrow frequency tone of an OFDM channel ([[notes/A1-csi-and-multipath|A1]]).
+- **subcarrier grouping (Ng)** — replacing every Ng adjacent subcarriers with one value ([[notes/B1-preprocessing|B1]]).
+- **subcarrier selection** — keeping a subset of subcarriers ([[notes/B1-preprocessing|B1]]).
+- **SVM (support vector machine)** — a maximum-margin classifier; with an RBF kernel its boundary can be curved ([[notes/B3-classifiers-and-windows|B3]]).
+- **target position tuple / link set-up tuple** — the two three-attribute descriptions in the taxonomy ([[notes/C2-data-collection-campaigns|C2]]).
+- **through-wall false positive** — a detection caused by motion in another room ([[notes/B4-multi-device-joint-detection|B4]]).
+- **time to detect / time to clear** — the delay to the first positive decision after an event starts / to the "empty" decision after it ends ([[notes/C1-kpis|C1]]).
+- **TPR / FPR / TNR / FNR** — true-positive, false-positive, true-negative, false-negative ratios ([[notes/C1-kpis|C1]]).
+- **TPR at fixed FPR** — the true-positive rate at the threshold that gives a chosen false-positive rate ([[notes/B3-classifiers-and-windows|B3]]).
+- **training symbols** — the known part of a frame's preamble that the receiver uses to estimate the channel ([[notes/A1-csi-and-multipath|A1]]).
+- **triplet loss** — a loss on (anchor, positive, negative) that requires the negative to be farther than the positive by a margin ([[notes/B5-room-localisation-by-metric-learning|B5]]).
+- **unit of generalisation** — the grouping (here, the home) that must differ between train and test ([[notes/C2-data-collection-campaigns|C2]]).
+- **variance (CSI)** — the spread of a subcarrier's amplitude over a window ([[notes/B2-features|B2]]).
+- **virtual sensing** — training a CSI model to imitate another sensor's output ([[notes/C5-limits-and-open-problems|C5]]).
+- **Wi-Fi sensing** — inference of motion, presence, or location from the channel estimates of Wi-Fi links ([[notes/A0-why-sense-with-wifi|A0]]).
+- **window** — a block of consecutive CSI reports on one link ([[notes/B2-features|B2]]).
+- **window-level / event-level metric** — scoring every window / scoring each episode once ([[notes/C1-kpis|C1]]).
