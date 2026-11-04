@@ -217,3 +217,40 @@ constants: the four-step retraining cascade (C2) and √2 (A2). B6 has no numeri
 note states no number worth asking (its only number is an illustrative ticket volume). tf is about
 27 %, because each "Common confusions" item gets a true/false question. Validated with
 `node quiz/check-banks.js` (0 errors); `tools/public-scan.sh` is clean.
+
+## robot-stack-contention — Robot stack contention: why every service slows in the full stack
+
+| Topic | Section | KPs | Questions | Date |
+|---|---|---|---|---|
+| robot-stack-contention | A0-the-big-picture | 7 | 31 | 2026-11-04 (QAE review) |
+| robot-stack-contention | A1-cpu-queueing-on-a-shared-pool | 8 | 32 | 2026-11-04 |
+| robot-stack-contention | A2-same-work-more-cycles | 8 | 34 | 2026-11-04 |
+| robot-stack-contention | A3-priorities-in-containers | 8 | 32 | 2026-11-04 |
+| robot-stack-contention | A4-costs-that-grow-with-history | 8 | 33 | 2026-11-04 |
+| robot-stack-contention | A5-where-to-put-the-observers | 8 | 32 | 2026-11-04 |
+| robot-stack-contention | B1-gpu-time-slicing-and-the-dose-curve | 9 | 39 | 2026-11-04 |
+| robot-stack-contention | B2-low-issue-rate-is-not-free-room | 7 | 33 | 2026-11-04 |
+| robot-stack-contention | B3-mps-in-practice | 9 | 36 | 2026-11-04 |
+| robot-stack-contention | B4-compute-bound-or-near-the-ridge | 8 | 33 | 2026-11-04 (QAE review) |
+| robot-stack-contention | C1-deployment-fidelity-and-batch-1-latency | 8 | 32 | 2026-11-04 |
+
+**Totals:** 11 banks (one per note), 88 knowledge points, 367 questions
+(mcq 162, tf 117, numeric 72, multi 16). Every knowledge point has 4–6 questions.
+
+Notes: sources are the kit's notes, glossary and `constants.json` only. Every number was loaded from
+`constants.json` by key at generation time; illustrative values are called illustrative in the
+explanation, and derived values (wait share 0.5, probe share ≈ 0.92, C\* ≈ 100 ms, ridges ≈ 240 and
+≈ 976 FLOP/B (≈ 743 FLOP/B at Thor's read peak, `dram_read_thor`), 0.75 / 0.6 s per s, ≈ 3.3 calls/s, 4 Hz) are asked with their inputs in the prompt and
+labelled "my estimate". Each correction gets a tf or mcq on the confusion itself: GPU sharing alone
+cost the camera nothing with an idle pool (GPU plus pool load not tested), nice inside a container is
+not a priority test, the encoder's miss was the wrong prediction form, a low issue rate is not free room, more SMs help multi-wave kernels, no SM contention
+without MPS, and most of the interaction service's rise was the measurement probe. Verdict wording is
+kept as pre-registered ("undecided at dose", "about two thirds" on the class line). tf is about 32 %
+because the kit is correction-heavy; multi is low (about 4 %) and A1 has none, because few notes have
+select-all seams.
+
+QAE review (2026-11-04): fixed a second-correct distractor (B4 q5), aligned wording with the revised
+notes ("model version", baseline / moved arms and X_base / X_moved, B3's "suppose ... two Linux
+users", C1's desktop-session advice), wave count as a ceiling, shared memory as the fourth residency
+limit, units in numeric prompts; added two A0 correction questions and one B4 numeric (Thor ridge at
+the read peak). All ids and KPs kept. Validated with `node quiz/check-banks.js` (0 errors); `tools/public-scan.sh` is clean.

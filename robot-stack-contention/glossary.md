@@ -1,0 +1,106 @@
+# Glossary — Why a robot software stack runs slower than its parts
+
+One line per term, alphabetical, each defined once. The note where a term is introduced is named in
+parentheses. Where a sibling kit already defines a term, the line says "Reused from" with a link to
+that kit's glossary, and the definition matches it. The glossary carries no numbers except one
+public default, which carries its key; every value lives in [`constants.json`](constants.json).
+
+- **achieved occupancy** — the fraction of an SM's warp slots that is filled on average while a kernel runs, measured on the hardware. Reused from [`../nvidia-gpu-anatomy/glossary.md`](../nvidia-gpu-anatomy/glossary.md) (B2-low-issue-rate-is-not-free-room).
+- **action chunk / horizon (H)** — the several future timesteps that one VLA inference emits, executed open-loop until replaced. Reused from [`../jetson-orin-thor-metrics/glossary.md`](../jetson-orin-thor-metrics/glossary.md) (C1-deployment-fidelity-and-batch-1-latency).
+- **activation** — one wake-up of a thread, counted as a voluntary switch; it is not the same as a timeslice (A3-priorities-in-containers).
+- **alone / full stack / full stack + VLA** — the three load levels: one service alone; every module on at once (`stack_services`); the full stack plus a VLA at a fixed offered rate (`vla_offered_hz`) (A0-the-big-picture).
+- **arithmetic intensity** — operations per byte moved; it places a stage on the roofline. Reused from [`../jetson-orin-thor-metrics/glossary.md`](../jetson-orin-thor-metrics/glossary.md) (B4-compute-bound-or-near-the-ridge).
+- **bandwidth form** — see **compute form / bandwidth form** (B4-compute-bound-or-near-the-ridge).
+- **batch-1 latency** — the time for one inference when inferences run one at a time with batch size 1 (C1-deployment-fidelity-and-batch-1-latency).
+- **bench addition** — a process that the bench adds on purpose, such as the VLA or a synthetic load, and only in named experiments (C1-deployment-fidelity-and-batch-1-latency).
+- **bench artefact** — a result caused by the measurement apparatus rather than by the system under test. Reused from [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) (A5-where-to-put-the-observers).
+- **blocked time** — time a thread neither runs nor waits for a CPU, for example during GPU sync, locks or I/O; in a frame callback that shares the GPU it is mostly GPU wait (A0-the-big-picture, B1-gpu-time-slicing-and-the-dose-curve).
+- **C, R, C\*** — one co-tenant arm's added blocked time; the VLA arm's added blocked time; the compute curve's value at the VLA's dose (B1-gpu-time-slicing-and-the-dose-curve).
+- **cache A/B** — an earlier test that put a synthetic L3-footprint load or an L1-resident load on the neighbouring cores of the motor loop (A2-same-work-more-cycles).
+- **calibrator heartbeat** — a fixed-rate test publisher that measures the probe receive delay (A5-where-to-put-the-observers).
+- **call time** — the wall time of one model call, CPU-side work included (C1-deployment-fidelity-and-batch-1-latency).
+- **camera-plus-detector row** — a test configuration that runs only the depth camera service and the object detector, with an idle CPU pool (A0-the-big-picture).
+- **CFS share** — the fraction of a contended CPU that the Completely Fair Scheduler gives each runnable group; on a saturated core it is a cap, not a demand (A1-cpu-queueing-on-a-shared-pool).
+- **cgroup v2** — the Linux control-group hierarchy; each container is one group, and the `cpu` controller shares CPU time between sibling groups. See also **control group (cgroup)** in [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) (A3-priorities-in-containers).
+- **class line** — a value, written before the run, that separates two pre-registered result classes; a result close to it is reported as close, not as a clean class (A2-same-work-more-cycles).
+- **cluster move** — the one-factor experiment that moves the motor loop's cluster-mates to other cores and measures the motor loop's cycles per unit of work (A2-same-work-more-cycles).
+- **cluster-mate** — a service on another core of the same CPU cluster, which shares that cluster's L3 cache and interconnect (A2-same-work-more-cycles).
+- **co-tenant** — a synthetic or real process that shares the GPU with the victim (B1-gpu-time-slicing-and-the-dose-curve).
+- **compute form / bandwidth form** — a predicted time written as FLOP ÷ compute rate, or as bytes ÷ bandwidth (B4-compute-bound-or-near-the-ridge).
+- **context loop** — the dialogue engine's context build, from its "context start" log line to its "context end" log line (A4-costs-that-grow-with-history).
+- **convex** — describes a curve whose slope rises with dose, so each extra point costs more than the last (B1-gpu-time-slicing-and-the-dose-curve).
+- **core pinning / isolation (cpusets, `isolcpus`)** — removing cores from the general scheduler and assigning services to them. Reused from [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) (A1-cpu-queueing-on-a-shared-pool).
+- **cpu.weight** — the cgroup v2 file that sets a group's CPU share against its siblings; the default is 100 (public, `cpu_weight_default`) (A3-priorities-in-containers).
+- **CUDA context** — a process's GPU state; the GPU time-slices between contexts. Reused from [`../nvidia-gpu-anatomy/glossary.md`](../nvidia-gpu-anatomy/glossary.md) (B1-gpu-time-slicing-and-the-dose-curve).
+- **`CUDA_MPS_PIPE_DIRECTORY`** — the environment variable that points an MPS client to the control daemon's UNIX sockets (B3-mps-in-practice).
+- **deployment fidelity** — how closely the bench reproduces the robot's processes, images, Linux users, core sets and placements (C1-deployment-fidelity-and-batch-1-latency).
+- **depth camera service** — the service that captures camera frames and publishes them as topics; its frame rate is its main metric, and it uses both the CPU pool and the GPU (A0-the-big-picture).
+- **dialogue engine** — the service that decides how the robot replies; it runs an asyncio event loop (A4-costs-that-grow-with-history).
+- **dose (O)** — the other processes' share of GPU-active time, in percentage points; the x-axis of the dose curve (B1-gpu-time-slicing-and-the-dose-curve).
+- **dose curve** — the victim's added blocked time plotted against the dose O (B1-gpu-time-slicing-and-the-dose-curve).
+- **event-loop thread (asyncio)** — the single thread that runs all callbacks of a Python asyncio program; a callback with no `await` blocks every other callback (A4-costs-that-grow-with-history).
+- **fan-out** — the extra subscribers and topics that a publisher must serve (B1-gpu-time-slicing-and-the-dose-curve).
+- **fixed-work thread** — a thread whose work per unit (bus cycle, message, frame) is fixed, so its instructions per unit should not change (A2-same-work-more-cycles).
+- **frame-path candidate threads** — the camera threads that an earlier scheduler trace identified as possible capture-loop stages (A3-priorities-in-containers).
+- **GPU-memory holder** — a process that holds GPU memory; each one is likely one CUDA context (C1-deployment-fidelity-and-batch-1-latency).
+- **GPU time per call** — the GPU work inside one model call: the GPU-busy fraction divided by the call rate (C1-deployment-fidelity-and-batch-1-latency).
+- **GPU-time-bound** — describes a model that needs more GPU time per second at its offered rate than its neighbours leave free (C1-deployment-fidelity-and-batch-1-latency).
+- **head-of-line wait** — the wait of a message that arrives while the thread is busy, until the current callback ends (A4-costs-that-grow-with-history).
+- **interaction service** — the service that receives requests to the robot and returns an accepted reply (A0-the-big-picture).
+- **IPC (instructions per cycle)** — retired instructions divided by CPU cycles for one thread (A2-same-work-more-cycles).
+- **issue rate** — see **SM issue rate** (B2-low-issue-rate-is-not-free-room).
+- **kernel fill (binding fill)** — the largest used fraction of an SM's warps, blocks, registers or shared memory for one kernel, computed from its launch configuration (B2-low-issue-rate-is-not-free-room).
+- **launch and synchronise round trip** — the time to launch one kernel and wait for it to finish; for an empty kernel it is pure overhead (B3-mps-in-practice).
+- **manipulation check** — a gate that confirms that the factor was actually applied, here that the target's wait fell, before the outcome is read (A3-priorities-in-containers).
+- **measurement probe** — the bench process that subscribes to topics and records receive times (A5-where-to-put-the-observers).
+- **motor-control services** — the services that run the robot's motor loop, one bus cycle per unit of work, on reserved cores; they are fixed-work threads and are never preempted (A0-the-big-picture, A2-same-work-more-cycles).
+- **MPS (Multi-Process Service)** — lets several processes share one GPU context, with an optional per-client SM cap. Reused from [`../jetson-orin-thor-metrics/glossary.md`](../jetson-orin-thor-metrics/glossary.md) (B3-mps-in-practice).
+- **MPS control daemon / server / client** — the process that starts servers; the process that owns the shared context; a CUDA process attached to the server (B3-mps-in-practice).
+- **nice** — the per-thread priority value; it sets a thread's share only against threads in the same cgroup (A3-priorities-in-containers).
+- **O(history)** — describes a cost that grows in proportion to the number of conversation-history items (A4-costs-that-grow-with-history).
+- **object detector** — the GPU model service that finds objects in camera frames; its frame time is a main per-service metric (A0-the-big-picture).
+- **observer effect** — the change that an instrument causes in the system it measures. See **observer effect (profiler)** in [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) (A5-where-to-put-the-observers).
+- **observers** — the bench's measurement processes: the measurement probe, the request driver, metric scrapes, samplers and captures (A0-the-big-picture, A5-where-to-put-the-observers).
+- **occupancy** — resident warps per SM as a fraction of the maximum. Reused from [`../nvidia-gpu-anatomy/glossary.md`](../nvidia-gpu-anatomy/glossary.md) (B2-low-issue-rate-is-not-free-room).
+- **offered rate** — the rate at which the bench requests work from a service, here the VLA's action rate (`vla_offered_hz`) (A0-the-big-picture, C1-deployment-fidelity-and-batch-1-latency).
+- **one-factor experiment** — an experiment that changes one factor, with its prediction and refutation rule frozen before board time (A0-the-big-picture).
+- **phase split** — the attribution of an inference's kernel time to its vision, prefill and action phases, taken from a trace (B4-compute-bound-or-near-the-ridge).
+- **PMU (performance monitoring unit)** — the per-core hardware counters, read through `perf_event_open` (A2-same-work-more-cycles).
+- **pool** — the shared general-purpose CPU cores (`pool_cores`), shared by most services under CFS (A1-cpu-queueing-on-a-shared-pool).
+- **post-hoc reading** — an interpretation made after the data; it is labelled post-hoc and does not replace the pre-registered verdict (A0-the-big-picture).
+- **pre-registered verdict** — the class that a rule written before the run assigns to the result; it is not re-worded afterwards. See **pre-registration** in [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) (A0-the-big-picture).
+- **probe receive delay** — the probe's own delay between a message's arrival and its receipt, measured with a calibrator heartbeat; it biases every probe latency (A5-where-to-put-the-observers).
+- **re-planning rate** — the inverse of a VLA's observation-to-action latency; latency is a rate cap. Reused from [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) (C1-deployment-fidelity-and-batch-1-latency).
+- **register-bound / shared-memory-bound** — describes a kernel whose blocks per SM are limited by registers or by shared memory rather than by warps (B2-low-issue-rate-is-not-free-room).
+- **removed fraction f** — (X_base − X_moved) ÷ (X_base − X_alone), from the baseline and moved arms: the share of the motor loop's full-stack cycle growth that moving its cluster-mates removes (A2-same-work-more-cycles).
+- **request accepted p50** — the median round trip from a request to its acceptance, measured on the bench side (A5-where-to-put-the-observers).
+- **request driver** — the bench process that sends requests to the interaction service and times the accepted reply (A5-where-to-put-the-observers).
+- **reserved cores** — cores removed from the general scheduler (`isolcpus`) and assigned to services by cpuset (`reserved_cores`) (A1-cpu-queueing-on-a-shared-pool).
+- **ridge** — the arithmetic intensity at which the compute roof and the bandwidth roof cross. Reused from [`../jetson-orin-thor-metrics/glossary.md`](../jetson-orin-thor-metrics/glossary.md) (B4-compute-bound-or-near-the-ridge).
+- **roofline** — a plot of achievable rate against arithmetic intensity, bounded by compute roofs and memory roofs. Reused from [`../jetson-orin-thor-metrics/glossary.md`](../jetson-orin-thor-metrics/glossary.md) (B4-compute-bound-or-near-the-ridge).
+- **run-queue wait** — time a runnable thread waits for a CPU. Reused from [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) (A1-cpu-queueing-on-a-shared-pool).
+- **saturated core** — a core that is fully busy, so any added demand turns into wait (A1-cpu-queueing-on-a-shared-pool).
+- **shape rate** — the GEMM rate that a model reaches at its own matrix shapes, below the board's ceiling (B4-compute-bound-or-near-the-ridge).
+- **single-user MPS** — the Tegra mode in which one MPS server serves one Linux user; clients of other users are queued (B3-mps-in-practice).
+- **sitecustomize** — a Python module that the interpreter imports at start-up when it is on the module path; here it installs a log filter without a change to the image (A4-costs-that-grow-with-history).
+- **SM active** — at least one warp is resident on the SM; it does not mean that the SM is full (B2-low-issue-rate-is-not-free-room).
+- **SM issue rate** — the share of instruction-issue slots that are used. Related to **issue rate** in [`../nvidia-gpu-anatomy/glossary.md`](../nvidia-gpu-anatomy/glossary.md) (B2-low-issue-rate-is-not-free-room).
+- **SM reservation / cap** — `CUDA_MPS_ACTIVE_THREAD_PERCENTAGE`, which limits an MPS client to a fraction of the SMs. Reused from [`../jetson-orin-thor-metrics/glossary.md`](../jetson-orin-thor-metrics/glossary.md) (B3-mps-in-practice).
+- **speech recognizer** — the service that turns speech into a transcript on a topic (A0-the-big-picture, A4-costs-that-grow-with-history).
+- **the stack** — a home-robot software stack: many services in containers on one board; B3 supposes they run as two Linux users (A0-the-big-picture, B3-mps-in-practice).
+- **supported / weakened / open** — the three verdicts for a per-service hypothesis tested against existing evidence (A0-the-big-picture).
+- **theoretical vs achieved occupancy** — fill computed from the launch configuration versus fill measured on the hardware; this kit computes only the first (B2-low-issue-rate-is-not-free-room).
+- **time slice (GPU)** — how long the GPU runs one context's work before it switches to another context; a few milliseconds, a driver default that depends on priority (B1-gpu-time-slicing-and-the-dose-curve).
+- **time-slicing (GPU)** — the GPU runs one CUDA context at a time and switches between contexts; without MPS, kernels of different processes never overlap. See **context switch (GPU)** in [`../nvidia-gpu-anatomy/glossary.md`](../nvidia-gpu-anatomy/glossary.md) (B1-gpu-time-slicing-and-the-dose-curve).
+- **timeslice (CPU)** — one continuous run of a thread on a CPU between two scheduler switches (A1-cpu-queueing-on-a-shared-pool).
+- **transcript latency** — the speech recognizer's metric, from the end of an utterance to the transcript on its topic (A4-costs-that-grow-with-history).
+- **undecided at dose** — the pre-registered class for a result that the valid arms cannot place on either side of the rule; the notes keep this wording (B1-gpu-time-slicing-and-the-dose-curve).
+- **upper / lower bound (probe)** — full-stack probe latencies include the probe's own delay, so they are upper bounds; full-stack probe rates miss some messages, so they are lower bounds (C1-deployment-fidelity-and-batch-1-latency).
+- **victim** — the service whose slowdown is measured while co-tenants load the GPU. See **victim / aggressor** in [`../jetson-orin-thor-metrics/glossary.md`](../jetson-orin-thor-metrics/glossary.md) (B1-gpu-time-slicing-and-the-dose-curve).
+- **vision-language-action (VLA) model** — a model that maps camera images and a language goal to robot actions. Reused from [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) (A0-the-big-picture).
+- **wait per busy second** — summed run-queue wait divided by the summed run time of the same threads; a value of one means that they wait as long as they run (A1-cpu-queueing-on-a-shared-pool).
+- **warp-slot fill** — the fraction of an SM's warp slots that a kernel's resident blocks use; theoretical occupancy (B2-low-issue-rate-is-not-free-room).
+- **wave** — one round of a kernel's blocks across all SMs; a kernel needs ⌈blocks ÷ (SMs × blocks per SM)⌉ waves (B2-low-issue-rate-is-not-free-room).
+- **weight-side intensity** — FLOP divided by the bytes of the weights only; an upper bound on intensity for one pass (B4-compute-bound-or-near-the-ridge).
+- **window** — one fixed measurement interval that passes or fails validity gates. See **window** in [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) (A0-the-big-picture).
+- **X1 / X2 / X3 / X4** — the four cross-cutting hypotheses: pool CPU time-share; the same work costing more cycles ("slower work"); GPU contention in the full stack; GPU time as the main cause of the full stack → full stack + VLA step (A0-the-big-picture, A2-same-work-more-cycles).

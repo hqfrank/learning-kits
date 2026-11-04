@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Next to the full stack, 5 Hz of VLA does not fit in the free GPU time — GPU-time budget explorer</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#b4bccb;
+    --accent:#5ec8ff; --model:#5ec8ff; --meas:#ffb35c; --vla:#ff7ad1; --ok:#49d17a; --bad:#ff7a7a;
+    --line:#3a3f4a; --warn:#ffd36b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 6px}
+  .sub{color:var(--muted);max-width:80ch;margin:0}
+  .banner{margin:12px 22px 0;border:1px solid var(--warn);border-left-width:5px;background:#1c1a12;color:#f3e6c0;border-radius:6px;padding:9px 13px;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:minmax(0,1fr)}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 16px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range],select{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
+  .cases button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  .cases button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-width:140px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;font-size:11px;padding:0 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;font-weight:400}
+  .tag.model{color:var(--model);border-color:var(--model)}
+  .tag.meas{color:var(--meas);border-color:var(--meas)}
+  .tag.est{color:var(--warn);border-color:var(--warn)}
+  .tag.ass{color:var(--bad);border-color:var(--bad)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h2{margin:0 0 6px;font-size:14px}
+  .why p{margin:6px 0}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td code{word-break:break-word}
+  #sources td:first-child code{white-space:nowrap;word-break:normal}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Next to the full stack, 5 Hz of VLA needs more GPU time than is left; about 2.5 Hz fits (GPU-time budget estimate, not tested)</h1>
+  <p class="sub">The VLA's GPU need is its <strong>GPU time per call × rate</strong>, not its call time × rate: each call also
+  contains CPU-side time (note C1). Without MPS the GPU time-slices between processes (note B1), so the VLA can only use the GPU
+  time that the stack's services leave, and sharing costs extra GPU time per output. Move the offered rate, the free share and the overhead to see which rates fit.</p>
+</header>
+<div class="banner" role="note"><strong>A GPU-time budget estimate, not a test.</strong> All inputs are illustrative teaching numbers
+  (class <code>illustrative</code>), not measurements. The default free share is <code>gpu_free_next_to_stack</code>; the default sharing
+  overhead is the <strong>high end</strong> of <code>sharing_overhead</code>, the conservative end. The verdict "edge" means the rate fits at the low end
+  of that overhead band but not at the high end; the band width sets the edge, not a page convention. No rate below the offered one was run
+  next to the stack, so there is <strong>no measured overlay</strong> on this page.</div>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="ctrl">
+      <label for="rate">Offered VLA rate <span class="val" id="rate_v"></span></label>
+      <input id="rate" type="range" min="0.5" max="6" step="0.05" value="5">
+      <div class="hint">Default = <code>vla_offered_hz</code> (illustrative). Range: well below to above the offer.</div>
+    </div>
+    <div class="ctrl">
+      <label for="free">Free GPU share next to the stack <span class="val" id="free_v"></span></label>
+      <input id="free" type="range" min="10" max="80" step="0.5" value="40">
+      <div class="hint">Default = <code>gpu_free_next_to_stack</code> (illustrative). Other values are what-ifs.</div>
+    </div>
+    <div class="ctrl">
+      <label for="ov">Sharing overhead per call <span class="val" id="ov_v"></span></label>
+      <input id="ov" type="range" min="0" max="30" step="1" value="20">
+      <div class="hint">Default = high end of <code>sharing_overhead</code> (illustrative band). Applying it to each VLA call is
+        <span class="tag ass">my assumption</span>. Range 0–30 % to test it.</div>
+    </div>
+    <div class="ctrl">
+      <span id="cases_l" style="font-weight:600">Preloaded cases (reset free share and overhead)</span>
+      <div class="cases" role="group" aria-labelledby="cases_l" id="cases"></div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <svg id="chart" viewBox="0 0 720 400" role="img" aria-labelledby="chart_t"><title id="chart_t">GPU share needed against offered rate, with the free share next to the stack.</title></svg>
+    <div class="why">
+      <h2>What dominates right now</h2>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Rate table">
+  <h2 style="margin:0 0 4px;font-size:15px">Which rates fit at the current free share (overhead across the <code>sharing_overhead</code> band)</h2>
+  <div class="tablewrap"><table id="rates"><thead><tr><th>Offered rate</th><th>GPU share needed, overhead band <span class="tag model">model</span></th><th>Naive: call time × rate (wrong method)</th><th>Verdict (budget estimate)</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h2 style="margin:0 0 4px;font-size:15px">Parameters &amp; sources</h2>
+  <p class="hint">Loaded from the inlined params block (also <code>params.json</code>), copied verbatim from <code>../constants.json</code>.
+  <span class="tag model">model</span> = computed here; <span class="tag meas">illustrative</span> = a constants value of class <code>illustrative</code>
+  (a teaching number, not a measurement); <span class="tag est">my estimate</span> = arithmetic done here;
+  <span class="tag ass">assumption</span> = a slider value away from its constants default.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Unit</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  <p id="tests-sum" class="ok"></p>
+</section>
+
+<footer>
+  Study aid for <em>robot-stack-contention</em> (rung 3), notes C1 and B1. A GPU-time budget estimate: no rate below the offered one was run
+  next to the stack. Every number is from <code>../constants.json</code> by key, or labelled as model / my estimate; all inputs are illustrative.
+  Board ceilings and the ridge: <a href="../../jetson-orin-thor-metrics/">jetson-orin-thor-metrics</a>.
+</footer>
+
+<script type="application/json" id="params" data-keys="vla_call_ms,vla_gpu_ms_per_call,vla_offered_hz,gpu_free_next_to_stack,sharing_overhead,batch1_latency_ms,dose_slopes">
+{
+ "vla_call_ms": {
+  "value": 150,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: one VLA call alone"
+ },
+ "vla_gpu_ms_per_call": {
+  "value": 120,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: GPU work inside one call (the rest is CPU side)"
+ },
+ "vla_offered_hz": {
+  "value": 5,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: offered action rate"
+ },
+ "gpu_free_next_to_stack": {
+  "value": 0.4,
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: GPU time left next to the full stack"
+ },
+ "sharing_overhead": {
+  "value": [
+   0.1,
+   0.2
+  ],
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: each output costs this much more GPU time when shared"
+ },
+ "batch1_latency_ms": {
+  "value": 250,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: one observation -> one action chunk, batch 1"
+ },
+ "dose_slopes": {
+  "value": [
+   1,
+   2,
+   4
+  ],
+  "unit": "ms per point of O",
+  "class": "illustrative",
+  "source": "illustrative: slopes grow along the curve"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+(function (global) {
+  "use strict";
+  // Shares are fractions of GPU time (0…1); the UI shows them as %.
+  // gpu_need_share = rate (Hz) × GPU ms per call ÷ 1000 × (1 + overhead)   (C1 "A call is not its GPU time"; B1 time-slicing)
+  function gpu_need_share(rate, msPerCall, overhead) { return rate * msPerCall / 1000 * (1 + overhead); }
+  // naive_need_share = rate × call time ÷ 1000 — the wrong budget (C1: call time × rate)
+  function naive_need_share(P, rate) { return rate * P.vla_call_ms.value / 1000; }
+  // max_fit_rate_hz = free share × 1000 ÷ (GPU ms per call × (1 + overhead))   (C1 "at most about 3.3 calls per second")
+  function max_fit_rate_hz(free, msPerCall, overhead) { return free * 1000 / (msPerCall * (1 + overhead)); }
+  // defaults: the constants value for the free share, the conservative (high) end of the overhead band
+  function free_default(P) { return P.gpu_free_next_to_stack.value; }
+  function overhead_default(P) { return P.sharing_overhead.value[1]; }
+  // budget(P, rate, free, overhead): need at the chosen overhead, and the verdict across the sharing_overhead band.
+  //   fits = need at the band's high end ≤ free; edge = fits only at the band's low end; does not fit otherwise.
+  function budget(P, rate, free, overhead) {
+    const ms = P.vla_gpu_ms_per_call.value, ob = P.sharing_overhead.value;
+    const need = gpu_need_share(rate, ms, overhead), needBand = ob.map(o => gpu_need_share(rate, ms, o));
+    const verdict = needBand[1] <= free ? "fits" : needBand[0] <= free ? "edge" : "does not fit";
+    return { ms, need, needBand, naive: naive_need_share(P, rate), maxRate: max_fit_rate_hz(free, ms, overhead),
+      fitsHere: need <= free, verdict, slack: free - need };
+  }
+  // max_fit_rate_band_hz: highest fitting rate across the overhead band at a given free share
+  function max_fit_rate_band_hz(P, free) {
+    const ms = P.vla_gpu_ms_per_call.value, ob = P.sharing_overhead.value;
+    return [max_fit_rate_hz(free, ms, ob[1]), max_fit_rate_hz(free, ms, ob[0])];
+  }
+  // replan_rate_hz = 1000 ÷ batch-1 latency (C1 "Batch-1 latency is a re-planning rate")
+  function replan_rate_hz(P) { return 1000 / P.batch1_latency_ms.value; }
+
+  function selfTest(P, assert) {
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const r1 = x => Math.round(x * 10) / 10, r2 = x => Math.round(x * 100) / 100;
+    const ms = P.vla_gpu_ms_per_call.value, hz = P.vla_offered_hz.value, f = free_default(P), o = overhead_default(P);
+    // 1. C1: call time × rate = 0.75 s per second; GPU need = 0.6 s per second
+    ok(r2(naive_need_share(P, hz)) === 0.75, `naive at the offered rate = ${naive_need_share(P, hz)} s/s (C1: 0.75)`);
+    ok(r2(gpu_need_share(hz, ms, 0)) === 0.6, `GPU need at the offered rate = ${gpu_need_share(hz, ms, 0)} s/s (C1: 0.6)`);
+    // 2. C1: the free time supports at most about 3.3 calls per second (no overhead)
+    ok(r1(max_fit_rate_hz(f, ms, 0)) === 3.3, `max rate without overhead = ${max_fit_rate_hz(f, ms, 0).toFixed(3)} Hz (C1: about 3.3)`);
+    // 3. C1: with the sharing overhead the ceiling falls to about 2.8–3.0 Hz
+    const mb = max_fit_rate_band_hz(P, f);
+    ok(r1(mb[0]) === 2.8 && r1(mb[1]) === 3.0, `max rate across the overhead band = ${mb.map(v => v.toFixed(3)).join("–")} Hz (C1: 2.8–3.0)`);
+    // 4. defaults come from the params block: free 0.4, overhead = high end 0.2
+    ok(f === 0.4 && Math.abs(o - 0.2) < 1e-12, "defaults: free share 0.4, overhead 0.2 (high end of the band)");
+    // 5. the offered rate does not fit, even with no overhead at all
+    ok(budget(P, hz, f, o).verdict === "does not fit" && gpu_need_share(hz, ms, 0) > f, "offered rate does not fit, even at zero overhead");
+    // 6. preloaded cases: 2.5 Hz fits across the band, 3 Hz is at the edge
+    ok(budget(P, 2.5, f, o).verdict === "fits", "2.5 Hz fits across the overhead band");
+    ok(budget(P, 3, f, o).verdict === "edge", `3 Hz is at the edge (${budget(P, 3, f, o).needBand.map(v => v.toFixed(3)).join("–")} vs ${f})`);
+    // 7. the GPU need is below the naive budget at every rate (a call contains CPU-side time)
+    ok([0.5, 2.5, 5, 6].every(r => gpu_need_share(r, ms, 0) < naive_need_share(P, r)), "need < naive at every rate");
+    // 8. overhead only lowers the fitting rate
+    ok(max_fit_rate_hz(f, ms, 0.3) < max_fit_rate_hz(f, ms, o) && max_fit_rate_hz(f, ms, 0) > max_fit_rate_hz(f, ms, o), "overhead lowers the max rate");
+    // 9. C1: batch-1 latency 250 ms → re-planning rate 4 Hz
+    ok(replan_rate_hz(P) === 4, "re-planning rate = 4 Hz (C1)");
+    return { passed, failed };
+  }
+  const api = { gpu_need_share, naive_need_share, max_fit_rate_hz, free_default, overhead_default, budget, max_fit_rate_band_hz, replan_rate_hz, selfTest };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  global.BUDGET = api;
+})(typeof window !== "undefined" ? window : globalThis);
+/*MODEL-END*/
+
+if (typeof window !== "undefined") {
+/* ---- shared UI helpers (browser only) ---- */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+const fmt = (x, d = 1) => (x === Infinity ? "∞" : Number(x).toFixed(d));
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function showVal(v) {
+  if (Array.isArray(v)) return v.map(x => Array.isArray(x) ? "(" + x.join(", ") + ")" : showVal(x)).join(" / ");
+  if (v && typeof v === "object") return Object.entries(v).map(([k, x]) => k + " " + showVal(x)).join("; ");
+  return String(v);
+}
+function renderSources(keys) {
+  const tb = $("sources").querySelector("tbody");
+  tb.innerHTML = "";
+  for (const k of keys) {
+    const o = PARAMS[k];
+    const tr = document.createElement("tr");
+    const cls = o.class === "illustrative" ? `<strong>illustrative</strong>` : esc(o.class);
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))}</td><td>${esc(o.unit)}</td>` +
+      `<td>${cls}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+function metric(k, v, tag) {
+  const t = tag ? `<span class="tag ${tag[0]}">${tag[1]}</span>` : "";
+  return `<div class="metric"><div class="k">${k}${t}</div><div class="v">${v}</div></div>`;
+}
+const TAG = { model: ["model", "model"], ill: ["meas", "illustrative"], est: ["est", "my estimate"], ass: ["ass", "assumption"] };
+function runSelfTests(api) {
+  const res = api.selfTest(PARAMS, (c, m) => console.assert(c, m));
+  $("tests-sum").textContent = `Self-tests: ${res.passed} passed, ${res.failed} failed (console.assert; reproduces the notes' numbers).`;
+  if (res.failed) $("tests-sum").className = "bad";
+}
+function wireRaf(ids, fn) {
+  let raf = null;
+  for (const id of ids) $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); });
+}
+
+  const M = window.BUDGET;
+  const USED = $("params").dataset.keys.split(",");
+  const HZ = PARAMS.vla_offered_hz.value, OB = PARAMS.sharing_overhead.value;
+  const FREE0 = M.free_default(PARAMS), OV0 = M.overhead_default(PARAMS);
+  const setDefaults = () => { $("free").value = FREE0 * 100; $("ov").value = Math.round(OV0 * 100); };
+  $("rate").value = HZ; setDefaults();                              // defaults loaded from the params block
+  const CASES = [
+    { name: `${HZ} Hz (offered): does not fit`, rate: HZ }, { name: "3 Hz: edge", rate: 3 }, { name: "2.5 Hz: fits", rate: 2.5 }
+  ];
+  const cbox = $("cases");
+  CASES.forEach(c => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = c.name; b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => { $("rate").value = c.rate; setDefaults(); update(); });
+    cbox.appendChild(b);
+  });
+  const atDefaults = (free, ov) => Math.abs(free - FREE0) < 1e-9 && Math.abs(ov - OV0) < 0.005;
+  const pc = (v, d = 1) => fmt(v * 100, d) + " %";
+
+  function draw(rate, free, ov, r) {
+    const W = 720, H = 400, L = 60, R = 20, T = 22, B = 52, xmax = 6, ymax = 90;
+    const X = v => L + (W - L - R) * v / xmax, Y = v => T + (H - T - B) * (1 - Math.min(v * 100, ymax) / ymax);
+    let s = `<title id="chart_t">GPU share needed against offered rate, with the free share next to the stack.</title>`;
+    for (let g = 0; g <= ymax; g += 15) s += `<line x1="${L}" x2="${W - R}" y1="${Y(g / 100)}" y2="${Y(g / 100)}" stroke="#2a2f39"/><text x="${L - 8}" y="${Y(g / 100) + 4}" fill="#b4bccb" font-size="12" text-anchor="end">${g} %</text>`;
+    for (let g = 0; g <= xmax; g += 1) s += `<text x="${X(g)}" y="${H - B + 18}" fill="#b4bccb" font-size="12" text-anchor="middle">${g} Hz</text>`;
+    s += `<text x="${(L + W - R) / 2}" y="${H - 10}" fill="#eef1f6" font-size="13" text-anchor="middle">offered VLA rate (Hz)</text>`;
+    s += `<text x="14" y="${(T + H - B) / 2}" fill="#eef1f6" font-size="13" text-anchor="middle" transform="rotate(-90 14 ${(T + H - B) / 2})">share of GPU time (%)</text>`;
+    // fits region: below the free line and left of the max rate at the chosen overhead
+    const mr = Math.min(r.maxRate, xmax);
+    s += `<rect x="${X(0)}" y="${Y(free)}" width="${X(mr) - X(0)}" height="${Y(0) - Y(free)}" fill="#49d17a" opacity="0.12"/>`;
+    s += `<line x1="${L}" x2="${W - R}" y1="${Y(free)}" y2="${Y(free)}" stroke="#49d17a" stroke-width="2"/>`;
+    s += `<text x="${L + 8}" y="${Y(free) - 6}" fill="#49d17a" font-size="12" text-anchor="start">free share used: ${pc(free)}` +
+      (Math.abs(free - FREE0) < 1e-9 ? ` (gpu_free_next_to_stack, illustrative)` : ` (what-if)`) + `</text>`;
+    // naive line
+    const nx = Math.min(xmax, ymax / 100 * 1000 / PARAMS.vla_call_ms.value);
+    s += `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(nx)}" y2="${Y(M.naive_need_share(PARAMS, nx))}" stroke="#b4bccb" stroke-width="1.5" stroke-dasharray="6 4"/>`;
+
+    // need band across sharing_overhead, and the line at the chosen overhead
+    const ms = r.ms, lo = v => M.gpu_need_share(v, ms, OB[0]), hi = v => M.gpu_need_share(v, ms, OB[1]), cur = v => M.gpu_need_share(v, ms, ov);
+    s += `<path d="M${X(0)} ${Y(0)}L${X(xmax)} ${Y(hi(xmax))}L${X(xmax)} ${Y(lo(xmax))}Z" fill="#5ec8ff" opacity="0.3"><title>sharing_overhead band ${OB.map(v => v * 100).join("–")} % (illustrative)</title></path>`;
+    s += `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(xmax)}" y2="${Y(cur(xmax))}" stroke="#5ec8ff" stroke-width="2.5"/>`;
+    // current rate
+    const yr = Y(r.need);
+    s += `<line x1="${X(rate)}" x2="${X(rate)}" y1="${T}" y2="${H - B}" stroke="#ffd36b" stroke-width="1.5"/>`;
+    s += `<circle cx="${X(rate)}" cy="${yr}" r="5" fill="none" stroke="#ffd36b" stroke-width="2.5"/>`;
+    // legend in the empty lower-right corner (below the need lines)
+    const lx = X(3.15), ly = Y(0.27);
+    let leg = `<rect x="${lx - 8}" y="${ly - 8}" width="${W - R - lx}" height="74" fill="#12151c" stroke="#3a3f4a" rx="5"/>`;
+    leg += `<line x1="${lx}" x2="${lx + 22}" y1="${ly + 6}" y2="${ly + 6}" stroke="#5ec8ff" stroke-width="2.5"/><text x="${lx + 30}" y="${ly + 10}" fill="#eef1f6" font-size="12">model: GPU ms per call × rate × (1 + overhead)</text>`;
+    leg += `<rect x="${lx}" y="${ly + 20}" width="22" height="10" fill="#5ec8ff" opacity="0.3"/><text x="${lx + 30}" y="${ly + 29}" fill="#eef1f6" font-size="12">across the sharing_overhead band (illustrative)</text>`;
+    leg += `<line x1="${lx}" x2="${lx + 22}" y1="${ly + 46}" y2="${ly + 46}" stroke="#b4bccb" stroke-width="1.5" stroke-dasharray="6 4"/><text x="${lx + 30}" y="${ly + 50}" fill="#eef1f6" font-size="12">naive: call time × rate (wrong method)</text>`;
+    $("chart").innerHTML = s + leg;
+  }
+
+  function verdictLabel(v) { return v === "fits" ? `<span class="ok">fits</span>` : v === "edge" ? `<span class="tag est">edge</span>` : `<span class="bad">does not fit</span>`; }
+
+  function update() {
+    const rate = +$("rate").value, free = +$("free").value / 100, ov = +$("ov").value / 100;
+    $("rate_v").textContent = fmt(rate, 2) + " Hz"; $("free_v").textContent = pc(free); $("ov_v").textContent = fmt(ov * 100, 0) + " %";
+    [...cbox.children].forEach((b, i) => b.setAttribute("aria-pressed", Math.abs(CASES[i].rate - rate) < 0.01 && atDefaults(free, ov) ? "true" : "false"));
+    const r = M.budget(PARAMS, rate, free, ov), mb = M.max_fit_rate_band_hz(PARAMS, free);
+    // headline verdict: across the sharing_overhead band while the slider sits inside it;
+    // at the slider's own value (fits / does not fit) once the slider is moved outside the band
+    const inBand = ov >= OB[0] - 1e-9 && ov <= OB[1] + 1e-9;
+    const hv = inBand
+      ? { verdict: r.verdict, ovLabel: OB.map(v => fmt(v * 100, 0)).join("–") + " %" }
+      : { verdict: r.fitsHere ? "fits" : "does not fit", ovLabel: fmt(ov * 100, 0) + " %" };
+    $("headline").innerHTML =
+      metric("GPU share needed", pc(r.need), TAG.model) +
+      metric("Free share next to the stack", pc(free), Math.abs(free - FREE0) < 1e-9 ? TAG.ill : TAG.ass) +
+      metric("Highest rate that fits", fmt(r.maxRate, 2) + " Hz", ["est", "budget estimate"]) +
+      metric("Verdict at " + fmt(rate, 2) + " Hz (overhead " + hv.ovLabel + ")", verdictLabel(hv.verdict), ["est", "budget estimate, not tested"]) +
+      metric("Naive: call time × rate (wrong method)", pc(r.naive), TAG.model);
+    draw(rate, free, ov, r);
+    $("why_text").innerHTML =
+      `At ${fmt(rate, 2)} Hz the VLA needs ${r.ms} ms of GPU time per call (illustrative, <code>vla_gpu_ms_per_call</code>)` +
+      (ov ? ` plus ${fmt(ov * 100, 0)} % sharing overhead (assumed per call)` : ``) + `, so ${pc(r.need)} of GPU time. ` +
+      (r.fitsHere ? `That fits in the ${pc(free)} left next to the stack with ${fmt(r.slack * 100)} points to spare. `
+                  : `That exceeds the ${pc(free)} left next to the stack by ${fmt(-r.slack * 100)} points, so the VLA is GPU-time-bound: calls queue and some are dropped or delayed. `) +
+      `Across the overhead band (${OB.map(v => fmt(v * 100, 0)).join("–")} %, illustrative <code>sharing_overhead</code>) the verdict is <strong>${r.verdict}</strong>, ` +
+      `and the highest rate that fits is ${mb.map(v => fmt(v, 2)).join("–")} Hz <span class="tag est">my estimate from gpu_free_next_to_stack, vla_gpu_ms_per_call and sharing_overhead; a budget estimate, not tested</span>. ` +
+      `The binding limit is GPU <em>time</em>, not memory traffic (note B1).`;
+    const sl = PARAMS.dose_slopes.value;
+    $("callout").innerHTML =
+      `<strong>A call is not its GPU time.</strong> At ${HZ} Hz, call time × rate is ${fmt(M.naive_need_share(PARAMS, HZ), 2)} s per second ` +
+      `(${PARAMS.vla_call_ms.value} ms × ${HZ} Hz, illustrative <code>vla_call_ms</code>), but the GPU need is only ${fmt(M.gpu_need_share(HZ, r.ms, 0), 2)} s per second ` +
+      `<span class="tag est">my estimate from vla_gpu_ms_per_call and vla_offered_hz</span>. Budget with GPU time per call. ` +
+      `Every point of GPU share the VLA gives up also lowers the object detector's dose, where near the VLA's share each point costs the detector up to ` +
+      `${sl[sl.length - 1]} ms per frame (illustrative, <code>dose_slopes</code>; explorer 01). ` +
+      `A separate limit: a batch-1 latency of ${PARAMS.batch1_latency_ms.value} ms (illustrative) caps re-planning at ${fmt(M.replan_rate_hz(PARAMS), 0)} Hz ` +
+      `<span class="tag est">my estimate from batch1_latency_ms</span>; that is a rate cap, not a GPU budget. ` +
+      `<em>Correction kept visible (C1):</em> an early estimate of the VLA's GPU share used the GPU time per call of a different model version; per-process GPU time next to the stack is not part of this kit's numbers.`;
+    $("live").textContent = `${fmt(rate, 2)} Hz needs ${pc(r.need)} of GPU time; free share ${pc(free)}; ${hv.verdict} at overhead ${hv.ovLabel} (GPU-time budget estimate, not tested).`;
+    const tb = $("rates").querySelector("tbody"); tb.innerHTML = "";
+    [1, 2, 2.5, 3, 3.5, 4, HZ].forEach(hz => {
+      const q = M.budget(PARAMS, hz, free, ov);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${fmt(hz, 2)} Hz${hz === HZ ? " (offered)" : ""}</td><td>${q.needBand.map(v => fmt(v * 100, 1)).join("–")} %</td><td>${pc(q.naive)}</td><td>${verdictLabel(q.verdict)}</td>`;
+      tb.appendChild(tr);
+    });
+  }
+  wireRaf(["rate", "free", "ov"], update);
+  renderSources(USED);
+  runSelfTests(M);
+  update();
+}
+</script>
+</body>
+</html>

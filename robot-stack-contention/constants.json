@@ -1,0 +1,608 @@
+{
+ "_about": "Numbers cited by the robot-stack-contention kit. Every value is 'public' (URL), 'sibling' (a key in a sibling kit) or 'illustrative' (a round teaching number that keeps the shape of a finding, never a measurement). No number here is a measurement. Load this file; do not retype the numbers.",
+ "sm_count_orin": {
+  "value": 16,
+  "unit": "SMs",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json sm_count.orin"
+ },
+ "max_warps_per_sm": {
+  "value": 48,
+  "unit": "warps",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json max_warps_per_sm"
+ },
+ "registers_per_sm": {
+  "value": 65536,
+  "unit": "registers",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json registers_per_sm"
+ },
+ "l1_shared_per_sm_orin_kb": {
+  "value": 164,
+  "unit": "KB",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json l1_shared_per_sm.orin"
+ },
+ "max_blocks_per_sm_cc87": {
+  "value": 16,
+  "unit": "blocks",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "max_threads_per_block": {
+  "value": 1024,
+  "unit": "threads",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "warp_size": {
+  "value": 32,
+  "unit": "threads",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "register_alloc_unit_per_warp": {
+  "value": 256,
+  "unit": "registers",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "max_registers_per_thread": {
+  "value": 255,
+  "unit": "registers",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "board_cores": {
+  "value": 12,
+  "unit": "CPU cores",
+  "class": "illustrative",
+  "source": "illustrative: a 12-core embedded SoC (Orin-class); 8 shared, 4 reserved"
+ },
+ "pool_cores": {
+  "value": 8,
+  "unit": "cores",
+  "class": "illustrative",
+  "source": "illustrative: shared pool of general-purpose cores"
+ },
+ "reserved_cores": {
+  "value": 4,
+  "unit": "cores",
+  "class": "illustrative",
+  "source": "illustrative: cores reserved (isolated) for pinned real-time and robot services"
+ },
+ "stack_services": {
+  "value": 40,
+  "unit": "services",
+  "class": "illustrative",
+  "source": "illustrative: a full robot stack with every module on; a freshly booted robot runs fewer"
+ },
+ "pool_busy_frac_full": {
+  "value": 0.8,
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: shared pool about four fifths busy in the full stack"
+ },
+ "pool_wait_per_busy_full": {
+  "value": 2.0,
+  "unit": "s of run-queue wait per busy s",
+  "class": "illustrative",
+  "source": "illustrative: waiting longer than running"
+ },
+ "pool_wait_per_busy_camera_only": {
+  "value": 0.05,
+  "unit": "s per busy s",
+  "class": "illustrative",
+  "source": "illustrative: almost no queueing with one module"
+ },
+ "saturated_core_equal_share": {
+  "value": 0.33,
+  "unit": "cores each",
+  "class": "illustrative",
+  "source": "illustrative: three groups on one saturated core each get about a third"
+ },
+ "detector_frame_ms_solo_full": {
+  "value": [
+   100,
+   200
+  ],
+  "unit": "ms per frame",
+  "class": "illustrative",
+  "source": "illustrative: object detector frame time alone vs full stack"
+ },
+ "detector_added_wait_run_blocked": {
+  "value": [
+   50,
+   30,
+   20
+  ],
+  "unit": "ms per frame added",
+  "class": "illustrative",
+  "source": "illustrative: most of the full-stack rise is CPU (wait + slower run)"
+ },
+ "detector_vla_added_blocked_wait_run": {
+  "value": [
+   70,
+   20,
+   10
+  ],
+  "unit": "ms per frame added",
+  "class": "illustrative",
+  "source": "illustrative: next to the VLA the rise is mostly blocked (GPU) time"
+ },
+ "instr_growth": {
+  "value": 0.0,
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: user instructions per work unit unchanged"
+ },
+ "cycles_growth_range": {
+  "value": [
+   0.4,
+   1.0
+  ],
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: the same instructions take 1.4-2x the cycles"
+ },
+ "ipc_drop_range": {
+  "value": [
+   0.3,
+   0.5
+  ],
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: instructions per cycle fall by a third to a half"
+ },
+ "l3_refill_ratio_range": {
+  "value": [
+   2,
+   3
+  ],
+  "unit": "x per instruction",
+  "class": "illustrative",
+  "source": "illustrative: more L3 refills per instruction (a hint, not a cause)"
+ },
+ "cluster_move_recovered": {
+  "value": 0.65,
+  "unit": "fraction of the extra cycles",
+  "class": "illustrative",
+  "source": "illustrative: moving cluster neighbours away recovers about two thirds, on a pre-registered class line"
+ },
+ "cluster_move_class_line": {
+  "value": 0.5,
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: pre-registered line between 'most' and 'part'"
+ },
+ "cluster_move_camera_cost_hz": {
+  "value": [
+   4,
+   6
+  ],
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: the move overloads the shared pool and costs the camera frames"
+ },
+ "cpu_weight_default": {
+  "value": 100,
+  "unit": "cpu.weight",
+  "class": "public",
+  "source": "https://docs.kernel.org/admin-guide/cgroup-v2.html (cpu.weight)"
+ },
+ "cpu_weight_range": {
+  "value": [
+   1,
+   10000
+  ],
+  "unit": "cpu.weight",
+  "class": "public",
+  "source": "https://docs.kernel.org/admin-guide/cgroup-v2.html (cpu.weight)"
+ },
+ "weight_raised": {
+  "value": 1000,
+  "unit": "cpu.weight",
+  "class": "illustrative",
+  "source": "illustrative: the camera container raised 10x"
+ },
+ "weight_wait_per_cpu_s": {
+  "value": [
+   3.0,
+   0.75
+  ],
+  "unit": "s per CPU-s (before, after)",
+  "class": "illustrative",
+  "source": "illustrative: the camera's own CPU wait falls by about three quarters"
+ },
+ "weight_camera_hz": {
+  "value": [
+   25,
+   27.5
+  ],
+  "unit": "Hz (control, treatment mean)",
+  "class": "illustrative",
+  "source": "illustrative: the camera recovers part of its rate, not all of 30 Hz"
+ },
+ "weight_others_wait_rise": {
+  "value": [
+   0.25,
+   0.5
+  ],
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: other services wait longer: the wait moves"
+ },
+ "ms_per_history_item": {
+  "value": 1.5,
+  "unit": "ms per item under contention",
+  "class": "illustrative",
+  "source": "illustrative: one log line per history item on the event loop"
+ },
+ "history_items": {
+  "value": 150,
+  "unit": "items",
+  "class": "illustrative",
+  "source": "illustrative: conversation history that is not reset"
+ },
+ "context_build_ms_filtered": {
+  "value": 10,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: the same step with the per-item lines dropped"
+ },
+ "transcript_latency_ms": {
+  "value": {
+   "alone": 600,
+   "full": 850,
+   "full_filtered": 640
+  },
+  "unit": "ms p50",
+  "class": "illustrative",
+  "source": "illustrative: most of the rise was the logging loop"
+ },
+ "interaction_accepted_ms": {
+  "value": {
+   "alone": 2,
+   "probe_on_its_core": 40,
+   "probe_moved": 5
+  },
+  "unit": "ms p50",
+  "class": "illustrative",
+  "source": "illustrative: about 90 % of the rise was our own probe"
+ },
+ "probe_cores_wanted": {
+  "value": 0.5,
+  "unit": "cores",
+  "class": "illustrative",
+  "source": "illustrative: a topic probe subscribed to heavy streams"
+ },
+ "probe_on_pool_camera_cost_hz": {
+  "value": 2,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: moving the probe to the shared pool costs the camera frames"
+ },
+ "probe_receive_delay_ms": {
+  "value": [
+   10,
+   30
+  ],
+  "unit": "ms (p50, p99)",
+  "class": "illustrative",
+  "source": "illustrative: the probe's own receive delay on a saturated core"
+ },
+ "mps_no_concurrency_quote": {
+  "value": "Work launched to the compute engine from work queues belonging to different CUDA contexts cannot execute concurrently.",
+  "unit": "quote",
+  "class": "public",
+  "source": "https://docs.nvidia.com/deploy/mps/architecture.html"
+ },
+ "timeslice_ms": {
+  "value": [
+   1,
+   5
+  ],
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: a GPU time slice per context is a few milliseconds (driver default, priority dependent)"
+ },
+ "dose_curve_points": {
+  "value": [
+   [
+    0,
+    0
+   ],
+   [
+    40,
+    40
+   ],
+   [
+    60,
+    80
+   ],
+   [
+    80,
+    160
+   ]
+  ],
+  "unit": "[other share O points, added blocked ms per frame]",
+  "class": "illustrative",
+  "source": "illustrative: convex: each point costs more near saturation"
+ },
+ "dose_vla_point": {
+  "value": [
+   65,
+   100
+  ],
+  "unit": "[O points, added blocked ms]",
+  "class": "illustrative",
+  "source": "illustrative: the VLA sits on the compute co-tenant's curve"
+ },
+ "dose_slopes": {
+  "value": [
+   1,
+   2,
+   4
+  ],
+  "unit": "ms per point of O",
+  "class": "illustrative",
+  "source": "illustrative: slopes grow along the curve"
+ },
+ "dram_null_added_ms": {
+  "value": 0,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: a memory-copy co-tenant with the same GPU time adds nothing"
+ },
+ "burst_length_effect_ms": {
+  "value": 0,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: 3 ms vs 30 ms bursts at the same share cost the same"
+ },
+ "camera_hz_alone": {
+  "value": 30,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: the depth camera service's frame rate when it runs alone"
+ },
+ "camera_gpu_only_loss_hz": {
+  "value": 0,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: GPU load alone (idle CPU) costs the camera no frames"
+ },
+ "camera_pool_loss_hz": {
+  "value": {
+   "half_full_wait": 0.3,
+   "twice_full_wait": 6
+  },
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: camera loss rises steeply with CPU wait"
+ },
+ "camera_fanout_loss_hz": {
+  "value": 1,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: extra topic subscribers make the camera do more work"
+ },
+ "camera_full_stack_loss_hz": {
+  "value": 5,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: 30 -> 25 Hz in the full stack"
+ },
+ "kernel_time_sms_full_share": {
+  "value": 0.5,
+  "unit": "fraction of kernel time",
+  "class": "illustrative",
+  "source": "illustrative: about half the kernel time leaves the SMs >= 90 % full on some resource (theoretical)"
+ },
+ "gemm_warp_slot_fill": {
+  "value": [
+   0.1,
+   0.3
+  ],
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: big GEMM kernels fill SMs by registers while using few warp slots"
+ },
+ "multiwave_share": {
+  "value": [
+   0.35,
+   0.7
+  ],
+  "unit": "fraction of kernel time",
+  "class": "illustrative",
+  "source": "illustrative: kernels larger than one wave of the GPU"
+ },
+ "sm_issue_full_stack": {
+  "value": 0.2,
+  "unit": "fraction of peak",
+  "class": "illustrative",
+  "source": "illustrative: low issue rate while the GPU is busy"
+ },
+ "gpu_active_full_stack": {
+  "value": 0.6,
+  "unit": "fraction of time",
+  "class": "illustrative",
+  "source": "illustrative: GPU has work about 60 % of the time"
+ },
+ "mps_tegra_since": {
+  "value": "CUDA 12.5 (Linux)",
+  "unit": "-",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-for-tegra-appnote/index.html (section 4.6-4.7)"
+ },
+ "mps_tegra_unsupported": {
+  "value": "-multiuser-server; GPU compute modes; under MPS: CUDA IPC, cooperative launches, client termination",
+  "unit": "-",
+  "class": "public",
+  "source": "https://docs.nvidia.com/deploy/mps/when-to-use-mps.html ; https://docs.nvidia.com/cuda/cuda-for-tegra-appnote/index.html (section 4.6-4.7)"
+ },
+ "mps_dynamic_parallelism": {
+  "value": "not supported under MPS",
+  "unit": "-",
+  "class": "public",
+  "source": "https://docs.nvidia.com/deploy/mps/when-to-use-mps.html"
+ },
+ "mps_launch_path_quote": {
+  "value": "MPS clients submit work directly to the GPU without passing through the MPS server.",
+  "unit": "quote",
+  "class": "public",
+  "source": "https://docs.nvidia.com/deploy/mps/architecture.html"
+ },
+ "mps_one_user": {
+  "value": "the control daemon runs one server per Linux user at a time; other users' clients are queued",
+  "unit": "-",
+  "class": "public",
+  "source": "https://docs.nvidia.com/deploy/mps/architecture.html"
+ },
+ "mps_thread_percentage_env": {
+  "value": "CUDA_MPS_ACTIVE_THREAD_PERCENTAGE",
+  "unit": "-",
+  "class": "public",
+  "source": "https://docs.nvidia.com/deploy/mps/when-to-use-mps.html"
+ },
+ "mps_probe_busy_frac": {
+  "value": [
+   0.5,
+   1.0
+  ],
+  "unit": "fraction per client (no MPS, MPS)",
+  "class": "illustrative",
+  "source": "illustrative: two one-SM test clients: turns vs side by side"
+ },
+ "mps_cap_visible_sms": {
+  "value": 4,
+  "unit": "SMs of 16",
+  "class": "illustrative",
+  "source": "illustrative: a 25 % thread cap leaves 4 of 16 SMs"
+ },
+ "launch_overhead_us": {
+  "value": {
+   "sync_each": 10,
+   "queued": 2,
+   "mps_difference": 0
+  },
+  "unit": "us",
+  "class": "illustrative",
+  "source": "illustrative: per-launch cost is the same with and without MPS"
+ },
+ "tensor_fp16_orin": {
+  "value": 42.5,
+  "unit": "TFLOP/s",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json tensor_classic_fp16.orin"
+ },
+ "dram_read_orin": {
+  "value": 177,
+  "unit": "GB/s",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json dram_bandwidth_read_measured.orin"
+ },
+ "dram_read_thor": {
+  "value": 259,
+  "unit": "GB/s",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json dram_bandwidth_read_measured.thor"
+ },
+ "tensor_fp16_thor": {
+  "value": 192.5,
+  "unit": "TFLOP/s",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json tensor_tcgen05_fp16.thor"
+ },
+ "pi05_sustained_bandwidth_thor": {
+  "value": 197.3,
+  "unit": "GB/s",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json pi05_sustained_bandwidth"
+ },
+ "shape_rate_fraction": {
+  "value": [
+   0.4,
+   0.6
+  ],
+  "unit": "fraction of ceiling",
+  "class": "illustrative",
+  "source": "illustrative: GEMMs at a model's own shapes reach well below the ceiling"
+ },
+ "vision_encoder": {
+  "value": {
+   "tflop": 0.5,
+   "intensity_flop_per_byte": 500
+  },
+  "unit": "-",
+  "class": "illustrative",
+  "source": "illustrative: a ViT-class encoder with high weight-side intensity"
+ },
+ "vision_pred_bandwidth_form_ms": {
+  "value": 6,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: weights / bandwidth: too fast on a compute-bound board"
+ },
+ "vision_measured_ms_orin": {
+  "value": 25,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: a measured-style Orin vision-phase time inside the compute-form bracket"
+ },
+ "vision_compute_form_ms": {
+  "value": [
+   20,
+   30
+  ],
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: FLOPs / shape rate = 0.5 TFLOP / (42.5 TFLOP/s x 0.6 .. 0.4)"
+ },
+ "gpu_processes_full_stack": {
+  "value": 6,
+  "unit": "processes",
+  "class": "illustrative",
+  "source": "illustrative: processes holding GPU memory in the full stack"
+ },
+ "vla_call_ms": {
+  "value": 150,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: one VLA call alone"
+ },
+ "vla_gpu_ms_per_call": {
+  "value": 120,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: GPU work inside one call (the rest is CPU side)"
+ },
+ "vla_offered_hz": {
+  "value": 5,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: offered action rate"
+ },
+ "gpu_free_next_to_stack": {
+  "value": 0.4,
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: GPU time left next to the full stack"
+ },
+ "sharing_overhead": {
+  "value": [
+   0.1,
+   0.2
+  ],
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: each output costs this much more GPU time when shared"
+ },
+ "batch1_latency_ms": {
+  "value": 250,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: one observation -> one action chunk, batch 1"
+ }
+}

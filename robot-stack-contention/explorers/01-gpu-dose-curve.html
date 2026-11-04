@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The object detector's GPU wait follows the others' share of GPU time, and the curve is convex — dose-curve explorer</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#b4bccb;
+    --accent:#5ec8ff; --model:#5ec8ff; --meas:#ffb35c; --vla:#ff7ad1; --ok:#49d17a; --bad:#ff7a7a;
+    --line:#3a3f4a; --warn:#ffd36b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 6px}
+  .sub{color:var(--muted);max-width:80ch;margin:0}
+  .banner{margin:12px 22px 0;border:1px solid var(--warn);border-left-width:5px;background:#1c1a12;color:#f3e6c0;border-radius:6px;padding:9px 13px;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:minmax(0,1fr)}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 16px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range],select{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
+  .cases button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  .cases button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-width:140px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;font-size:11px;padding:0 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;font-weight:400}
+  .tag.model{color:var(--model);border-color:var(--model)}
+  .tag.meas{color:var(--meas);border-color:var(--meas)}
+  .tag.est{color:var(--warn);border-color:var(--warn)}
+  .tag.ass{color:var(--bad);border-color:var(--bad)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h2{margin:0 0 6px;font-size:14px}
+  .why p{margin:6px 0}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td code{word-break:break-word}
+  #sources td:first-child code{white-space:nowrap;word-break:normal}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>The object detector's added GPU wait follows the other processes' share of GPU time, and each point costs more than the last</h1>
+  <p class="sub">Without MPS the GPU runs one CUDA context at a time (time-slicing), so the object detector waits while the other
+  processes hold their turns (contexts and time-slicing: <a href="../../nvidia-gpu-anatomy/notes/07-sharing-the-gpu.md">nvidia-gpu-anatomy, note 07</a>).
+  The x-axis is the dose <strong>O</strong>: the other processes' share of GPU-active time, in percentage points, with the
+  detector's own time removed. The y-axis is the detector's <strong>added blocked time per frame</strong> over the no-load window.
+  Move O, then cut the VLA's share by a few points to see how much time that buys back (note B1).</p>
+</header>
+<div class="banner" role="note"><strong>Caveat first. All points are illustrative</strong> (class <code>illustrative</code>): round
+  teaching numbers that keep the shape of the finding, not measurements. The curve comes from a reduced row (the depth camera service
+  and the object detector only, idle CPU pool) with a <strong>compute co-tenant</strong>, one window per arm. In the full stack the mechanism is
+  <strong>expected, not tested</strong>. The line between the arms is a linear interpolation, not a fitted law.</div>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="ctrl">
+      <label for="O">Dose O, other processes' GPU share <span class="val" id="O_v"></span></label>
+      <input id="O" type="range" min="0" max="80" step="0.5" value="65" aria-describedby="O_h">
+      <div class="hint" id="O_h">Range = the illustrative arms in <code>dose_curve_points</code>; the page does not extrapolate.</div>
+    </div>
+    <div class="ctrl">
+      <label for="cut">Cut the VLA's share by x <span class="val" id="cut_v"></span></label>
+      <input id="cut" type="range" min="0" max="30" step="0.5" value="5" aria-describedby="cut_h">
+      <div class="hint" id="cut_h">Lowers O by x points (the VLA's rate, batch or model size are the levers, B1 "So what"). The others' share is assumed unchanged.</div>
+    </div>
+    <div class="ctrl">
+      <span id="cases_l" style="font-weight:600">Preloaded cases (set O; illustrative)</span>
+      <div class="cases" role="group" aria-labelledby="cases_l" id="cases"></div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <svg id="chart" viewBox="0 0 720 400" role="img" aria-labelledby="chart_t">
+      <title id="chart_t">Dose curve: the object detector's added blocked time per frame against O, with the illustrative compute arms, the VLA point and the time bought back by a cut.</title>
+    </svg>
+    <div class="why">
+      <h2>What dominates right now</h2>
+      <p id="why_text"></p>
+      <p id="split_text" class="hint"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="What did not matter">
+  <h2 style="margin:0 0 4px;font-size:15px">What did not move the object detector at equal GPU time</h2>
+  <div class="tablewrap"><table id="nulls"><thead><tr><th>Test</th><th>Result (illustrative)</th><th>Key</th></tr></thead><tbody></tbody></table></div>
+  <p class="hint" id="camera_line"></p>
+</section>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h2 style="margin:0 0 4px;font-size:15px">Parameters &amp; sources</h2>
+  <p class="hint">Every number on this page is loaded from the inlined params block (also <code>params.json</code>), copied verbatim
+  from <code>../constants.json</code>. <span class="tag model">model</span> = computed here from the illustrative points;
+  <span class="tag meas">illustrative</span> = a constants value of class <code>illustrative</code> (a teaching number, not a measurement);
+  <span class="tag est">my estimate</span> = arithmetic done here from constants.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Unit</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  <p id="tests-sum" class="ok"></p>
+</section>
+
+<footer>
+  Study aid for <em>robot-stack-contention</em> (rung 3), note B1 (<code>../notes/B1-gpu-time-slicing-and-the-dose-curve.md</code>).
+  Every number is from <code>../constants.json</code> by key, or labelled as model / my estimate. All curve values are illustrative,
+  not measurements from any specific robot. How to benchmark a robot stack: <a href="../../robot-workload-benchmarking/">robot-workload-benchmarking</a>.
+</footer>
+
+<script type="application/json" id="params" data-keys="dose_curve_points,dose_vla_point,dose_slopes,timeslice_ms,mps_no_concurrency_quote,dram_null_added_ms,burst_length_effect_ms,detector_vla_added_blocked_wait_run,camera_gpu_only_loss_hz">
+{
+ "dose_curve_points": {
+  "value": [
+   [
+    0,
+    0
+   ],
+   [
+    40,
+    40
+   ],
+   [
+    60,
+    80
+   ],
+   [
+    80,
+    160
+   ]
+  ],
+  "unit": "[other share O points, added blocked ms per frame]",
+  "class": "illustrative",
+  "source": "illustrative: convex: each point costs more near saturation"
+ },
+ "dose_vla_point": {
+  "value": [
+   65,
+   100
+  ],
+  "unit": "[O points, added blocked ms]",
+  "class": "illustrative",
+  "source": "illustrative: the VLA sits on the compute co-tenant's curve"
+ },
+ "dose_slopes": {
+  "value": [
+   1,
+   2,
+   4
+  ],
+  "unit": "ms per point of O",
+  "class": "illustrative",
+  "source": "illustrative: slopes grow along the curve"
+ },
+ "timeslice_ms": {
+  "value": [
+   1,
+   5
+  ],
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: a GPU time slice per context is a few milliseconds (driver default, priority dependent)"
+ },
+ "mps_no_concurrency_quote": {
+  "value": "Work launched to the compute engine from work queues belonging to different CUDA contexts cannot execute concurrently.",
+  "unit": "quote",
+  "class": "public",
+  "source": "https://docs.nvidia.com/deploy/mps/architecture.html"
+ },
+ "dram_null_added_ms": {
+  "value": 0,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: a memory-copy co-tenant with the same GPU time adds nothing"
+ },
+ "burst_length_effect_ms": {
+  "value": 0,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative: 3 ms vs 30 ms bursts at the same share cost the same"
+ },
+ "detector_vla_added_blocked_wait_run": {
+  "value": [
+   70,
+   20,
+   10
+  ],
+  "unit": "ms per frame added",
+  "class": "illustrative",
+  "source": "illustrative: next to the VLA the rise is mostly blocked (GPU) time"
+ },
+ "camera_gpu_only_loss_hz": {
+  "value": 0,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative: GPU load alone (idle CPU) costs the camera no frames"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+(function (global) {
+  "use strict";
+  const pts = P => P.dose_curve_points.value;            // [[O, added ms], ...] illustrative compute arms (B1 table)
+
+  // added_blocked_ms(O): the detector's added blocked time per frame at dose O.
+  // Piecewise-linear through the compute arms (B1 table; dose_curve_points). NaN outside the arms' range.
+  function added_blocked_ms(P, O) {
+    const p = pts(P);
+    if (!(O >= p[0][0] && O <= p[p.length - 1][0])) return NaN;
+    for (let i = 1; i < p.length; i++) {
+      if (O <= p[i][0]) {
+        const [x0, y0] = p[i - 1], [x1, y1] = p[i];
+        return y0 + (O - x0) * (y1 - y0) / (x1 - x0);
+      }
+    }
+    return NaN;
+  }
+  // segment_slopes_ms_per_point: slope of each segment (B1 "Slopes between points"; dose_slopes).
+  function segment_slopes_ms_per_point(P) {
+    const p = pts(P), s = [];
+    for (let i = 1; i < p.length; i++) s.push((p[i][1] - p[i - 1][1]) / (p[i][0] - p[i - 1][0]));
+    return s;
+  }
+  // local_slope_ms_per_point(O): slope of the segment that contains O (a knot belongs to the segment above it).
+  function local_slope_ms_per_point(P, O) {
+    const p = pts(P), s = segment_slopes_ms_per_point(P);
+    if (!(O >= p[0][0] && O <= p[p.length - 1][0])) return NaN;
+    for (let i = 1; i < p.length; i++) if (O < p[i][0]) return s[i - 1];
+    return s[s.length - 1];
+  }
+  function segment_index(P, O) { const p = pts(P); for (let i = 1; i < p.length; i++) if (O < p[i][0]) return i - 1; return p.length - 2; }
+  // bought_back_ms(O, x): time per frame saved by lowering the dose from O to O − x, others unchanged.
+  function bought_back_ms(P, O, x) { return added_blocked_ms(P, O) - added_blocked_ms(P, Math.max(0, O - x)); }
+  // cstar_over_R: the compute curve's value at the VLA's dose (C*) ÷ the VLA arm's added blocked time (R) (B1).
+  function cstar_over_R(P) { const [Ov, R] = P.dose_vla_point.value; return added_blocked_ms(P, Ov) / R; }
+  // highest_over_R: C at the highest compute dose ÷ R (B1 "C at the highest dose ÷ R").
+  function highest_over_R(P) { const p = pts(P); return p[p.length - 1][1] / P.dose_vla_point.value[1]; }
+  // average_slope: R ÷ O of the VLA point, the average cost per point from zero to the VLA's dose (my estimate).
+  function average_slope(P) { const [Ov, R] = P.dose_vla_point.value; return R / Ov; }
+
+  function selfTest(P, assert) {
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const r1 = x => Math.round(x * 10) / 10;
+    const p = pts(P);
+    // 1. curve passes through every arm
+    for (const [o, c] of p) ok(Math.abs(added_blocked_ms(P, o) - c) < 1e-9, `curve passes through (${o}, ${c})`);
+    // 2. segment slopes reproduce B1's slopes (dose_slopes: 1 / 2 / 4 ms per point)
+    const s = segment_slopes_ms_per_point(P);
+    P.dose_slopes.value.forEach((v, i) => ok(Math.abs(s[i] - v) < 1e-9, `slope ${i}: ${s[i]} = ${v}`));
+    // 3. convex: each slope larger than the last
+    ok(s.every((v, i) => i === 0 || v > s[i - 1]), "curve is convex (slopes rise)");
+    // 4. C* = 100 ms and C*/R = 1.0 (B1 "my estimate"): verdict "dose explains"
+    const [Ov, R] = P.dose_vla_point.value;
+    ok(Math.abs(added_blocked_ms(P, Ov) - 100) < 1e-9, "C* at the VLA dose = 100 ms (B1)");
+    ok(r1(cstar_over_R(P)) === 1.0, `C*/R = ${cstar_over_R(P)} = 1.0 (B1)`);
+    // 5. highest dose ÷ R = 1.6 (B1): the prediction "C stays below R" was wrong
+    ok(r1(highest_over_R(P)) === 1.6 && highest_over_R(P) > 1, `C_high/R = ${highest_over_R(P)} = 1.6 > 1`);
+    // 6. first test: compute arm at 40 points gave 40 % of R (B1: 40 ms ÷ 100 ms)
+    ok(Math.round(100 * p[1][1] / R) === 40, "first test's compute arm = 40 % of R (B1)");
+    ok(p[1][0] < Ov, "first test's arm sits below the VLA's dose (40 vs 65 points)");
+    // 7. near the VLA's share each point costs more than the average (B1 'So what')
+    ok(local_slope_ms_per_point(P, Ov) > average_slope(P), `local slope ${local_slope_ms_per_point(P, Ov)} > average ${average_slope(P).toFixed(2)}`);
+    // 8. a convex curve: the first 5 points cut from the VLA's dose buy more than 5 × the average
+    ok(bought_back_ms(P, Ov, 5) > 5 * average_slope(P), "first 5 points cut buy back more than the average rate");
+    // 9. bought back is zero for no cut and stops at O = 0
+    ok(bought_back_ms(P, Ov, 0) === 0, "no cut buys nothing");
+    ok(bought_back_ms(P, 10, 30) === added_blocked_ms(P, 10), "cut beyond O stops at O = 0");
+    // 10. outside the range the model refuses (NaN by design)
+    ok(Number.isNaN(added_blocked_ms(P, p[p.length - 1][0] + 1)), "no extrapolation beyond the highest arm");
+    // 11. the nulls: copy co-tenant and burst length add 0 ms (B1)
+    ok(P.dram_null_added_ms.value === 0 && P.burst_length_effect_ms.value === 0, "copy co-tenant and burst length add 0 ms");
+    // 12. next to the VLA most of the detector's rise is blocked (GPU) time (B1: 70 / 20 / 10)
+    const sp = P.detector_vla_added_blocked_wait_run.value;
+    ok(sp[0] > sp[1] + sp[2], "blocked time is the largest part of the rise next to the VLA");
+    return { passed, failed };
+  }
+
+  const api = { added_blocked_ms, segment_slopes_ms_per_point, local_slope_ms_per_point, segment_index,
+    bought_back_ms, cstar_over_R, highest_over_R, average_slope, selfTest };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  global.DOSE = api;
+})(typeof window !== "undefined" ? window : globalThis);
+/*MODEL-END*/
+
+if (typeof window !== "undefined") {
+/* ---- shared UI helpers (browser only) ---- */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+const fmt = (x, d = 1) => (x === Infinity ? "∞" : Number(x).toFixed(d));
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function showVal(v) {
+  if (Array.isArray(v)) return v.map(x => Array.isArray(x) ? "(" + x.join(", ") + ")" : showVal(x)).join(" / ");
+  if (v && typeof v === "object") return Object.entries(v).map(([k, x]) => k + " " + showVal(x)).join("; ");
+  return String(v);
+}
+function renderSources(keys) {
+  const tb = $("sources").querySelector("tbody");
+  tb.innerHTML = "";
+  for (const k of keys) {
+    const o = PARAMS[k];
+    const tr = document.createElement("tr");
+    const cls = o.class === "illustrative" ? `<strong>illustrative</strong>` : esc(o.class);
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))}</td><td>${esc(o.unit)}</td>` +
+      `<td>${cls}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+function metric(k, v, tag) {
+  const t = tag ? `<span class="tag ${tag[0]}">${tag[1]}</span>` : "";
+  return `<div class="metric"><div class="k">${k}${t}</div><div class="v">${v}</div></div>`;
+}
+const TAG = { model: ["model", "model"], ill: ["meas", "illustrative"], est: ["est", "my estimate"], ass: ["ass", "assumption"] };
+function runSelfTests(api) {
+  const res = api.selfTest(PARAMS, (c, m) => console.assert(c, m));
+  $("tests-sum").textContent = `Self-tests: ${res.passed} passed, ${res.failed} failed (console.assert; reproduces the notes' numbers).`;
+  if (res.failed) $("tests-sum").className = "bad";
+}
+function wireRaf(ids, fn) {
+  let raf = null;
+  for (const id of ids) $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); });
+}
+
+  const M = window.DOSE;
+  const USED = $("params").dataset.keys.split(",");
+  const PTS = PARAMS.dose_curve_points.value, VLA = PARAMS.dose_vla_point.value;
+  const OMAX = PTS[PTS.length - 1][0];
+  $("O").max = OMAX; $("O").value = VLA[0];                      // range and default from the params block
+  const ARM = ["no load", "compute, low dose", "compute, middle dose", "compute, high dose"];
+  const CASES = [
+    ...PTS.map((p, i) => ({ name: ARM[i], O: p[0], note: "compute co-tenant arm (illustrative)" })),
+    { name: "VLA arm", O: VLA[0], note: "VLA arm (illustrative)" }
+  ];
+  const cbox = $("cases");
+  CASES.forEach(c => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = c.name; b.title = c.note;
+    b.setAttribute("aria-pressed", "false");
+    b.addEventListener("click", () => { $("O").value = c.O; update(); });
+    cbox.appendChild(b);
+  });
+
+  function draw(O, x) {
+    const W = 720, H = 400, L = 62, R = 20, T = 22, B = 52, xmax = OMAX, ymax = 180;
+    const X = o => L + (W - L - R) * o / xmax, Y = c => T + (H - T - B) * (1 - c / ymax);
+    let s = `<title id="chart_t">Dose curve: the object detector's added blocked time per frame against O, with the illustrative compute arms, the VLA point and the time bought back by a cut.</title>`;
+    for (let g = 0; g <= ymax; g += 30) s += `<line x1="${L}" x2="${W - R}" y1="${Y(g)}" y2="${Y(g)}" stroke="#2a2f39"/><text x="${L - 8}" y="${Y(g) + 4}" fill="#b4bccb" font-size="12" text-anchor="end">${g}</text>`;
+    for (let g = 0; g <= xmax; g += 10) s += `<text x="${X(g)}" y="${H - B + 18}" fill="#b4bccb" font-size="12" text-anchor="middle">${g}</text>`;
+    s += `<text x="${(L + W - R) / 2}" y="${H - 10}" fill="#eef1f6" font-size="13" text-anchor="middle">O — other processes' share of GPU-active time (points)</text>`;
+    s += `<text x="16" y="${(T + H - B) / 2}" fill="#eef1f6" font-size="13" text-anchor="middle" transform="rotate(-90 16 ${(T + H - B) / 2})">detector added blocked time (ms / frame)</text>`;
+    // bought-back band
+    const Oc = Math.max(0, O - x), yA = M.added_blocked_ms(PARAMS, O), yC = M.added_blocked_ms(PARAMS, Oc);
+    if (x > 0 && O > 0) {
+      s += `<rect x="${X(Oc)}" y="${T}" width="${X(O) - X(Oc)}" height="${H - B - T}" fill="#49d17a" opacity="0.12"/>`;
+      s += `<line x1="${X(Oc)}" x2="${X(O)}" y1="${Y(yC)}" y2="${Y(yC)}" stroke="#49d17a" stroke-dasharray="4 3"/>`;
+      const bx = Math.min(X(O) + 10, W - R - 60);
+      s += `<line x1="${bx}" x2="${bx}" y1="${Y(yC)}" y2="${Y(yA)}" stroke="#49d17a" stroke-width="3"/>`;
+      s += `<text x="${bx + 4}" y="${(Y(yC) + Y(yA)) / 2 + 4}" fill="#49d17a" font-size="12">−${fmt(yA - yC)} ms</text>`;
+    }
+    // model line
+    s += `<polyline fill="none" stroke="#5ec8ff" stroke-width="2.5" points="${PTS.map(p => X(p[0]) + "," + Y(p[1])).join(" ")}"/>`;
+    // segment slope labels
+    const sl = M.segment_slopes_ms_per_point(PARAMS);
+    for (let i = 1; i < PTS.length; i++) {
+      const mx = (PTS[i][0] + PTS[i - 1][0]) / 2, my = (PTS[i][1] + PTS[i - 1][1]) / 2;
+      s += `<text x="${X(mx) - 6}" y="${Y(my) - 10}" fill="#5ec8ff" font-size="11" text-anchor="end">${fmt(sl[i - 1], 1)} ms/pt</text>`;
+    }
+    // illustrative compute arms (circles)
+    PTS.forEach((p, i) => s += `<circle cx="${X(p[0])}" cy="${Y(p[1])}" r="6" fill="#ffb35c" stroke="#0f1115" stroke-width="1.5"><title>${ARM[i]}: O ${p[0]}, ${p[1]} ms (illustrative)</title></circle>`);
+    // VLA (diamond)
+    const vx = X(VLA[0]), vy = Y(VLA[1]);
+    s += `<path d="M${vx} ${vy - 9}L${vx + 9} ${vy}L${vx} ${vy + 9}L${vx - 9} ${vy}Z" fill="#ff7ad1" stroke="#0f1115" stroke-width="1.5"><title>VLA arm: O ${VLA[0]}, ${VLA[1]} ms (illustrative)</title></path>`;
+    s += `<text x="${vx + 2}" y="${vy + 44}" fill="#ff7ad1" font-size="12">VLA arm (illustrative)</text>`;
+    // current O
+    s += `<line x1="${X(O)}" x2="${X(O)}" y1="${Y(yA)}" y2="${H - B}" stroke="#ffd36b" stroke-width="1.5"/>`;
+    s += `<circle cx="${X(O)}" cy="${Y(yA)}" r="5" fill="none" stroke="#ffd36b" stroke-width="2.5"/>`;
+    // legend (empty upper-left corner above the convex curve)
+    const ly = T + 10, lx = L + 14;
+    s += `<rect x="${lx - 6}" y="${ly - 6}" width="268" height="70" fill="#12151c" stroke="#3a3f4a" rx="5"/>`;
+    s += `<line x1="${lx}" x2="${lx + 22}" y1="${ly + 8}" y2="${ly + 8}" stroke="#5ec8ff" stroke-width="2.5"/><text x="${lx + 30}" y="${ly + 12}" fill="#eef1f6" font-size="12">model: line through the compute arms</text>`;
+    s += `<circle cx="${lx + 11}" cy="${ly + 28}" r="5" fill="#ffb35c"/><text x="${lx + 30}" y="${ly + 32}" fill="#eef1f6" font-size="12">illustrative: compute co-tenant arm</text>`;
+    s += `<path d="M${lx + 11} ${ly + 41}L${lx + 18} ${ly + 48}L${lx + 11} ${ly + 55}L${lx + 4} ${ly + 48}Z" fill="#ff7ad1"/><text x="${lx + 30}" y="${ly + 52}" fill="#eef1f6" font-size="12">illustrative: VLA arm</text>`;
+    $("chart").innerHTML = s;
+  }
+
+  function update() {
+    const O = +$("O").value, x = +$("cut").value;
+    $("O_v").textContent = fmt(O) + " points"; $("cut_v").textContent = fmt(x) + " points";
+    [...cbox.children].forEach((b, i) => b.setAttribute("aria-pressed", Math.abs(CASES[i].O - O) < 0.05 ? "true" : "false"));
+    const add = M.added_blocked_ms(PARAMS, O), sl = M.local_slope_ms_per_point(PARAMS, O);
+    const bb = M.bought_back_ms(PARAMS, O, x), seg = M.segment_index(PARAMS, O), printed = PARAMS.dose_slopes.value[seg];
+    const cr = M.cstar_over_R(PARAMS), avg = M.average_slope(PARAMS), cutEff = Math.min(x, O);
+    $("headline").innerHTML =
+      metric("Added blocked at O", fmt(add) + " ms/frame", TAG.model) +
+      metric("Local slope (note: " + printed + ")", fmt(sl, 2) + " ms/point", TAG.model) +
+      metric(`Bought back by −${fmt(cutEff)} points`, fmt(bb) + " ms/frame", TAG.model) +
+      metric("C*/R at the VLA's dose", fmt(cr, 2), TAG.est);
+    draw(O, x);
+    const p = PTS, segName = `${p[seg][0]}–${p[seg + 1][0]}`;
+    const perPt = cutEff > 0 ? bb / cutEff : sl;
+    $("why_text").innerHTML =
+      `At O = ${fmt(O)} points the detector sits on the ${segName} segment, where each point of the others' GPU share costs ` +
+      `<strong>${fmt(sl, 2)} ms per frame</strong> (illustrative, <code>dose_slopes</code>). The average from zero to the VLA's dose is ` +
+      `${fmt(avg, 2)} ms per point <span class="tag est">my estimate from dose_vla_point</span>. ` +
+      (sl > avg ? `Here the local slope is above that average, so a cut pays more than the average suggests. `
+                : `Here the local slope is below that average: at a low dose, a cut buys back less per point. `) +
+      (cutEff > 0 ? `Cutting ${fmt(cutEff)} points buys back <strong>${fmt(bb)} ms</strong> per frame, ${fmt(perPt, 2)} ms per point on average; ` +
+               (perPt < sl - 1e-9 ? `the first points cut buy back the most because the curve is convex.` : `this cut stays on one straight segment, so each point buys back the same.`)
+             : O === 0 ? `At zero dose there is nothing to cut.` : `Set a cut above zero to see the time bought back.`) +
+      ` The VLA arm (diamond) lies on the compute curve: C*/R = ${fmt(cr, 2)} <span class="tag est">my estimate from dose_curve_points and dose_vla_point</span>, ` +
+      `so the pre-registered verdict is <strong>"dose explains"</strong>: at the VLA's dose, its extra DRAM traffic and SM issue rate add nothing measurable.`;
+    const sp = PARAMS.detector_vla_added_blocked_wait_run.value;
+    $("split_text").innerHTML =
+      `Next to the VLA the detector's rise splits into about ${sp[0]} ms blocked, ${sp[1]} ms CPU wait and ${sp[2]} ms slower run per frame ` +
+      `(illustrative, <code>detector_vla_added_blocked_wait_run</code>): most of it is GPU wait. In the full stack the detector also waits for the CPU, ` +
+      `submits GPU work less often, and sits below this curve (post-hoc reading, not separated from other causes).`;
+    $("callout").innerHTML =
+      `<strong>Corrections kept visible.</strong> (1) The first test's compute arm sat at ${p[1][0]} points against the VLA's ${VLA[0]} ` +
+      `and gave ${fmt(100 * p[1][1] / VLA[1], 0)} % of R <span class="tag est">my estimate from dose_curve_points and dose_vla_point</span>; its ` +
+      `pre-registered class "neither alone" stands as recorded, and this convex curve explains it. Added GPU busy includes the detector's own time, ` +
+      `which falls as it slows, so it understated the gap in dose. (2) The highest dose cost ${fmt(M.highest_over_R(PARAMS), 1)} R, ` +
+      `not less than R as predicted <span class="tag est">my estimate</span>. (3) "SM contention" does not apply: none of these tests ran MPS, ` +
+      `so kernels of different processes never overlapped (<code>mps_no_concurrency_quote</code>).`;
+    $("live").textContent = `O ${fmt(O)} points: added blocked ${fmt(add)} ms per frame; local slope ${fmt(sl, 2)} ms per point; cutting ${fmt(cutEff)} points buys back ${fmt(bb)} ms.`;
+  }
+
+  const nb = $("nulls").querySelector("tbody");
+  const ts = PARAMS.timeslice_ms.value;
+  [["Copy co-tenant (streaming memory copy) at equal GPU time", `${PARAMS.dram_null_added_ms.value} ms added`, "dram_null_added_ms"],
+   ["Burst length, 3 ms vs 30 ms bursts at the same share (prediction was: longer costs more)", `${PARAMS.burst_length_effect_ms.value} ms difference`, "burst_length_effect_ms"],
+   ["Bursts shorter than one time slice", `not tested (a slice is about ${ts.join(" to ")} ms)`, "timeslice_ms"]]
+    .forEach(r => { const tr = document.createElement("tr"); tr.innerHTML = `<td>${r[0]}</td><td>${r[1]}</td><td><code>${r[2]}</code></td>`; nb.appendChild(tr); });
+  $("camera_line").innerHTML = `The depth camera service is different: GPU load alone, with an idle CPU pool, costs it ${PARAMS.camera_gpu_only_loss_hz.value} Hz ` +
+    `at every dose tested (illustrative, <code>camera_gpu_only_loss_hz</code>). Its loss is CPU-side; the shared pool's share is "undecided at dose" (note B1).`;
+
+  wireRaf(["O", "cut"], update);
+  renderSources(USED);
+  runSelfTests(M);
+  update();
+}
+</script>
+</body>
+</html>

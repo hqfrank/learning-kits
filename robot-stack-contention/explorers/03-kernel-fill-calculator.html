@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>An SM can be full with few warps — kernel-fill calculator</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#b4bccb;
+    --accent:#5ec8ff; --model:#5ec8ff; --meas:#ffb35c; --vla:#ff7ad1; --ok:#49d17a; --bad:#ff7a7a;
+    --line:#3a3f4a; --warn:#ffd36b;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 6px}
+  .sub{color:var(--muted);max-width:80ch;margin:0}
+  .banner{margin:12px 22px 0;border:1px solid var(--warn);border-left-width:5px;background:#1c1a12;color:#f3e6c0;border-radius:6px;padding:9px 13px;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:minmax(0,1fr)}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 16px}
+  label{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range],select{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  input:focus-visible,select:focus-visible,button:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 14px}
+  .cases button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  .cases button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 12px;min-width:140px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{display:inline-block;font-size:11px;padding:0 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;font-weight:400}
+  .tag.model{color:var(--model);border-color:var(--model)}
+  .tag.meas{color:var(--meas);border-color:var(--meas)}
+  .tag.est{color:var(--warn);border-color:var(--warn)}
+  .tag.ass{color:var(--bad);border-color:var(--bad)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h2{margin:0 0 6px;font-size:14px}
+  .why p{margin:6px 0}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td code{word-break:break-word}
+  #sources td:first-child code{white-space:nowrap;word-break:normal}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  .ok{color:var(--ok)} .bad{color:var(--bad)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>An SM can be full with few warps: blocks per SM are the minimum over four limits</h1>
+  <p class="sub">An SM of an Orin-class board (example: Jetson AGX Orin, compute capability 8.7) holds a kernel's blocks up to four limits:
+  warps, blocks, registers and shared memory. The <strong>binding fill</strong> is the largest used fraction of any of the four on the
+  busiest SM in the first wave; at ≥ 90 % that SM has little room for another kernel's block. A kernel with more blocks than the SMs
+  can hold at once runs in <strong>waves</strong>. Set a launch configuration and see which resource binds (note B2). Occupancy and
+  registers are taught in <a href="../../nvidia-gpu-anatomy/notes/03-occupancy-and-registers.md">nvidia-gpu-anatomy, note 03</a>.</p>
+</header>
+<div class="banner" role="note"><strong>Theoretical, from launch configuration.</strong> This is what the launch configuration allows,
+  not achieved occupancy. Stalls, achieved per-kernel occupancy and co-residency under MPS were not measured. The preloaded launch
+  configurations are <strong>my illustrative choices</strong> that land inside the note's illustrative ranges, not configurations read from a trace.</div>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="ctrl">
+      <label for="thr">Threads per block <span class="val" id="thr_v"></span></label>
+      <input id="thr" type="range" min="32" max="1024" step="32" value="256">
+      <div class="hint">Step = one warp (<code>warp_size</code>). Upper end = <code>max_threads_per_block</code>.</div>
+    </div>
+    <div class="ctrl">
+      <label for="reg">Registers per thread <span class="val" id="reg_v"></span></label>
+      <input id="reg" type="range" min="16" max="255" step="1" value="232">
+      <div class="hint">Allocated per warp in units of <code>register_alloc_unit_per_warp</code>. Upper end = <code>max_registers_per_thread</code>.</div>
+    </div>
+    <div class="ctrl">
+      <label for="smem">Shared memory per block <span class="val" id="smem_v"></span></label>
+      <input id="smem" type="range" min="0" max="164" step="1" value="48">
+      <div class="hint">KB. Upper end = <code>l1_shared_per_sm_orin_kb</code> (the SM's maximum shared memory; the slightly smaller per-block limit, the small per-block system reservation and the L1 carve-out are not modelled — see the CUDA C Programming Guide, technical specifications).</div>
+    </div>
+    <div class="ctrl">
+      <label for="grid">Grid size (blocks) <span class="val" id="grid_v"></span></label>
+      <input id="grid" type="range" min="0" max="1" step="any" value="0.5" aria-valuetext="">
+      <div class="hint">Log scale, 1 … 65 536 blocks (a slider range, not a hardware limit).</div>
+    </div>
+    <div class="ctrl">
+      <span id="cases_l" style="font-weight:600">Preloaded cases (my illustrative configurations)</span>
+      <div class="cases" role="group" aria-labelledby="cases_l" id="cases"></div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <svg id="bars" class="bars" viewBox="0 0 720 230" role="img" aria-labelledby="bars_t"><title id="bars_t">Fill of each SM resource on the busiest SM in the first wave.</title></svg>
+    <svg id="sms" viewBox="0 0 720 150" role="img" aria-labelledby="sms_t" style="margin-top:10px"><title id="sms_t">The SMs in the first wave and the number of waves.</title></svg>
+    <div class="why">
+      <h2>What binds right now</h2>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Illustrative kernel-time shares">
+  <h2 style="margin:0 0 4px;font-size:15px">What the note reports for the stack's kernels (illustrative; theoretical, from launch configuration)</h2>
+  <p class="hint" id="issue_line"></p>
+  <div class="tablewrap"><table id="kfill"><thead><tr><th>Quantity</th><th>Value</th><th>Key</th></tr></thead><tbody></tbody></table></div>
+  <p class="hint">These are round teaching numbers that keep the shape of the finding (note B2), not measurements. The method computes them
+  from the launch configurations in solo kernel traces, weighted by kernel duration. The large GEMM kernels belong to the object detector and the VLA;
+  the depth camera service, the object detector and the VLA each spend a large part of their kernel time in full kernels.</p>
+</section>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h2 style="margin:0 0 4px;font-size:15px">Parameters &amp; sources</h2>
+  <p class="hint">Loaded from the inlined params block (also <code>params.json</code>), copied verbatim from <code>../constants.json</code>.
+  <span class="tag model">model</span> = computed here from the launch configuration and the limits; <code>public</code> = a cited document;
+  <code>sibling</code> = a key in <a href="../../jetson-orin-thor-metrics/">jetson-orin-thor-metrics</a>; <strong>illustrative</strong> = a teaching number, not a measurement.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Unit</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  <p id="tests-sum" class="ok"></p>
+</section>
+
+<footer>
+  Study aid for <em>robot-stack-contention</em> (rung 3), note B2. Limits from the CUDA Programming Guide (public keys) and the sibling kit
+  <a href="../../jetson-orin-thor-metrics/">jetson-orin-thor-metrics</a>; the 90 % "full" line is read from the source text of
+  <code>kernel_time_sms_full_share</code>. Theoretical fill from launch configuration only.
+</footer>
+
+<script type="application/json" id="params" data-keys="sm_count_orin,max_warps_per_sm,max_blocks_per_sm_cc87,registers_per_sm,l1_shared_per_sm_orin_kb,warp_size,register_alloc_unit_per_warp,max_threads_per_block,max_registers_per_thread,kernel_time_sms_full_share,gemm_warp_slot_fill,multiwave_share,sm_issue_full_stack,gpu_active_full_stack">
+{
+ "sm_count_orin": {
+  "value": 16,
+  "unit": "SMs",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json sm_count.orin"
+ },
+ "max_warps_per_sm": {
+  "value": 48,
+  "unit": "warps",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json max_warps_per_sm"
+ },
+ "max_blocks_per_sm_cc87": {
+  "value": 16,
+  "unit": "blocks",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "registers_per_sm": {
+  "value": 65536,
+  "unit": "registers",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json registers_per_sm"
+ },
+ "l1_shared_per_sm_orin_kb": {
+  "value": 164,
+  "unit": "KB",
+  "class": "sibling",
+  "source": "../jetson-orin-thor-metrics/constants.json l1_shared_per_sm.orin"
+ },
+ "warp_size": {
+  "value": 32,
+  "unit": "threads",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "register_alloc_unit_per_warp": {
+  "value": 256,
+  "unit": "registers",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "max_threads_per_block": {
+  "value": 1024,
+  "unit": "threads",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "max_registers_per_thread": {
+  "value": 255,
+  "unit": "registers",
+  "class": "public",
+  "source": "https://docs.nvidia.com/cuda/cuda-c-programming-guide/ (technical specifications per compute capability; occupancy)"
+ },
+ "kernel_time_sms_full_share": {
+  "value": 0.5,
+  "unit": "fraction of kernel time",
+  "class": "illustrative",
+  "source": "illustrative: about half the kernel time leaves the SMs >= 90 % full on some resource (theoretical)"
+ },
+ "gemm_warp_slot_fill": {
+  "value": [
+   0.1,
+   0.3
+  ],
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "illustrative: big GEMM kernels fill SMs by registers while using few warp slots"
+ },
+ "multiwave_share": {
+  "value": [
+   0.35,
+   0.7
+  ],
+  "unit": "fraction of kernel time",
+  "class": "illustrative",
+  "source": "illustrative: kernels larger than one wave of the GPU"
+ },
+ "sm_issue_full_stack": {
+  "value": 0.2,
+  "unit": "fraction of peak",
+  "class": "illustrative",
+  "source": "illustrative: low issue rate while the GPU is busy"
+ },
+ "gpu_active_full_stack": {
+  "value": 0.6,
+  "unit": "fraction of time",
+  "class": "illustrative",
+  "source": "illustrative: GPU has work about 60 % of the time"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+(function (global) {
+  "use strict";
+  // All limits are loaded from the params block (public / sibling keys); no literals in the model.
+  // full_threshold: the "≥ 90 % full" line, parsed from the source text of kernel_time_sms_full_share (B2).
+  function full_threshold(P) { const m = /(?:>=|≥)\s*(\d+)\s*%/.exec(P.kernel_time_sms_full_share.source); return m ? +m[1] / 100 : NaN; }
+  // warps_per_block = ceil(threads / warp_size)
+  function warps_per_block(P, threads) { return Math.ceil(threads / P.warp_size.value); }
+  // regs_per_warp_alloc = ceil(regs × warp size / alloc unit) × alloc unit (register allocation granularity per warp)
+  function regs_per_warp_alloc(P, regs) {
+    const W = P.warp_size.value, G = P.register_alloc_unit_per_warp.value;
+    return Math.ceil(regs * W / G) * G;
+  }
+  // sm_limits: blocks per SM allowed by each of the four resources (B2 "four limits").
+  // A block over max_threads_per_block or a thread over max_registers_per_thread cannot launch (0 blocks).
+  function sm_limits(P, cfg) {
+    const wpb = warps_per_block(P, cfg.threads);
+    const over = cfg.threads > P.max_threads_per_block.value || cfg.regs > P.max_registers_per_thread.value;
+    return {
+      warps: over ? 0 : Math.floor(P.max_warps_per_sm.value / wpb),
+      blocks: P.max_blocks_per_sm_cc87.value,
+      registers: Math.floor(P.registers_per_sm.value / (wpb * regs_per_warp_alloc(P, cfg.regs))),
+      shared_memory: cfg.smem_kb > 0 ? Math.floor(P.l1_shared_per_sm_orin_kb.value / cfg.smem_kb) : Infinity
+    };
+  }
+  // blocks_per_sm = min over the four limits; binding = the resource(s) at the minimum
+  function blocks_per_sm(P, cfg) {
+    const lim = sm_limits(P, cfg), bps = Math.min(...Object.values(lim));
+    return { lim, bps, binding: Object.keys(lim).filter(k => lim[k] === bps) };
+  }
+  // kernel_fill: fractions used on the busiest SM in the first wave; resident = min(bps, ceil(grid / SMs)).
+  // binding fill = max of the four fractions (B2); full if ≥ full_threshold.
+  function kernel_fill(P, cfg) {
+    const sms = P.sm_count_orin.value, { lim, bps, binding } = blocks_per_sm(P, cfg);
+    if (bps < 1) return { launchable: false, lim, bps, binding };
+    const wpb = warps_per_block(P, cfg.threads), resident = Math.min(bps, Math.ceil(cfg.grid / sms));
+    const fill = {
+      warps: resident * wpb / P.max_warps_per_sm.value,
+      blocks: resident / P.max_blocks_per_sm_cc87.value,
+      registers: resident * wpb * regs_per_warp_alloc(P, cfg.regs) / P.registers_per_sm.value,
+      shared_memory: resident * cfg.smem_kb / P.l1_shared_per_sm_orin_kb.value
+    };
+    const binding_fill = Math.max(...Object.values(fill));
+    const fill_binding = Object.keys(fill).filter(k => fill[k] === binding_fill);
+    const waves = cfg.grid / (sms * bps);                       // B2: blocks ÷ (SMs × blocks per SM)
+    const waves_ceil = Math.ceil(waves);
+    const last_wave_fill = waves - (waves_ceil - 1);            // fraction of the GPU's block slots used by the last wave
+    const sms_used_first_wave = Math.min(sms, cfg.grid);        // blocks spread one per SM before stacking (simplification)
+    return { launchable: true, lim, bps, binding, resident, fill, binding_fill, fill_binding,
+      warp_slot_fill: fill.warps, full: binding_fill >= full_threshold(P),
+      waves, waves_ceil, last_wave_fill, sms_used_first_wave };
+  }
+  // max_regs_for_full_warps: most registers per thread that still lets all warp slots fill (B2 worked example)
+  //   = floor(registers_per_sm ÷ max_warps_per_sm ÷ alloc unit) × alloc unit ÷ warp size
+  function max_regs_for_full_warps(P) {
+    const G = P.register_alloc_unit_per_warp.value;
+    return Math.floor(P.registers_per_sm.value / P.max_warps_per_sm.value / G) * G / P.warp_size.value;
+  }
+  // grid_from_t: log slider 1 … 65 536 blocks
+  function grid_from_t(t) { return Math.max(1, Math.round(Math.pow(65536, t))); }
+  function t_from_grid(g) { return Math.log(g) / Math.log(65536); }
+
+  const CASES = [
+    { name: "register-bound GEMM", cfg: { threads: 256, regs: 232, smem_kb: 48, grid: 160 } },
+    { name: "warp-filling element-wise", cfg: { threads: 256, regs: 32, smem_kb: 0, grid: 4096 } },
+    { name: "small grid", cfg: { threads: 128, regs: 32, smem_kb: 0, grid: 8 } }
+  ];
+
+  function selfTest(P, assert) {
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    // 1. limits as in B2's table (48 / 16 / 65 536 / 164 KB) and 16 SMs
+    ok(P.max_warps_per_sm.value === 48 && P.max_blocks_per_sm_cc87.value === 16 && P.registers_per_sm.value === 65536 && P.l1_shared_per_sm_orin_kb.value === 164, "limits as in B2 (48 / 16 / 65 536 / 164 KB)");
+    ok(P.sm_count_orin.value === 16, "16 SMs (sm_count_orin)");
+    ok(full_threshold(P) === 0.9, "full threshold parsed from the source text of kernel_time_sms_full_share = 0.9");
+    // 2. B2 worked example: at most about 40 registers per thread to fill all 48 warp slots
+    ok(max_regs_for_full_warps(P) === 40, `max registers for full warps = ${max_regs_for_full_warps(P)} (B2: 40)`);
+    ok(blocks_per_sm(P, { threads: 256, regs: 40, smem_kb: 0 }).bps * 8 === 48, "256 threads × 40 registers: 6 blocks = 48 warps");
+    ok(blocks_per_sm(P, { threads: 256, regs: 41, smem_kb: 0 }).bps * 8 < 48, "41 registers: fewer than 48 warps");
+    // 3. 256-register warp granularity
+    ok(regs_per_warp_alloc(P, 32) === 1024 && regs_per_warp_alloc(P, 33) === 1280, "33 registers → 1280 per warp (granularity 256)");
+    // 4. the per-thread and per-block maxima are enforced
+    ok(!kernel_fill(P, { threads: 32, regs: P.max_registers_per_thread.value + 1, smem_kb: 0, grid: 1 }).launchable, "256 registers per thread cannot launch");
+    ok(!kernel_fill(P, { threads: P.max_threads_per_block.value + 32, regs: 16, smem_kb: 0, grid: 1 }).launchable, "1056 threads per block cannot launch");
+    ok(kernel_fill(P, { threads: 32, regs: P.max_registers_per_thread.value, smem_kb: 0, grid: 1 }).launchable, "32 threads × 255 registers launches");
+    // 5. register-bound GEMM case: warp-slot fill inside gemm_warp_slot_fill, full by registers
+    const g = kernel_fill(P, CASES[0].cfg), gr = P.gemm_warp_slot_fill.value;
+    ok(g.bps === 1 && g.binding.includes("registers"), "GEMM: 1 block per SM, registers bind");
+    ok(g.warp_slot_fill >= gr[0] && g.warp_slot_fill <= gr[1], `GEMM warp-slot fill ${g.warp_slot_fill.toFixed(3)} inside ${gr.join("–")}`);
+    ok(g.full && g.fill_binding.includes("registers") && g.warp_slot_fill < full_threshold(P), `GEMM register fill ${g.fill.registers.toFixed(3)} ≥ 0.9 with few warps`);
+    ok(g.waves_ceil === 10, "GEMM 160 blocks on 16 SMs × 1 = 10 waves");
+    // 6. warp-filling element-wise kernel: warps bind at fill 1.0, many waves
+    const e = kernel_fill(P, CASES[1].cfg);
+    ok(e.bps === 6 && e.binding.includes("warps") && Math.abs(e.binding_fill - 1) < 1e-12, "element-wise: 6 blocks, warps bind, fill 1.0");
+    ok(Math.abs(e.waves - 4096 / 96) < 1e-12 && e.waves_ceil === 43, "element-wise: 4096 ÷ 96 = 42.7 → 43 waves");
+    // 7. small grid: room left on the SM and SMs left empty
+    const s = kernel_fill(P, CASES[2].cfg);
+    ok(!s.full && s.sms_used_first_wave === 8 && s.waves < 1, "small grid: 8 of 16 SMs used, not full");
+    // 8. register file exactly filled: 1024 threads × 64 registers = 65 536 → 1 block; one more register does not fit
+    ok(blocks_per_sm(P, { threads: 1024, regs: 64, smem_kb: 0 }).bps === 1, "1024 × 64 registers = one block per SM");
+    ok(!kernel_fill(P, { threads: 1024, regs: 65, smem_kb: 0, grid: 1 }).launchable, "1024 × 65 registers does not fit");
+    // 9. the illustrative shares are fractions, and their ranges are ordered
+    ["kernel_time_sms_full_share", "gemm_warp_slot_fill", "multiwave_share", "sm_issue_full_stack", "gpu_active_full_stack"]
+      .forEach(k => { const v = [].concat(P[k].value); ok(v.every(x => x >= 0 && x <= 1) && v.every((x, i) => i === 0 || x >= v[i - 1]), `${k} is an ordered fraction`); });
+    // 10. B2: a low issue rate while the GPU is busy, and GEMMs full with few warp slots
+    ok(P.sm_issue_full_stack.value < P.gpu_active_full_stack.value, "issue rate below GPU-active share (low issue while busy)");
+    ok(P.gemm_warp_slot_fill.value[1] < P.kernel_time_sms_full_share.value, "GEMM warp-slot fill below the full-kernel share: full ≠ many warps");
+    return { passed, failed };
+  }
+  const api = { full_threshold, warps_per_block, regs_per_warp_alloc, sm_limits, blocks_per_sm, kernel_fill, max_regs_for_full_warps,
+    grid_from_t, t_from_grid, selfTest, CASES };
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  global.KFILL = api;
+})(typeof window !== "undefined" ? window : globalThis);
+/*MODEL-END*/
+
+if (typeof window !== "undefined") {
+/* ---- shared UI helpers (browser only) ---- */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+const fmt = (x, d = 1) => (x === Infinity ? "∞" : Number(x).toFixed(d));
+const esc = s => String(s).replace(/[&<>]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+function showVal(v) {
+  if (Array.isArray(v)) return v.map(x => Array.isArray(x) ? "(" + x.join(", ") + ")" : showVal(x)).join(" / ");
+  if (v && typeof v === "object") return Object.entries(v).map(([k, x]) => k + " " + showVal(x)).join("; ");
+  return String(v);
+}
+function renderSources(keys) {
+  const tb = $("sources").querySelector("tbody");
+  tb.innerHTML = "";
+  for (const k of keys) {
+    const o = PARAMS[k];
+    const tr = document.createElement("tr");
+    const cls = o.class === "illustrative" ? `<strong>illustrative</strong>` : esc(o.class);
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))}</td><td>${esc(o.unit)}</td>` +
+      `<td>${cls}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+function metric(k, v, tag) {
+  const t = tag ? `<span class="tag ${tag[0]}">${tag[1]}</span>` : "";
+  return `<div class="metric"><div class="k">${k}${t}</div><div class="v">${v}</div></div>`;
+}
+const TAG = { model: ["model", "model"], ill: ["meas", "illustrative"], est: ["est", "my estimate"], ass: ["ass", "assumption"] };
+function runSelfTests(api) {
+  const res = api.selfTest(PARAMS, (c, m) => console.assert(c, m));
+  $("tests-sum").textContent = `Self-tests: ${res.passed} passed, ${res.failed} failed (console.assert; reproduces the notes' numbers).`;
+  if (res.failed) $("tests-sum").className = "bad";
+}
+function wireRaf(ids, fn) {
+  let raf = null;
+  for (const id of ids) $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); });
+}
+
+  const M = window.KFILL;
+  const USED = $("params").dataset.keys.split(",");
+  const NSM = PARAMS.sm_count_orin.value, FULL = M.full_threshold(PARAMS);
+  // slider bounds from the params block, not literals
+  $("thr").min = $("thr").step = PARAMS.warp_size.value;
+  $("thr").max = PARAMS.max_threads_per_block.value;
+  $("reg").max = PARAMS.max_registers_per_thread.value;
+  $("smem").max = PARAMS.l1_shared_per_sm_orin_kb.value;
+  const NAMES = { warps: "warps", blocks: "blocks", registers: "registers", shared_memory: "shared memory" };
+  const cbox = $("cases");
+  M.CASES.forEach(c => {
+    const b = document.createElement("button"); b.type = "button"; b.textContent = c.name; b.setAttribute("aria-pressed", "false");
+    b.title = `${c.cfg.threads} threads, ${c.cfg.regs} registers, ${c.cfg.smem_kb} KB, ${c.cfg.grid} blocks (my illustrative configuration)`;
+    b.addEventListener("click", () => { $("thr").value = c.cfg.threads; $("reg").value = c.cfg.regs; $("smem").value = c.cfg.smem_kb; $("grid").value = M.t_from_grid(c.cfg.grid); update(); });
+    cbox.appendChild(b);
+  });
+  const pct0 = f => fmt(f * 100, 0) + " %";
+
+  function drawBars(r) {
+    const W = 720, L = 130, R = 70, T = 30, rowH = 42;
+    const X = f => L + (W - L - R) * Math.min(f, 1);
+    let s = `<title id="bars_t">Fill of each SM resource on the busiest SM in the first wave.</title>`;
+    s += `<text x="${L}" y="18" fill="#b4bccb" font-size="12">Used fraction on the busiest SM, first wave (${r.resident} resident block${r.resident > 1 ? "s" : ""}) — theoretical</text>`;
+    Object.keys(NAMES).forEach((k, i) => {
+      const y = T + i * rowH, f = r.fill[k], bind = r.fill_binding.includes(k);
+      s += `<text x="${L - 10}" y="${y + 20}" fill="#eef1f6" font-size="13" text-anchor="end">${NAMES[k]}${bind ? " ◀" : ""}</text>`;
+      s += `<rect x="${L}" y="${y + 4}" width="${W - L - R}" height="24" fill="#20242d" rx="3"/>`;
+      s += `<rect x="${L}" y="${y + 4}" width="${X(f) - L}" height="24" fill="${bind ? "#ffb35c" : "#5ec8ff"}" rx="3"/>`;
+      s += `<text x="${W - R + 8}" y="${y + 21}" fill="#eef1f6" font-size="13">${pct0(f)}</text>`;
+    });
+    s += `<line x1="${X(FULL)}" x2="${X(FULL)}" y1="${T - 2}" y2="${T + 4 * rowH}" stroke="#ffd36b" stroke-dasharray="4 3" stroke-width="2"/>`;
+    s += `<text x="${X(FULL)}" y="${T + 4 * rowH + 16}" fill="#ffd36b" font-size="12" text-anchor="end">${pct0(FULL)} = "full" (from kernel_time_sms_full_share)</text>`;
+    $("bars").innerHTML = s;
+  }
+  function drawSMs(r) {
+    const cw = 36, gap = 6, x0 = 24, y0 = 34;
+    let s = `<title id="sms_t">The SMs in the first wave and the number of waves.</title>`;
+    s += `<text x="${x0}" y="20" fill="#b4bccb" font-size="12">${NSM} SMs (sm_count_orin), first wave — shade = binding fill of that SM; ◆ = more waves follow</text>`;
+    const perSM = Math.min(r.bps, Math.ceil(r.grid / NSM)), total = Math.min(r.grid, NSM * r.bps);
+    for (let i = 0; i < NSM; i++) {
+      const b = Math.floor(total / NSM) + (i < total % NSM ? 1 : 0);   // blocks on SM i in the first wave, round-robin
+      const f = perSM ? r.binding_fill * b / perSM : 0;
+      const x = x0 + i * (cw + gap);
+      s += `<rect x="${x}" y="${y0}" width="${cw}" height="${cw}" rx="4" fill="#20242d" stroke="#3a3f4a"/>`;
+      if (b) s += `<rect x="${x}" y="${y0 + cw * (1 - Math.min(f, 1))}" width="${cw}" height="${cw * Math.min(f, 1)}" rx="4" fill="${f >= FULL ? "#ffb35c" : "#5ec8ff"}"/>`;
+      s += `<text x="${x + cw / 2}" y="${y0 + cw + 14}" fill="#b4bccb" font-size="11" text-anchor="middle">${b}</text>`;
+    }
+    s += `<text x="${x0}" y="${y0 + cw + 34}" fill="#eef1f6" font-size="13">blocks per SM shown under each SM · waves = ${r.grid} ÷ (${NSM} × ${r.bps}) = ${fmt(r.waves, 2)} → ${r.waves_ceil} wave${r.waves_ceil > 1 ? "s" : ""}${r.waves_ceil > 1 ? " ◆" : ""}</text>`;
+    s += `<text x="${x0}" y="${y0 + cw + 54}" fill="#b4bccb" font-size="12">orange = SM ≥ ${pct0(FULL)} full on some resource; blue = room left; empty = idle SM.</text>`;
+    $("sms").innerHTML = s;
+  }
+
+  function update() {
+    const cfg = { threads: +$("thr").value, regs: +$("reg").value, smem_kb: +$("smem").value, grid: M.grid_from_t(+$("grid").value) };
+    $("thr_v").textContent = `${cfg.threads} (${M.warps_per_block(PARAMS, cfg.threads)} warps)`;
+    $("reg_v").textContent = `${cfg.regs} → ${M.regs_per_warp_alloc(PARAMS, cfg.regs)} per warp`;
+    $("smem_v").textContent = cfg.smem_kb + " KB"; $("grid_v").textContent = cfg.grid.toLocaleString("en-US") + " blocks";
+    $("grid").setAttribute("aria-valuetext", cfg.grid + " blocks");
+    [...cbox.children].forEach((b, i) => { const c = M.CASES[i].cfg; b.setAttribute("aria-pressed", String(c.threads === cfg.threads && c.regs === cfg.regs && c.smem_kb === cfg.smem_kb && c.grid === cfg.grid)); });
+    const r = M.kernel_fill(PARAMS, cfg);
+    const lim = r.lim, limTxt = Object.keys(NAMES).map(k => `${NAMES[k]} ${lim[k] === Infinity ? "no limit (0 KB)" : fmt(lim[k], 0)}`).join(" · ");
+    if (!r.launchable) {
+      $("headline").innerHTML = metric("Blocks per SM", "0", TAG.model) + metric("Binding", r.binding.map(k => NAMES[k]).join(", "), TAG.model);
+      $("bars").innerHTML = `<text x="20" y="40" fill="#ff7a7a" font-size="14">One block needs more than one SM has. The kernel cannot launch with this configuration.</text>`;
+      $("sms").innerHTML = "";
+      $("why_text").textContent = `Limits in blocks per SM: ${limTxt}. At least one is zero, so no block fits on an SM.`;
+      $("callout").textContent = "";
+      $("live").textContent = "This configuration does not fit on an SM.";
+      return;
+    }
+    r.grid = cfg.grid;
+    $("headline").innerHTML =
+      metric("Blocks per SM", r.bps, TAG.model) +
+      metric("Binding resource", r.binding.map(k => NAMES[k]).join(", "), TAG.model) +
+      metric("Warp-slot fill", pct0(r.warp_slot_fill), TAG.model) +
+      metric("Binding fill", pct0(r.binding_fill) + (r.full ? " · full" : " · room"), TAG.model) +
+      metric(`Waves on ${NSM} SMs`, fmt(r.waves, 2) + " → " + r.waves_ceil, TAG.model);
+    drawBars(r); drawSMs(r);
+    const fewWarps = r.full && !r.fill_binding.includes("warps") && r.warp_slot_fill < FULL;
+    $("why_text").innerHTML =
+      `Blocks per SM by each limit: ${limTxt}. The minimum, <strong>${r.bps}</strong>, is set by <strong>${r.binding.map(k => NAMES[k]).join(" and ")}</strong>. ` +
+      (r.resident < r.bps ? `The grid is small: the busiest SM gets only ${r.resident} block${r.resident > 1 ? "s" : ""} and ${NSM - r.sms_used_first_wave} SMs stay idle, so there is room for another process's kernel. `
+                          : `In the first wave the busiest SM holds ${r.resident} block${r.resident > 1 ? "s" : ""}. `) +
+      (fewWarps ? `Only ${pct0(r.warp_slot_fill)} of the warp slots are used, yet the SM is full by ${r.fill_binding.map(k => NAMES[k]).join(" and ")}: few warps, little issue, and no room for another block. `
+               : r.full ? `The SM is full (binding fill ${pct0(r.binding_fill)}). ` : `The binding fill is ${pct0(r.binding_fill)}, below ${pct0(FULL)}: some room is left. `) +
+      (r.waves_ceil > 1
+        ? `The kernel runs in ${r.waves_ceil} waves; the last wave uses ${pct0(r.last_wave_fill)} of the GPU's block slots. More SMs would cut the wave count: roughly in proportion when there are many waves, in steps (possibly none, because the last wave rounds up) when there are few, and not at all where memory limits the kernel (expectation, not measured).`
+        : `One wave: more SMs would mostly add idle SMs for this kernel.`);
+    const gr = PARAMS.gemm_warp_slot_fill.value;
+    $("callout").innerHTML = `<strong>Correction kept visible: "a low issue rate means room".</strong> The SMs use about ${pct0(PARAMS.sm_issue_full_stack.value)} of their issue slots ` +
+      `in the full stack (illustrative, <code>sm_issue_full_stack</code>), but a register-bound GEMM fills an SM with only ${gr.map(pct0).join("–")} of its warp slots ` +
+      `(illustrative, <code>gemm_warp_slot_fill</code>). Low issue and full SMs are compatible. Why the issue rate is low (for example memory stalls) was not measured. ` +
+      `Under MPS, the room that does exist (small grids, partial last waves, kernels below the line) is where two processes' kernels could overlap (hypothesis, note B3).`;
+    $("live").textContent = `${r.bps} block${r.bps > 1 ? "s" : ""} per SM, bound by ${r.binding.map(k => NAMES[k]).join(" and ")}; warp-slot fill ${pct0(r.warp_slot_fill)}; binding fill ${pct0(r.binding_fill)}; ${r.waves_ceil} wave${r.waves_ceil > 1 ? "s" : ""}.`;
+  }
+
+  const kb = $("kfill").querySelector("tbody");
+  const showRange = v => [].concat(v).join("–");
+  [[`Kernel time with SMs ≥ ${pct0(FULL)} full on some resource`, "kernel_time_sms_full_share", "about "],
+   ["Warp-slot fill of the large matrix-multiply (GEMM) kernels", "gemm_warp_slot_fill", ""],
+   ["Kernel time in kernels larger than one wave, per service", "multiwave_share", ""]]
+    .forEach(([q, k, pre]) => { const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${q}</td><td>${pre}${showRange(PARAMS[k].value)} <span class="tag meas">illustrative, theoretical fill</span></td><td><code>${k}</code></td>`; kb.appendChild(tr); });
+  $("issue_line").innerHTML = `For contrast: the SM issue rate is about ${PARAMS.sm_issue_full_stack.value} of peak in the full stack while the GPU has work about ` +
+    `${PARAMS.gpu_active_full_stack.value} of the time (both illustrative, <code>sm_issue_full_stack</code>, <code>gpu_active_full_stack</code>). ` +
+    `"SM active" (at least one warp resident) is not the same as full.`;
+
+  $("grid").value = M.t_from_grid(M.CASES[0].cfg.grid);
+  wireRaf(["thr", "reg", "smem", "grid"], update);
+  renderSources(USED);
+  runSelfTests(M);
+  update();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,929 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Why the stack runs slow — one kitchen, six reasons</title>
+<meta name="description" content="A visual story: every service of a home-robot software stack is slower when the whole stack runs, and each service has its own reason. All measurements are illustrative.">
+<link rel="stylesheet" href="../../stories/story.css">
+<style>
+  /* palette meaning (whole page): coral = CPU queueing on the pool · sky = same work, more cycles (shared cache / memory)
+     · sun = GPU time-slicing · stone = our bench (observers) · plum = software cost (logging) · leaf = alone / after a fix.
+     Corrections: dashed ink outline + "corrected" tag. VOID windows: hollow markers. */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--ink-2);margin:10px 4px 0}
+  .legend i{display:inline-block;width:16px;height:12px;border-radius:4px;border:1.5px solid var(--navy);margin-right:6px;vertical-align:-1px}
+  header.hero.wrap{padding-left:20px;padding-right:20px}
+  .hero-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+  .hero h1{max-width:24ch;font-size:clamp(30px,4vw,48px)}
+  .kicker{line-height:1.6}
+  .ill-note{background:#FFF4DE;border:2px solid var(--sun-d);border-radius:12px;padding:8px 12px;font-size:15px;color:var(--ink);max-width:78ch;margin:0 0 12px}
+  /* ambient loops: tickets join the queue (a rate), the oven alternates batches (time-slicing), the book unrolls (a growing cost) */
+  @keyframes tkt{0%{transform:translateX(0);opacity:0}10%{opacity:1}80%{opacity:1}100%{transform:translateX(250px);opacity:0}}
+  .tkt{animation:tkt 3.6s linear infinite;transform-box:fill-box}
+  @keyframes turnA{0%,46%{opacity:1}50%,96%{opacity:0}100%{opacity:1}}
+  @keyframes turnB{0%,46%{opacity:0}50%,96%{opacity:1}100%{opacity:0}}
+  .turnA{animation:turnA 2.4s steps(1,end) infinite}.turnB{animation:turnB 2.4s steps(1,end) infinite}
+  @keyframes unroll{0%{transform:scaleX(.15)}85%,100%{transform:scaleX(1)}}
+  .scroll{animation:unroll 5s var(--ease) infinite;transform-box:fill-box;transform-origin:left center}
+  /* still mode (reduced motion, motion off, screenshots): a representative frame, not frame 0 */
+  .st-still .tkt{animation:none;opacity:1;transform:translateX(var(--sx,0))}
+  .st-still .turnA{animation:none;opacity:1}.st-still .turnB{animation:none;opacity:0}
+  .st-still .scroll{animation:none;transform:none}
+  .grow{transform-box:fill-box;transform-origin:left center}
+  .js .st-scene .grow[data-s]:not(.is-on){transform:scaleX(0);opacity:1}
+  .st-scene .lit.is-lit,.st-scene .is-lit .lit{stroke:var(--coral)!important;stroke-width:4!important}
+  .readout{font:700 16px/1.5 var(--body);margin:10px 0 0}
+  .readout b{color:var(--coral-d)}
+  .caveat{font-size:14px;color:var(--ink-2);background:#FFF4DE;border:1.5px dashed var(--sun-d);border-radius:10px;padding:6px 10px;margin:8px 0}
+  .corr{border:2.5px dashed var(--ink);border-radius:14px;background:var(--card);padding:10px 14px;margin:16px 0 0;font-size:15px;position:relative}
+  .corr .stamp{display:inline-block;font:800 12px var(--body);letter-spacing:.1em;text-transform:uppercase;border:2px dashed var(--ink);border-radius:6px;padding:2px 6px;margin-right:8px;transform:rotate(-4deg)}
+  details{margin-top:10px;font-size:15px;color:var(--ink-2)} summary{cursor:pointer;font-weight:700;color:var(--ink)}
+  code{font:600 .92em var(--mono);background:var(--card-2);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+  .grid2>*{min-width:0} .ctl label{flex-wrap:wrap;gap:4px 10px}
+  .breaks li{margin:4px 0}
+  .chk{display:flex;gap:8px;align-items:center;font:700 15px var(--body);margin:8px 0}
+  .chk input{width:20px;height:20px;accent-color:var(--coral)}
+  .chk input:focus-visible{outline:3px solid var(--coral);outline-offset:2px}
+  .cast .c svg{max-width:100%}
+  .st-card .face svg{max-height:120px}
+  .st-card .in{min-height:330px}
+  /* sources table on phones: keys wrap at word breaks, not every few letters */
+  #src code{overflow-wrap:normal;word-break:break-word} #src td:first-child{min-width:11ch}
+  /* phone: the Motion button sits small at the bottom right, and the page leaves room for it */
+  /* sources table on phones: one stacked card per key, no sideways scroll */
+  @media (max-width:600px){
+   .st-foot table#src{min-width:0} #src thead{display:none}
+   #src, #src tbody, #src tr, #src td{display:block;width:auto}
+   #src tr{border-bottom:1.5px solid var(--line,#E2D6C2);padding:8px 0}
+   #src td{border:0;padding:2px 0}
+   #src td:first-child{min-width:0;font-weight:800}
+   #src td:nth-child(n+2)::before{font:700 12px var(--body);color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;margin-right:6px}
+   #src td:nth-child(2)::before{content:"Value"} #src td:nth-child(3)::before{content:"Class"} #src td:nth-child(4)::before{content:"Source"}
+   #src code{overflow-wrap:anywhere}
+  }
+  @media (max-width:600px){.st-motion{left:auto;right:10px;bottom:10px;padding:4px 10px;font-size:13px} body{padding-bottom:56px}}
+</style>
+</head>
+<body>
+<a class="skip" href="#s1">Skip to the first scene</a>
+<noscript><p class="wrap" style="background:#FFF4DE;padding:10px;border-radius:10px">This story draws its pictures with JavaScript. The written version is in <a href="../notes/A0-the-big-picture.md">note A0</a>.</p></noscript>
+
+<!-- the cast: drawn once, reused with <use>. Colours come in through --c / --skin. Outlines are presentation attributes. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#F7E3A0"/><line x1="0" y1="0" x2="0" y2="8" stroke="#8A6800" stroke-width="2.5"/></pattern>
+  <pattern id="hatchP" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#E9CFE0"/><line x1="0" y1="0" x2="0" y2="8" stroke="#7E3A6C" stroke-width="2.5"/></pattern>
+  <symbol id="i-cook" viewBox="0 0 60 96">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="12" y="50" width="36" height="43" rx="14" style="fill:var(--c,#EE6A45)"/>
+    <rect x="21" y="60" width="18" height="31" rx="5" fill="#FFFDF8"/>
+    <circle cx="30" cy="37" r="13" style="fill:var(--skin,#F4CDA7)"/>
+    <circle cx="21" cy="17" r="8" fill="#FFFDF8"/><circle cx="30" cy="12" r="9.5" fill="#FFFDF8"/><circle cx="39" cy="17" r="8" fill="#FFFDF8"/>
+   </g>
+   <g fill="#FFFDF8"><circle cx="21" cy="17" r="6.8"/><circle cx="30" cy="12" r="8.3"/><circle cx="39" cy="17" r="6.8"/></g>
+   <rect x="18" y="19" width="24" height="8" rx="2" fill="#FFFDF8" stroke="#141C2E" stroke-width="2.5"/>
+   <circle cx="25.5" cy="36" r="1.9" fill="#141C2E"/><circle cx="34.5" cy="36" r="1.9" fill="#141C2E"/>
+   <ellipse cx="21.5" cy="41.5" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/><ellipse cx="38.5" cy="41.5" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/>
+   <path d="M26.5 42.5 Q30 45.5 33.5 42.5" fill="none" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-insp" viewBox="0 0 64 96">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="12" y="50" width="36" height="43" rx="14" style="fill:var(--c,#8C8670)"/>
+    <circle cx="30" cy="36" r="13" style="fill:var(--skin,#D49A6A)"/>
+    <path d="M15 30 Q16 16 30 16 Q44 16 45 30 Z" fill="#55607A"/><rect x="13" y="28" width="38" height="5" rx="2" fill="#55607A"/>
+    <rect x="38" y="56" width="20" height="26" rx="3" fill="#FFFDF8" transform="rotate(8 48 69)"/>
+    <circle cx="10" cy="62" r="8" fill="#DCEFF5"/><path d="M15 68 L22 76" stroke-width="4"/>
+   </g>
+   <circle cx="25.5" cy="38" r="1.9" fill="#141C2E"/><circle cx="34.5" cy="38" r="1.9" fill="#141C2E"/>
+   <path d="M26 44 H34" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-waiter" viewBox="0 0 60 96">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="12" y="50" width="36" height="43" rx="14" style="fill:var(--c,#B4669D)"/>
+    <path d="M24 52 L30 60 L36 52" fill="#FFFDF8"/>
+    <circle cx="30" cy="36" r="13" style="fill:var(--skin,#8E5B3B)"/>
+    <path d="M17 32 Q18 21 30 21 Q42 21 43 32 Q36 26 30 27 Q24 26 17 32 Z" fill="#1C1714"/>
+   </g>
+   <circle cx="25.5" cy="37" r="1.9" fill="#141C2E"/><circle cx="34.5" cy="37" r="1.9" fill="#141C2E"/>
+   <ellipse cx="30" cy="44" rx="3.5" ry="2.5" fill="#141C2E"/>
+  </symbol>
+  <symbol id="i-ticket" viewBox="0 0 30 40">
+   <path d="M2 2 H28 V34 l-3.25 4 -3.25 -4 -3.25 4 -3.25 -4 -3.25 4 -3.25 -4 -3.25 4 L2 34 Z" fill="#FFFDF8" stroke="#141C2E" stroke-width="2" stroke-linejoin="round"/>
+   <path d="M7 10 H23 M7 16 H20 M7 22 H23" stroke="#B33F1D" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-bell" viewBox="0 0 60 50">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M10 40 Q10 14 30 14 Q50 14 50 40 Z" fill="#C9C1AE"/><rect x="4" y="40" width="52" height="7" rx="3" fill="#8C8670"/>
+    <rect x="26" y="6" width="8" height="8" rx="2" fill="#8C8670"/>
+   </g>
+  </symbol>
+  <symbol id="i-oven" viewBox="0 0 80 80">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="3" y="3" width="74" height="74" rx="10" fill="#5A6170"/><rect x="12" y="22" width="56" height="46" rx="6" fill="#2E3646"/>
+    <rect x="18" y="38" width="44" height="14" rx="3" fill="#F2C64A"/>
+   </g>
+   <circle cx="20" cy="12" r="4" fill="#EFE5D4" stroke="#141C2E" stroke-width="2"/><circle cx="34" cy="12" r="4" fill="#EFE5D4" stroke="#141C2E" stroke-width="2"/>
+  </symbol>
+  <symbol id="i-rack" viewBox="0 0 80 50">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="3" y="38" width="74" height="8" rx="3" fill="#2C6A82"/>
+    <rect x="8" y="16" width="12" height="22" rx="3" fill="#A7C8D6"/><rect x="25" y="10" width="12" height="28" rx="3" fill="#5E9FB8"/>
+    <rect x="42" y="18" width="12" height="20" rx="3" fill="#A7C8D6"/><rect x="59" y="12" width="12" height="26" rx="3" fill="#5E9FB8"/>
+   </g>
+  </symbol>
+  <symbol id="i-book" viewBox="0 0 60 50">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><path d="M4 8 Q18 2 30 8 Q42 2 56 8 V44 Q42 38 30 44 Q18 38 4 44 Z" fill="#FFFDF8"/><path d="M30 8 V44"/></g>
+   <path d="M9 16 H25 M9 22 H25 M9 28 H22 M35 16 H51 M35 22 H51 M35 28 H48" stroke="#7E3A6C" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-note" viewBox="0 0 52 66">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="3" y="3" width="46" height="60" rx="6" fill="#FFFDF8"/></g>
+   <path d="M11 18 H41 M11 28 H41 M11 38 H32" stroke="#55607A" stroke-width="2.2" stroke-linecap="round"/>
+   <path d="M12 50 l6 6 14 -14" fill="none" stroke="#1D7660" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+ </defs>
+</svg>
+
+<!-- ================================ HERO ================================ -->
+<header class="hero wrap">
+ <div class="hero-top">
+  <div>
+   <div class="kicker">Robot stack contention · story 1 · an Orin-class 12-core board</div>
+   <h1>Everything is slower when the whole stack runs, and each service has its own reason.</h1>
+  </div>
+  <div class="st-switch" data-view-switch role="group" aria-label="Label style">
+   <button data-view="kitchen" aria-pressed="true">Kitchen view</button><button data-view="eng" aria-pressed="false">Engineer view</button>
+  </div>
+ </div>
+ <p class="lede">Think of the board as <b>one kitchen</b> that cooks for about {{stack_services}} services at once (illustrative). Each station slows down for a <b>different</b> reason. Two of the biggest full-stack numbers came from <b>our own bench and a logging bug</b>, not the board.</p>
+ <p class="ill-note"><span class="tag ill">illustrative</span> <b>Every measurement on this page is illustrative:</b> a round teaching number that keeps the shape of a typical finding, not data from any specific robot. Each number is a key in the kit's <a href="../constants.json">constants.json</a>; the table at the bottom lists them. The story is one worked case of a generic home-robot stack, simplified to teach the method; it does not describe any specific product.</p>
+ <figure class="panel" style="padding:10px 10px 4px">
+  <svg id="hero" data-wide viewBox="0 0 1000 560" role="img" aria-labelledby="hero-t"><title id="hero-t">A kitchen. Left: eight cooks on a shared floor and a queue of order tickets. Middle: one oven that holds one batch at a time while other trays wait; below it a waiter reads a long order book aloud. Right: four walled alcoves; one alcove is crowded by three tenants, one of them our inspector; two alcoves hold the motor station with a bell; one spice rack is shared by the alcoves. A row of six tickets names each service's cause.</title></svg>
+  <figcaption class="legend"><span><i style="background:var(--coral)"></i><span class="lbl-k">waiting for a cook</span><span class="lbl-e">CPU queueing (pool)</span></span><span><i style="background:var(--sky)"></i><span class="lbl-k">crowded spice rack</span><span class="lbl-e">same work, more cycles</span></span><span><i style="background:var(--sun)"></i><span class="lbl-k">oven turns</span><span class="lbl-e">GPU time-slicing</span></span><span><i style="background:var(--stone)"></i><span class="lbl-k">our inspector</span><span class="lbl-e">our observers</span></span><span><i style="background:var(--plum)"></i><span class="lbl-k">the waiter's reading</span><span class="lbl-e">software cost (logging)</span></span><span><i style="background:var(--leaf)"></i>alone / after a fix</span><span>Positions are a sketch. <span class="tag ill">illustrative</span> numbers.</span></figcaption>
+ </figure>
+ <div class="cast" aria-label="The cast">
+  <div class="c" data-ref="cook"><svg viewBox="0 0 60 96" role="img" aria-label="cook"><use href="#i-cook"/></svg><b>8 floor cooks</b><span>the pool: shared cores, used by most services</span></div>
+  <div class="c" data-ref="alcove"><svg viewBox="0 0 60 96" role="img" aria-label="alcove cook"><use href="#i-cook" style="--c:#C9C1AE"/></svg><b>4 walled alcoves</b><span>reserved cores (isolcpus + cpuset)</span></div>
+  <div class="c" data-ref="ticket"><svg viewBox="0 0 30 40" role="img" aria-label="ticket"><use href="#i-ticket"/></svg><b>Tickets on the rail</b><span>runnable threads: run-queue wait</span></div>
+  <div class="c" data-ref="oven"><svg viewBox="0 0 80 80" role="img" aria-label="oven"><use href="#i-oven"/></svg><b>The oven</b><span>the GPU, one CUDA context at a time (no MPS)</span></div>
+  <div class="c" data-ref="rack"><svg viewBox="0 0 80 50" role="img" aria-label="spice rack"><use href="#i-rack"/></svg><b>Spice rack</b><span>shared cluster cache and memory</span></div>
+  <div class="c" data-ref="insp"><svg viewBox="0 0 64 96" role="img" aria-label="inspector"><use href="#i-insp"/></svg><b>The inspector</b><span>our observers: the measurement probe, the request driver</span></div>
+  <div class="c" data-ref="waiter"><svg viewBox="0 0 60 96" role="img" aria-label="waiter"><use href="#i-waiter"/></svg><b>The waiter</b><span>the dialogue engine's per-item logging</span></div>
+  <div class="c" data-ref="bell"><svg viewBox="0 0 60 50" role="img" aria-label="bell"><use href="#i-bell"/></svg><b>The bell</b><span>the motor-control services' fast bus loop</span></div>
+  <div class="c" data-ref="note"><svg viewBox="0 0 52 66" role="img" aria-label="notebook"><use href="#i-note"/></svg><b>The notebook</b><span>pre-registration: predict, then measure</span></div>
+ </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================================ 1. the symptom ================================ -->
+<section class="scene" id="s1" data-title="1 · Slower together">
+ <h2><span class="num">1</span>Alone, then together</h2>
+ <p class="sub">Same board, same services. First each one <b>alone</b>, then all at once (the <b>full stack</b>), then the full stack plus a <b>VLA</b> (vision-language-action model). Step through.</p>
+ <figure class="st-scene panel" id="s-sym" data-dwell="3400" aria-label="Scene: every service is slower together">
+  <svg data-wide viewBox="0 0 1000 440" role="img" aria-label="A table drawn as tickets: six services in rows; columns alone, full stack, full stack plus VLA fill in step by step; a cause chip appears per row at the last step."></svg>
+  <ol class="st-cap">
+   <li><b>Alone.</b> Each service alone on the board: its own best numbers (illustrative). <a class="read-note" href="../notes/A0-the-big-picture.md">A0</a></li>
+   <li><b>Full stack: about {{stack_services}} services at once.</b> Every row gets worse, by a different amount, in a different unit.</li>
+   <li><b>Full stack + VLA.</b> A bench addition offered at {{vla_offered_hz}} Hz (illustrative). The detector slips again, now mostly by blocked (GPU) time.</li>
+   <li><b>One reason per row.</b> Each came from a one-factor test whose prediction was written down first. Some first readings were wrong; they stay visible.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 2. the pool ================================ -->
+<section class="scene" id="s2" data-title="2 · The shared floor">
+ <h2><span class="num">2</span>Four fifths busy, and still a queue</h2>
+ <p class="sub">The <span class="lbl-k">eight floor cooks</span><span class="lbl-e">{{pool_cores}} pool cores</span> serve most stations. A busy percentage looks harmless. The queue tells another story.</p>
+ <div class="st-predict" id="p-wait">
+  <p class="q">In the full stack the floor is {{pool_busy_frac_full%}} busy (illustrative). For each second a ticket is cooked, how long does it wait on the rail?</p>
+  <div class="opts">
+   <button class="btn" data-choice="0.05" data-why="That is the camera-only row ({{pool_wait_per_busy_camera_only}} s, illustrative). With the whole stack and bursty work, the queue is far longer.">About {{pool_wait_per_busy_camera_only}} s</button>
+   <button class="btn" data-choice="0.5" data-why="Busy below 100 % does not mean a short queue. Bursty tickets arrive together and wait together.">About 0.5 s</button>
+   <button class="btn" data-choice="2" data-right data-why="{{pool_wait_per_busy_full}} s of run-queue wait per busy second (illustrative): the threads wait longer than they run.">About {{pool_wait_per_busy_full}} s</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <div class="grid2 st-gated" data-gate="p-wait">
+  <figure class="panel">
+   <svg id="wait" data-wide viewBox="0 0 600 250" role="img" aria-label="One second of cooking and the wait on the rail next to it, on a 0 to 4 second scale, with the camera-only row and the full stack marked."></svg>
+   <figcaption><span class="tag ill">illustrative</span> Wait per busy second, from <code>schedstat</code>. Wall time = 1 + wait (my estimate, A1 § So what).</figcaption>
+  </figure>
+  <div>
+   <div class="ctl"><label for="w">Wait per busy second (s) <output id="w-v"></output></label><input id="w" data-k="w" type="range" step="0.05"></div>
+   <p class="readout" id="w-read" aria-live="polite"></p>
+   <p class="caveat">Summed wait over threads that run in parallel is not added latency. Only a one-thread worker's wait adds directly to its output.</p>
+  </div>
+ </div>
+ <figure class="st-scene panel" id="s-frame" data-dwell="3200" aria-label="Scene: where the object detector's frame time goes" style="margin-top:18px">
+  <svg data-wide viewBox="0 0 1000 300" role="img" aria-label="Two bars: the object detector's frame alone, and in the full stack with three added parts: run-queue wait, more run time and blocked time."></svg>
+  <ol class="st-cap">
+   <li><b>Alone.</b> One frame of the object detector takes {{detector_frame_ms_solo_full.0}} ms (illustrative). <a class="read-note" href="../notes/A1-cpu-queueing-on-a-shared-pool.md">A1</a></li>
+   <li><b>Full stack: waiting for a cook.</b> The frame gains +{{detector_added_wait_run_blocked.0}} ms of run-queue wait (illustrative): the ticket sits on the rail.</li>
+   <li><b>Cooking slower.</b> +{{detector_added_wait_run_blocked.1}} ms more run time for the same work. Scene 3 shows why.</li>
+   <li><b>Waiting on the oven.</b> Only +{{detector_added_wait_run_blocked.2}} ms of blocked time (GPU sync, locks, I/O).</li>
+   <li><b>{{detector_frame_ms_solo_full.1}} ms in the full stack: CPU first.</b> Wait is the largest added term ({{@waitShare}} %, my estimate from <code>detector_added_wait_run_blocked</code>), so the detector's alone → full stack slowdown is mostly CPU, not GPU.</li>
+  </ol>
+ </figure>
+ <div class="corr"><span class="stamp">corrected</span><b>"The pool changes from the full stack to the full stack + VLA are within round-to-round spread."</b> Withdrawn: one full stack + VLA round had no speech in its window, so it was not a CPU-side replicate. With voice on in both, pool wait rises. The GPU step is still the larger change there (scene 6). <a class="read-note" href="../notes/A1-cpu-queueing-on-a-shared-pool.md">A1 § The gap</a></div>
+</section>
+
+<!-- ================================ 3. same work, more cycles ================================ -->
+<section class="scene" id="s3" data-title="3 · The spice rack">
+ <h2><span class="num">3</span>A private alcove, and still slower</h2>
+ <p class="sub">The motor-control services have <span class="lbl-k">their own alcoves</span><span class="lbl-e">their own reserved cores</span>. Nobody takes their cook. They still need more time per loop.</p>
+ <figure class="st-scene panel" id="s-cache" data-dwell="3600" aria-label="Scene: same work, more cycles">
+  <svg data-wide viewBox="0 0 1000 340" role="img" aria-label="Four alcoves sharing one spice rack; the motor station in two alcoves; bars for recipe steps and time per loop, alone and in the full stack."></svg>
+  <ol class="st-cap">
+   <li><b>Alone.</b> The motor station runs a fixed bus loop. Count its recipe steps (instructions) and its time (cycles) per loop. <a class="read-note" href="../notes/A2-same-work-more-cycles.md">A2</a></li>
+   <li><b>Full stack: same recipe, more cycles.</b> Instructions per loop +{{instr_growth%}}; cycles +{{cycles_growth_range~%}}; IPC falls by {{ipc_drop_range~%}} (illustrative). Same work, slower per step.</li>
+   <li><b>Not the queue.</b> The motor loop is never preempted. But the alcoves reach into <b>one spice rack</b> (the cluster cache) with their cluster-mates: L3 refills per instruction ×{{l3_refill_ratio_range~}} (illustrative; a hint, not a cause).</li>
+  </ol>
+ </figure>
+ <div class="st-predict" id="p-frac">
+  <p class="q">The test moves every cluster-mate of the motor-control services to the pool. What share of the lost cycles comes back?</p>
+  <div class="opts">
+   <button class="btn" data-choice="none" data-why="Its instructions per loop did not move (+{{instr_growth%}}). The extra cycles are slower work, not more work, so neighbours can matter.">None: it is its own work</button>
+   <button class="btn" data-choice="part" data-why="That was the written prediction: 'part', below the pre-registered line at {{cluster_move_class_line}} (illustrative). The result landed above it, so the prediction failed.">A part (the written prediction)</button>
+   <button class="btn" data-choice="most" data-right data-why="f = {{cluster_move_recovered}} (illustrative), above the {{cluster_move_class_line}} line: class 'most (or less board traffic)'. It sits close to the line, so read it as about two thirds, not as a clean 'most'. The path is not isolated.">About two thirds, near the line</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="panel st-gated" data-gate="p-frac">
+  <svg id="frac" data-wide viewBox="0 0 1000 260" role="img" aria-label="A 0 to 1 axis of the removed fraction f with the pre-registered class line, the prediction region, the measured f, and three side effects."></svg>
+  <figcaption><span class="tag ill">illustrative</span> f = (X<sub>base</sub> − X<sub>moved</sub>) ÷ (X<sub>base</sub> − X<sub>alone</sub>), X = the motor loop's user cycles per bus cycle. The two moved windows differ, and their spread reaches toward the line. <a class="read-note" href="../diagrams/04-same-work-more-cycles.png">diagram 04</a></figcaption>
+ </figure>
+</section>
+
+<!-- ================================ 4. the inspector ================================ -->
+<section class="scene" id="s4" data-title="4 · Our inspector">
+ <h2><span class="num">4</span>The inspector in the greeter's alcove</h2>
+ <p class="sub">To time the kitchen, we put <span class="lbl-k">an inspector</span><span class="lbl-e">our observers</span> somewhere. Every place is someone's alcove.</p>
+ <div class="st-predict" id="p-insp">
+  <p class="q">The interaction service's request-accepted p50 rose from {{interaction_accepted_ms.alone}} ms alone to {{interaction_accepted_ms.probe_on_its_core}} ms in the full stack (illustrative). What caused most of it?</p>
+  <div class="opts">
+   <button class="btn" data-choice="load" data-why="That was the first reading. Moving only our observers, with the stack unchanged, removed about 90 % of the rise (my estimate from interaction_accepted_ms).">The busy board</button>
+   <button class="btn" data-choice="gpu" data-why="The service waited for its CPU core, behind our probe. Moving the observers off that core brought it to {{interaction_accepted_ms.probe_moved}} ms; no GPU load changed.">GPU contention</button>
+   <button class="btn" data-choice="us" data-right data-why="About 90 % of the rise was our probe on the same reserved core: (40 − 5) ÷ (40 − 2) ≈ 0.92 (my estimate from interaction_accepted_ms). With the observers moved: {{interaction_accepted_ms.probe_moved}} ms.">Our own probe</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel st-gated" data-gate="p-insp" id="s-core" data-dwell="3600" aria-label="Scene: probe placement">
+  <svg data-wide viewBox="0 0 1000 340" role="img" aria-label="The shared floor with one pool core marked, and four walled alcoves; one alcove holds three equal tenants; the inspector moves to the pool core; the camera rate falls; the motor-control alcoves are marked never."></svg>
+  <ol class="st-cap">
+   <li><b>The greeter's alcove is full.</b> The interaction service, a controller service and our probe get about {{saturated_core_equal_share}} cores each (illustrative). Equal shares on a saturated core are caps, not demands. <a class="read-note" href="../notes/A5-where-to-put-the-observers.md">A5</a></li>
+   <li><b>Move the inspector to one floor cook.</b> The alcove is no longer saturated. Accepted p50: {{interaction_accepted_ms.probe_moved}} ms (illustrative), near alone. About 90 % of the rise was us (my estimate).</li>
+   <li><b>But the floor pays.</b> The probe still wants about {{probe_cores_wanted}} cores, and the camera loses about {{probe_on_pool_camera_cost_hz}} Hz (illustrative). No placement is free on this layout.</li>
+   <li><b>Never the motor alcoves.</b> They hold the motor-control services' fast real-time loop. The real fix is a lighter probe (not measured).</li>
+  </ol>
+ </figure>
+ <p class="caveat">Every full-stack probe latency carries the probe's own receive delay, about {{probe_receive_delay_ms.0}} ms p50 and {{probe_receive_delay_ms.1}} ms p99 (illustrative), so full-stack probe latencies are upper bounds. The request driver itself did not wait: the full-stack value was measured correctly, and it was caused by us.</p>
+</section>
+
+<!-- ================================ 5. the waiter ================================ -->
+<section class="scene" id="s5" data-title="5 · The waiter">
+ <h2><span class="num">5</span>The waiter who reads the whole book aloud</h2>
+ <p class="sub">Before each reply, <span class="lbl-k">the waiter reads every past order aloud</span><span class="lbl-e">the dialogue engine logs one INFO line per history item, on its asyncio thread</span>. The book only grows.</p>
+ <div class="grid2">
+  <figure class="panel">
+   <svg id="voice" data-wide viewBox="0 0 600 330" role="img" aria-label="Top: a timeline from the turn commit with the waiter's reading bar and the transcript ticket queued behind it. Bottom: transcript p50 alone, in the full stack, and in the full stack with the log filter."></svg>
+   <figcaption><span class="tag ill">illustrative</span> Reading time = items × ms per item (my estimate from <code>ms_per_history_item</code>). The ticket strip is schematic; bars below are illustrative measurements.</figcaption>
+  </figure>
+  <div>
+   <div class="ctl"><label for="vn"><span><span class="lbl-k">Orders in the book</span><span class="lbl-e">History items</span></span><output id="vn-v"></output></label><input id="vn" data-k="n" type="range" step="10"></div>
+   <label class="chk"><input type="checkbox" id="vf" data-k="filt"> <span><span class="lbl-k">Stop reading aloud</span><span class="lbl-e">Log filter on (drops the per-item records)</span></span></label>
+   <p class="readout" id="v-read" aria-live="polite"></p>
+   <p class="caveat">Bench conditions: the history grows to about {{history_items}} items (illustrative) because the bench does not reset it between conversations, and the cloud speech service is a stand-in. Real sessions were not tested.</p>
+  </div>
+ </div>
+ <p class="sub" style="margin-top:14px"><b>Why the full stack multiplies it.</b> A CPU-bound step on the pool takes about {{@mulLo}} to {{@mulHi}} times its alone wall time (my estimate from <code>pool_wait_per_busy_full</code> and <code>cycles_growth_range</code>). <b>Fix (recommendation):</b> make the per-item lines DEBUG with lazy arguments, or log one summary line. A code change in the engine was not tested; only the handler-level filter was. <a class="read-note" href="../notes/A4-costs-that-grow-with-history.md">A4</a></p>
+</section>
+
+<!-- ================================ 6. the oven ================================ -->
+<section class="scene" id="s6" data-title="6 · Oven turns">
+ <h2><span class="num">6</span>One oven, taken in turns</h2>
+ <p class="sub">From the full stack to the full stack + VLA, the detector's frame grows by +{{detector_vla_added_blocked_wait_run.0}} ms blocked, +{{detector_vla_added_blocked_wait_run.1}} ms wait, +{{detector_vla_added_blocked_wait_run.2}} ms run (illustrative). Mostly <b>blocked</b>. Is it the VLA's memory traffic, or its share of oven time?</p>
+ <figure class="st-scene panel" id="s-oven" data-dwell="3600" aria-label="Scene: GPU time-slicing">
+  <svg data-wide viewBox="0 0 1000 320" role="img" aria-label="An oven and a timeline of turns: the detector, the VLA and other processes take the whole GPU in turns; the detector's gaps are blocked time; a memory-copy co-tenant adds nothing; a compute co-tenant at the same share costs the same."></svg>
+  <ol class="st-cap">
+   <li><b>One batch at a time.</b> "{{mps_no_concurrency_quote}}" (NVIDIA MPS docs). Without MPS the GPU runs one CUDA context, then switches; a slice is about {{timeslice_ms~}} ms (illustrative). <a class="read-note" href="../notes/B1-gpu-time-slicing-and-the-dose-curve.md">B1</a></li>
+   <li><b>The detector waits for the others' turns.</b> Its blocked time is time another context holds the oven. Not a free tray: in this mode there is no SM contention between processes.</li>
+   <li><b>Memory traffic: no.</b> A streaming-copy co-tenant with the same GPU time added {{dram_null_added_ms}} ms (illustrative).</li>
+   <li><b>Share of oven time: yes.</b> A compute co-tenant at the VLA's share costs the detector the same: C*/R ≈ {{@cstarR}} (my estimate from <code>dose_curve_points</code>, <code>dose_vla_point</code>). Pre-registered verdict: "dose explains".</li>
+  </ol>
+ </figure>
+ <div class="st-predict" id="p-dose">
+  <p class="q">The others' GPU share O goes from {{dose_curve_points.1.0}} to {{dose_curve_points.3.0}} points ({{@doseX}}×, my estimate from <code>dose_curve_points</code>). The detector's added blocked time grows…</p>
+  <div class="opts">
+   <button class="btn" data-choice="same" data-why="It grows a lot: from {{dose_curve_points.1.1}} to {{dose_curve_points.3.1}} ms per frame (illustrative).">About the same</button>
+   <button class="btn" data-choice="prop" data-why="More than that: the slope rises along the curve ({{dose_slopes}} ms per point, illustrative). Each extra point costs more than the last.">In proportion ({{@doseX}}×)</button>
+   <button class="btn" data-choice="convex" data-right data-why="{{dose_curve_points.1.1}} → {{dose_curve_points.3.1}} ms is {{@waitX}}× (my estimate from dose_curve_points). The curve is convex: the first points cut from the VLA buy back the most.">More than in proportion</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <div class="grid2 st-gated" data-gate="p-dose">
+  <figure class="panel">
+   <svg id="dose" data-wide viewBox="0 0 600 340" role="img" aria-label="The dose curve: the detector's added blocked milliseconds per frame against the others' GPU share O; four compute points, the VLA point on the curve, and a dot you move."></svg>
+   <figcaption><span class="tag ill">illustrative</span> Line = straight segments between the arms (interpolation). <a class="read-note" href="../diagrams/06-dose-curve.png">diagram 06</a> · <a class="read-note" href="../explorers/01-gpu-dose-curve.html">explorer 01</a></figcaption>
+  </figure>
+  <div>
+   <div class="ctl"><label for="dO">Others' GPU share O (points) <output id="dO-v"></output></label><input id="dO" data-k="O" type="range" min="0" step="1"></div>
+   <p class="readout" id="d-read" aria-live="polite"></p>
+   <p class="caveat">The curve comes from a reduced row: the depth camera service and the detector only, with an idle CPU pool, one window per arm. In the full stack the same mechanism is expected but not tested.</p>
+   <details><summary>Corrections on this curve</summary>The first test read "neither alone": its compute arm gave about {{@firstOverR}} % of R (my estimate). That class stands as recorded; it was the low end of this convex curve. Two predictions were wrong: the highest dose cost {{@highOverR}} R, not less than R (my estimate), and burst length did not matter ({{burst_length_effect_ms}} ms, illustrative). An earlier "SM contention" reading was withdrawn: no test ran MPS. Bursts well below one time slice (under {{timeslice_ms.0}} ms) were not tested.</details>
+  </div>
+ </div>
+</section>
+
+<!-- ================================ 7. the camera ================================ -->
+<section class="scene" id="s7" data-title="7 · The camera">
+ <h2><span class="num">7</span>The camera: same oven, different reason</h2>
+ <p class="sub">The depth camera service keeps about {{camera_hz_alone}} Hz alone and loses about {{camera_full_stack_loss_hz}} Hz in the full stack (illustrative). It also uses the GPU. One load at a time, which one costs the frames?</p>
+ <div class="st-predict" id="p-cam">
+  <p class="q">With an idle CPU pool and a GPU co-tenant at every dose tested, how many frames per second does the camera lose?</p>
+  <div class="opts">
+   <button class="btn" data-choice="all" data-why="The full stack costs the camera {{camera_full_stack_loss_hz}} Hz, but GPU sharing alone did not: {{camera_gpu_only_loss_hz}} Hz at every dose tested (illustrative).">About {{camera_full_stack_loss_hz}} Hz, all of it</button>
+   <button class="btn" data-choice="share" data-why="That was the written prediction: a substantial GPU share. The illustrative measurement gives none.">A good part of it (the prediction)</button>
+   <button class="btn" data-choice="zero" data-right data-why="{{camera_gpu_only_loss_hz}} Hz at every dose tested (illustrative): GPU sharing alone costs the camera no frames when the pool is idle. Verdict: GPU minor.">About zero</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel st-gated" data-gate="p-cam" id="s-cam" data-dwell="3800" aria-label="Scene: the camera, one load at a time">
+  <svg data-wide viewBox="0 0 1000 340" role="img" aria-label="A bar chart of camera loss in hertz per single factor: GPU co-tenant zero; pool load at half the full stack's wait small, at twice the wait large but hollow because the window is void; topic fan-out one hertz; a dashed line at the full stack's loss."></svg>
+  <ol class="st-cap">
+   <li><b>Oven only: nothing.</b> A GPU co-tenant with an idle pool: {{camera_gpu_only_loss_hz}} Hz at every dose tested. Verdict: GPU minor. <a class="read-note" href="../notes/B1-gpu-time-slicing-and-the-dose-curve.md">B1</a></li>
+   <li><b>Fewer free cooks: steep, but undecided.</b> The only valid pool arm lies below the full stack's camera wait; the higher arm is VOID (hollow). Verdict: "undecided at dose".</li>
+   <li><b>More readers: a minor share.</b> The full stack's extra topic subscribers cost {{camera_fanout_loss_hz}} Hz, about one fifth of the loss (my estimate from <code>camera_fanout_loss_hz</code>, <code>camera_full_stack_loss_hz</code>).</li>
+   <li><b>Provisional: pool CPU and topic demand.</b> A post-hoc reading that keeps the void arm gives the pool a larger share; it is labelled post-hoc and does not replace the verdict. The three loads were not tested together. The GPU arms ran with frame-time slack that the full stack does not leave, and the full stack + VLA dose lies beyond the highest GPU arm.</li>
+  </ol>
+ </figure>
+ <p class="sub" style="margin-top:12px">Raising the camera's priority brings back only part of it (scene 8, card 2). <a class="read-note" href="../diagrams/07-camera-one-load-at-a-time.png">diagram 07</a></p>
+</section>
+
+<!-- ================================ 8. corrections ================================ -->
+<section class="scene" id="s8" data-title="8 · Corrected">
+ <h2><span class="num">8</span>Six first readings, corrected</h2>
+ <p class="sub">Predict, measure, correct, and keep the correction where everyone can see it. Tap a card. The full list is in <a href="../notes/A0-the-big-picture.md">A0 § The gap</a>.</p>
+ <div class="st-cards" id="cards"></div>
+</section>
+
+<section class="scene" id="s9" data-title="Your turn">
+ <h2>Your turn</h2>
+ <p class="sub">Open questions: the camera with all three loads together, and MPS with the real services, are still untested. Play with the knobs first.</p>
+ <div class="next">
+  <a href="../explorers/01-gpu-dose-curve.html"><b>Dose-curve sandbox</b><span>Move O, cut the VLA's share, see what it buys back (explorer 01).</span></a>
+  <a href="../explorers/02-vla-gpu-budget.html"><b>VLA GPU budget</b><span>Estimate which offered rates fit next to the stack (my estimate; per-process GPU time not measured) (explorer 02).</span></a>
+  <a href="../explorers/03-kernel-fill-calculator.html"><b>Kernel fill</b><span>Why a low issue rate is not free room (explorer 03).</span></a>
+  <a href="../diagrams/01-diagnosis-map.png"><b>Diagnosis map</b><span>One page, every service and its cause (diagram 01).</span></a>
+  <a href="../diagrams/02-core-map-and-observers.png"><b>Core map</b><span>Who sits where, and the observers (diagram 02).</span></a>
+  <a href="../diagrams/05-gpu-time-slicing-vs-mps.png"><b>Turns vs MPS</b><span>Time-slicing and side-by-side sharing (diagram 05).</span></a>
+  <a href="../../quiz/index.html"><b>Quiz yourself</b><span>Spaced-repetition questions for the notes.</span></a>
+  <a href="../README.md"><b>Read the notes</b><span>A0 to C1, with every caveat.</span></a>
+  <a href="../../robot-workload-benchmarking/stories/01-the-robots-kitchen.html"><b>How to benchmark the kitchen</b><span>The sibling story: run-queue wait, observers, pre-registration.</span></a>
+  <a href="../../nvidia-gpu-anatomy/"><b>GPU sharing, in depth</b><span>Contexts, streams, time-slicing, MPS, MIG (sibling kit).</span></a>
+  <a href="../../jetson-orin-thor-metrics/"><b>Board ceilings</b><span>The roofline and its ridge (sibling kit).</span></a>
+ </div>
+</section>
+
+<footer class="st-foot">
+ <h3>Where the kitchen breaks</h3>
+ <ul class="breaks">
+  <li>A scheduler does not give a ticket to a named cook: any free pool core runs any runnable thread. And summed wait of threads that run in parallel is not added latency.</li>
+  <li>The oven is not one tray: the GPU has {{sm_count_orin}} SMs (sibling kit). Under time-slicing a context gets the whole GPU in its turn; MPS could let kernels of several processes share it, which the picture cannot show (<a href="../notes/B3-mps-in-practice.md">B3</a>).</li>
+  <li>The spice rack suggests one cause. For the motor-control services the path (cluster cache, board memory traffic, their own load) is not isolated.</li>
+  <li>The waiter does not "speak slowly": the cost is one log emit per item (stdout plus a <code>/rosout</code> publish), and CPU contention multiplies it.</li>
+  <li>The inspector did not misread: the request driver itself did not wait, so the full-stack number was measured correctly. It was caused by us.</li>
+ </ul>
+ <h3>Numbers on this page</h3>
+ <div class="tbl"><table id="src"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+ <p><b>All measurements are illustrative.</b> Every number is copied verbatim from the kit's <a href="../constants.json">constants.json</a>; "public" values cite a URL, "sibling" values a key in a sibling kit. Values marked "my estimate" are computed on this page from those entries. Kit: <a href="../README.md">robot stack contention</a> · <a href="../SOURCES.md">sources</a> · <a href="INDEX.md">stories index</a>.</p>
+</footer>
+</main>
+
+<script type="application/json" id="params">
+{
+ "sm_count_orin": {"value": 16, "unit": "SMs", "class": "sibling", "source": "../jetson-orin-thor-metrics/constants.json sm_count.orin"},
+ "pool_cores": {"value": 8, "unit": "cores", "class": "illustrative", "source": "illustrative: shared pool of general-purpose cores"},
+ "reserved_cores": {"value": 4, "unit": "cores", "class": "illustrative", "source": "illustrative: cores reserved (isolated) for pinned real-time and robot services"},
+ "stack_services": {"value": 40, "unit": "services", "class": "illustrative", "source": "illustrative: a full robot stack with every module on; a freshly booted robot runs fewer"},
+ "pool_busy_frac_full": {"value": 0.8, "unit": "fraction", "class": "illustrative", "source": "illustrative: shared pool about four fifths busy in the full stack"},
+ "pool_wait_per_busy_full": {"value": 2.0, "unit": "s of run-queue wait per busy s", "class": "illustrative", "source": "illustrative: waiting longer than running"},
+ "pool_wait_per_busy_camera_only": {"value": 0.05, "unit": "s per busy s", "class": "illustrative", "source": "illustrative: almost no queueing with one module"},
+ "saturated_core_equal_share": {"value": 0.33, "unit": "cores each", "class": "illustrative", "source": "illustrative: three groups on one saturated core each get about a third"},
+ "detector_frame_ms_solo_full": {"value": [100, 200], "unit": "ms per frame", "class": "illustrative", "source": "illustrative: object detector frame time alone vs full stack"},
+ "detector_added_wait_run_blocked": {"value": [50, 30, 20], "unit": "ms per frame added", "class": "illustrative", "source": "illustrative: most of the full-stack rise is CPU (wait + slower run)"},
+ "detector_vla_added_blocked_wait_run": {"value": [70, 20, 10], "unit": "ms per frame added", "class": "illustrative", "source": "illustrative: next to the VLA the rise is mostly blocked (GPU) time"},
+ "instr_growth": {"value": 0.0, "unit": "fraction", "class": "illustrative", "source": "illustrative: user instructions per work unit unchanged"},
+ "cycles_growth_range": {"value": [0.4, 1.0], "unit": "fraction", "class": "illustrative", "source": "illustrative: the same instructions take 1.4-2x the cycles"},
+ "ipc_drop_range": {"value": [0.3, 0.5], "unit": "fraction", "class": "illustrative", "source": "illustrative: instructions per cycle fall by a third to a half"},
+ "l3_refill_ratio_range": {"value": [2, 3], "unit": "x per instruction", "class": "illustrative", "source": "illustrative: more L3 refills per instruction (a hint, not a cause)"},
+ "cluster_move_recovered": {"value": 0.65, "unit": "fraction of the extra cycles", "class": "illustrative", "source": "illustrative: moving cluster neighbours away recovers about two thirds, on a pre-registered class line"},
+ "cluster_move_class_line": {"value": 0.5, "unit": "fraction", "class": "illustrative", "source": "illustrative: pre-registered line between 'most' and 'part'"},
+ "cluster_move_camera_cost_hz": {"value": [4, 6], "unit": "Hz", "class": "illustrative", "source": "illustrative: the move overloads the shared pool and costs the camera frames"},
+ "cpu_weight_default": {"value": 100, "unit": "cpu.weight", "class": "public", "source": "https://docs.kernel.org/admin-guide/cgroup-v2.html (cpu.weight)"},
+ "weight_raised": {"value": 1000, "unit": "cpu.weight", "class": "illustrative", "source": "illustrative: the camera container raised 10x"},
+ "weight_wait_per_cpu_s": {"value": [3.0, 0.75], "unit": "s per CPU-s (before, after)", "class": "illustrative", "source": "illustrative: the camera's own CPU wait falls by about three quarters"},
+ "weight_camera_hz": {"value": [25, 27.5], "unit": "Hz (control, treatment mean)", "class": "illustrative", "source": "illustrative: the camera recovers part of its rate, not all of 30 Hz"},
+ "weight_others_wait_rise": {"value": [0.25, 0.5], "unit": "fraction", "class": "illustrative", "source": "illustrative: other services wait longer: the wait moves"},
+ "ms_per_history_item": {"value": 1.5, "unit": "ms per item under contention", "class": "illustrative", "source": "illustrative: one log line per history item on the event loop"},
+ "history_items": {"value": 150, "unit": "items", "class": "illustrative", "source": "illustrative: conversation history that is not reset"},
+ "context_build_ms_filtered": {"value": 10, "unit": "ms", "class": "illustrative", "source": "illustrative: the same step with the per-item lines dropped"},
+ "transcript_latency_ms": {"value": {"alone": 600, "full": 850, "full_filtered": 640}, "unit": "ms p50", "class": "illustrative", "source": "illustrative: most of the rise was the logging loop"},
+ "interaction_accepted_ms": {"value": {"alone": 2, "probe_on_its_core": 40, "probe_moved": 5}, "unit": "ms p50", "class": "illustrative", "source": "illustrative: about 90 % of the rise was our own probe"},
+ "probe_cores_wanted": {"value": 0.5, "unit": "cores", "class": "illustrative", "source": "illustrative: a topic probe subscribed to heavy streams"},
+ "probe_on_pool_camera_cost_hz": {"value": 2, "unit": "Hz", "class": "illustrative", "source": "illustrative: moving the probe to the shared pool costs the camera frames"},
+ "probe_receive_delay_ms": {"value": [10, 30], "unit": "ms (p50, p99)", "class": "illustrative", "source": "illustrative: the probe's own receive delay on a saturated core"},
+ "mps_no_concurrency_quote": {"value": "Work launched to the compute engine from work queues belonging to different CUDA contexts cannot execute concurrently.", "unit": "quote", "class": "public", "source": "https://docs.nvidia.com/deploy/mps/architecture.html"},
+ "timeslice_ms": {"value": [1, 5], "unit": "ms", "class": "illustrative", "source": "illustrative: a GPU time slice per context is a few milliseconds (driver default, priority dependent)"},
+ "dose_curve_points": {"value": [[0, 0], [40, 40], [60, 80], [80, 160]], "unit": "[other share O points, added blocked ms per frame]", "class": "illustrative", "source": "illustrative: convex: each point costs more near saturation"},
+ "dose_vla_point": {"value": [65, 100], "unit": "[O points, added blocked ms]", "class": "illustrative", "source": "illustrative: the VLA sits on the compute co-tenant's curve"},
+ "dose_slopes": {"value": [1, 2, 4], "unit": "ms per point of O", "class": "illustrative", "source": "illustrative: slopes grow along the curve"},
+ "dram_null_added_ms": {"value": 0, "unit": "ms", "class": "illustrative", "source": "illustrative: a memory-copy co-tenant with the same GPU time adds nothing"},
+ "burst_length_effect_ms": {"value": 0, "unit": "ms", "class": "illustrative", "source": "illustrative: 3 ms vs 30 ms bursts at the same share cost the same"},
+ "camera_hz_alone": {"value": 30, "unit": "Hz", "class": "illustrative", "source": "illustrative: the depth camera service's frame rate when it runs alone"},
+ "camera_gpu_only_loss_hz": {"value": 0, "unit": "Hz", "class": "illustrative", "source": "illustrative: GPU load alone (idle CPU) costs the camera no frames"},
+ "camera_pool_loss_hz": {"value": {"half_full_wait": 0.3, "twice_full_wait": 6}, "unit": "Hz", "class": "illustrative", "source": "illustrative: camera loss rises steeply with CPU wait"},
+ "camera_fanout_loss_hz": {"value": 1, "unit": "Hz", "class": "illustrative", "source": "illustrative: extra topic subscribers make the camera do more work"},
+ "camera_full_stack_loss_hz": {"value": 5, "unit": "Hz", "class": "illustrative", "source": "illustrative: 30 -> 25 Hz in the full stack"},
+ "kernel_time_sms_full_share": {"value": 0.5, "unit": "fraction of kernel time", "class": "illustrative", "source": "illustrative: about half the kernel time leaves the SMs >= 90 % full on some resource (theoretical)"},
+ "sm_issue_full_stack": {"value": 0.2, "unit": "fraction of peak", "class": "illustrative", "source": "illustrative: low issue rate while the GPU is busy"},
+ "vision_pred_bandwidth_form_ms": {"value": 6, "unit": "ms", "class": "illustrative", "source": "illustrative: weights / bandwidth: too fast on a compute-bound board"},
+ "vision_compute_form_ms": {"value": [20, 30], "unit": "ms", "class": "illustrative", "source": "illustrative: FLOPs / shape rate = 0.5 TFLOP / (42.5 TFLOP/s x 0.6 .. 0.4)"},
+ "vla_offered_hz": {"value": 5, "unit": "Hz", "class": "illustrative", "source": "illustrative: offered action rate"}
+}
+</script>
+
+<script>
+/* ===================== numbers, templates, helpers (runs before story.js) ===================== */
+const NS = "http://www.w3.org/2000/svg", NAVY = "#141C2E";
+const P = JSON.parse(document.getElementById("params").textContent);
+const C = {coral:"#EE6A45", coralD:"#B33F1D", coralT:"#FBE0D6", sun:"#F2C64A", sunD:"#8A6800", sunT:"#FBEFC4", sky:"#5E9FB8", skyD:"#2C6A82", skyT:"#D6E9F0",
+  leaf:"#3AA88D", leafD:"#1D7660", leafT:"#CDEBDF", plum:"#B4669D", plumD:"#7E3A6C", plumT:"#F0DCEA", stone:"#8C8670", stoneD:"#5E5A48", stoneT:"#E6E2D6",
+  ink:"#1D2A44", ink2:"#55607A", card:"#FFFAF2", card2:"#EFE5D4", line:"#DCCDB4", neutral:"#C9C1AE"};
+const SKIN = ["#F4CDA7", "#D49A6A", "#8E5B3B", "#E8B98F"];
+/* V(key, ...path): a value from constants.json (inlined verbatim). A missing key is a console error, which shoot.py reports. */
+function V(key, ...path) { const o = P[key]; if (!o) { console.error("missing constants key: " + key); return NaN; } let v = o.value; for (const p of path) v = v == null ? v : v[p]; if (v === undefined) console.error("bad path: " + key + "." + path.join(".")); return v; }
+const num = (n, pct) => typeof n !== "number" ? String(n) : String(pct ? +(n * 100).toFixed(2) : n).replace("-", "\u2212") + (pct ? " %" : "");
+function fmtV(v, range, pct) {
+ if (Array.isArray(v)) { if (range) { const f = v.flat(Infinity).filter(x => typeof x === "number"); return num(Math.min(...f), pct).replace(" %", "") + "\u2013" + num(Math.max(...f), pct); } return v.map(x => fmtV(x, false, pct)).join(" / "); }
+ if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + " " + fmtV(b, range, pct)).join(", ");
+ return num(v, pct);
+}
+/* computed values shown on the page: every one is "my estimate" from the entries above, and is labelled so where it appears */
+const SPLIT = V("detector_added_wait_run_blocked"), DOSE = V("dose_curve_points"), VP = V("dose_vla_point");
+function curve(O) { const pts = DOSE; O = Math.max(0, Math.min(pts[pts.length - 1][0], O)); let i = 0; while (i < pts.length - 2 && O > pts[i + 1][0]) i++;
+ const a = pts[i], b = pts[i + 1], slope = (b[1] - a[1]) / (b[0] - a[0]); return {O, ms: a[1] + slope * (O - a[0]), slope, seg: i}; }
+const CG = V("cycles_growth_range"), PW = V("pool_wait_per_busy_full");
+const COMP = {
+ waitShare: "\u2248 " + Math.round(100 * SPLIT[0] / (SPLIT[0] + SPLIT[1] + SPLIT[2])),
+ doseX: String(+(DOSE[3][0] / DOSE[1][0]).toFixed(1)),
+ waitX: String(+(DOSE[3][1] / DOSE[1][1]).toFixed(1)),
+ cstarR: String(+(curve(VP[0]).ms / VP[1]).toFixed(2)),
+ firstOverR: String(Math.round(100 * DOSE[1][1] / VP[1])),
+ highOverR: String(+(DOSE[3][1] / VP[1]).toFixed(1)),
+ mulLo: String(+((1 + PW) * (1 + CG[0])).toFixed(1)),
+ mulHi: String(+((1 + PW) * (1 + CG[1])).toFixed(1)),
+ oneMinusF: String(+(1 - V("cluster_move_recovered")).toFixed(2)),
+ cycLo: String(+(1 + CG[0]).toFixed(1)),
+ cycHi: String(+(1 + CG[1]).toFixed(1)),
+ vlaAdd: String(V("detector_vla_added_blocked_wait_run").reduce((a, b) => a + b, 0))
+};
+/* {{key}}, {{key.0.1}}, {{key~}} (min–max), {{key%}} (×100 %), {{key~%}} (range in %), {{@computed}} */
+const RE = /\{\{(@?)([A-Za-z0-9_]+)((?:\.[A-Za-z0-9_]+)*)(~?)(%?)\}\}/g;
+function T(s) { return s.replace(RE, (m, at, key, path, rg, pc) => { if (at) { if (!(key in COMP)) { console.error("missing computed: " + key); return m; } return COMP[key]; }
+ const v = V(key, ...(path ? path.slice(1).split(".") : [])); return v === undefined ? m : fmtV(v, !!rg, !!pc); }); }
+(() => { const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT), ns = [];
+ while (w.nextNode()) if (w.currentNode.parentNode.tagName !== "SCRIPT" && w.currentNode.nodeValue.includes("{{")) ns.push(w.currentNode);
+ ns.forEach(n => n.nodeValue = T(n.nodeValue));
+ document.querySelectorAll("[data-why],[aria-label]").forEach(e => ["data-why", "aria-label"].forEach(a => { const v = e.getAttribute(a); if (v && v.includes("{{")) e.setAttribute(a, T(v)); })); })();
+
+function el(t, a = {}, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+function tx(p, x, y, s, a = {}) { const t = el("text", Object.assign({x, y}, a), p); t.textContent = T(String(s)); return t; }
+function dual(p, x, y, k, e, a = {}) { const g = el("g", {}, p); const c = a.class || ""; tx(g, x, y, k, Object.assign({}, a, {class: ("lbl-k " + c).trim()})); tx(g, x, y, e, Object.assign({}, a, {class: ("lbl-e " + c).trim()})); return g; }
+function use(p, id, x, y, w, h, style = "", a = {}) { return el("use", Object.assign({href: "#" + id, x, y, width: w, height: h, style}, a), p); }
+const OL = {stroke: NAVY, "stroke-width": 2.5, "stroke-linejoin": "round"};
+const svgOf = id => document.querySelector(`#${id} svg`) || document.getElementById(id);
+const chip = (p, x, y, w, h, fill, stroke, a = {}) => el("rect", Object.assign({x, y, width: w, height: h, rx: Math.min(12, h / 2), fill, stroke, "stroke-width": 2.5}, a), p);
+const illTag = (p, x, y, anchor = "end") => tx(p, x, y, "ILLUSTRATIVE", {"text-anchor": anchor, "font-size": 11, "font-weight": 800, fill: C.sunD, "letter-spacing": ".08em"});
+
+/* ---------------- HERO: the answer as a picture ---------------- */
+(() => {
+ const s = document.getElementById("hero"), zone = (x, y, w, h) => el("rect", {x, y, width: w, height: h, rx: 16, fill: "#FBF1E2", stroke: C.line, "stroke-width": 2}, s);
+ el("rect", {x: 0, y: 0, width: 1000, height: 400, fill: "#F3E6D0"}, s);
+ el("rect", {x: 0, y: 400, width: 1000, height: 160, fill: "#E7D5B8"}, s);
+ // A · the shared floor (the pool) and the ticket queue
+ zone(12, 14, 440, 376);
+ dual(s, 232, 42, "The shared floor: {{pool_cores}} cooks", "The pool: {{pool_cores}} cores (CFS)", {"text-anchor": "middle", "font-weight": 800, "font-size": 17});
+ const bf = V("pool_busy_frac_full");
+ for (let r = 0; r < 2; r++) for (let c = 0; c < 4; c++) { const i = r * 4 + c, x = 34 + c * 104, y = 58 + r * 118, g = el("g", {"data-ref": "cook"}, s);
+  el("rect", {x: x + 6, y, width: 76, height: 8, rx: 4, fill: "#E2D6C2", stroke: NAVY, "stroke-width": 1.5}, g);
+  el("rect", {x: x + 6, y, width: 76 * bf, height: 8, rx: 4, fill: C.coral, stroke: NAVY, "stroke-width": 1.5}, g);
+  use(g, "i-cook", x + 18, y + 12, 52, 84, `--skin:${SKIN[i % 4]}`);
+  el("rect", Object.assign({x, y: y + 88, width: 88, height: 24, rx: 6, fill: C.neutral}, OL), g);
+  el("ellipse", Object.assign({cx: x + 44, cy: y + 88, rx: 24, ry: 5, fill: "#2E3646"}, OL), g); }
+ dual(s, 232, 304, "each cook busy about {{pool_busy_frac_full%}} of the time", "pool {{pool_busy_frac_full%}} busy", {"text-anchor": "middle", "font-size": 13, fill: C.ink2, "font-weight": 700});
+ const rail = el("g", {"data-ref": "ticket"}, s);
+ el("line", {x1: 30, y1: 318, x2: 434, y2: 318, stroke: NAVY, "stroke-width": 3, "stroke-linecap": "round"}, rail);
+ for (let i = 0; i < 4; i++) use(rail, "i-ticket", 34, 322, 22, 30, `animation-delay:${-i * 0.9}s;--sx:${30 + i * 58}px`, {class: "tkt st-loop"});
+ for (let i = 0; i < 5; i++) use(rail, "i-ticket", 318 + i * 22, 322 - (i % 2) * 3, 22, 30);
+ dual(s, 232, 374, "Tickets wait {{pool_wait_per_busy_full}} s for every second cooked", "Run-queue wait: {{pool_wait_per_busy_full}} s per busy second", {"text-anchor": "middle", "font-size": 15, "font-weight": 800, fill: C.coralD});
+ // B · the oven (GPU, time-sliced) and the waiter
+ zone(466, 14, 224, 250);
+ dual(s, 578, 40, "One oven, one batch at a time", "GPU: time-sliced, no MPS", {"text-anchor": "middle", "font-weight": 800, "font-size": 13.5});
+ const ov = el("g", {"data-ref": "oven"}, s);
+ el("rect", Object.assign({x: 492, y: 54, width: 172, height: 146, rx: 14, fill: "#5A6170"}, OL), ov);
+ for (const kx of [512, 536]) el("circle", Object.assign({cx: kx, cy: 72, r: 6, fill: C.card2}, OL), ov);
+ el("rect", Object.assign({x: 506, y: 88, width: 144, height: 98, rx: 8, fill: "#2E3646"}, OL), ov);
+ [["turnA", "Detector's tray", "Detector"], ["turnB", "VLA's tray", "VLA"]].forEach(([cl, k, e]) => { const g = el("g", {class: cl + " st-loop"}, ov);
+  el("rect", Object.assign({x: 520, y: 122, width: 116, height: 32, rx: 6, fill: C.sun}, OL), g);
+  dual(g, 578, 143, k, e + " context", {"text-anchor": "middle", "font-size": 13, "font-weight": 800, fill: NAVY}); });
+ for (const x of [490, 580]) el("rect", Object.assign({x, y: 208, width: 86, height: 20, rx: 6, fill: "url(#hatch)"}, OL), s);
+ dual(s, 578, 250, "Waiting trays = blocked time", "Waiting contexts = blocked time", {"text-anchor": "middle", "font-size": 13, "font-weight": 700, fill: C.sunD});
+ zone(466, 274, 224, 116);
+ const wt = el("g", {"data-ref": "waiter"}, s);
+ use(wt, "i-waiter", 474, 292, 52, 84);
+ dual(wt, 606, 300, "Reads the whole book aloud", "Logs every history item", {"text-anchor": "middle", "font-size": 12, "font-weight": 800, fill: C.plumD});
+ const sc = el("g", {class: "scroll st-loop"}, wt);
+ el("rect", {x: 532, y: 312, width: 148, height: 28, rx: 6, fill: "#FFFDF8", stroke: C.plumD, "stroke-width": 2.5}, sc);
+ for (let i = 0; i < 8; i++) el("line", {x1: 540 + i * 17, y1: 320, x2: 552 + i * 17, y2: 320, stroke: C.plumD, "stroke-width": 2}, sc), el("line", {x1: 540 + i * 17, y1: 332, x2: 549 + i * 17, y2: 332, stroke: C.plumD, "stroke-width": 2}, sc);
+ dual(wt, 606, 362, "before every reply", "O(history), on the event loop", {"text-anchor": "middle", "font-size": 12, fill: C.ink2});
+ // C · the walled alcoves (reserved cores), the crowded alcove, the shared spice rack
+ zone(704, 14, 284, 376);
+ dual(s, 846, 40, "{{reserved_cores}} walled alcoves", "{{reserved_cores}} reserved cores (isolcpus)", {"text-anchor": "middle", "font-weight": 800, "font-size": 15});
+ for (let i = 0; i < 4; i++) { const x = 716 + i * 68;
+  el("rect", {x, y: 54, width: 62, height: 196, rx: 8, fill: "#FFFAF2", stroke: NAVY, "stroke-width": 2.5, "data-ref": "alcove"}, s); }
+ use(s, "i-cook", 726, 124, 42, 68, `--c:${C.neutral};--skin:${SKIN[1]}`);
+ dual(s, 747, 240, "router", "router", {"text-anchor": "middle", "font-size": 11, fill: C.ink2});
+ el("rect", {x: 782, y: 52, width: 66, height: 200, rx: 10, fill: "none", stroke: C.stoneD, "stroke-width": 3, "stroke-dasharray": "6 4"}, s);
+ use(s, "i-cook", 784, 70, 30, 48, `--c:${C.neutral};--skin:${SKIN[2]}`); use(s, "i-cook", 814, 86, 30, 48, `--c:${C.neutral};--skin:${SKIN[3]}`);
+ use(s, "i-insp", 790, 140, 40, 60, "", {"data-ref": "insp"});
+ dual(s, 815, 222, "greeter's", "interaction", {"text-anchor": "middle", "font-size": 10.5, "font-weight": 700, fill: C.ink2});
+ dual(s, 815, 240, "3 share 1", "3 × {{saturated_core_equal_share}}", {"text-anchor": "middle", "font-size": 11, "font-weight": 800, fill: C.stoneD});
+ use(s, "i-cook", 862, 124, 42, 68, `--c:${C.neutral};--skin:${SKIN[0]}`); use(s, "i-cook", 930, 124, 42, 68, `--c:${C.neutral};--skin:${SKIN[2]}`);
+ use(s, "i-bell", 930, 86, 42, 34, "", {"data-ref": "bell"});
+ el("rect", {x: 866, y: 228, width: 96, height: 18, rx: 5, fill: "#FFFAF2"}, s); dual(s, 914, 240, "motor station", "motor control", {"text-anchor": "middle", "font-size": 11, "font-weight": 800, fill: C.ink2});
+ const rk = el("g", {"data-ref": "rack"}, s);
+ for (let i = 0; i < 4; i++) el("line", {x1: 747 + i * 68, y1: 250, x2: 747 + i * 68, y2: 276, stroke: C.skyD, "stroke-width": 3}, rk);
+ el("rect", Object.assign({x: 716, y: 296, width: 266, height: 9, rx: 3, fill: C.skyD}, OL), rk);
+ for (let i = 0; i < 10; i++) el("rect", Object.assign({x: 722 + i * 26, y: 276 + (i % 2) * 4, width: 16, height: 20 - (i % 2) * 4, rx: 3, fill: i % 2 ? C.skyT : C.sky}, OL), rk);
+ dual(s, 846, 328, "One spice rack, shared", "One shared cluster cache", {"text-anchor": "middle", "font-size": 13, "font-weight": 800, fill: C.skyD});
+ dual(s, 846, 350, "neighbours crowd it: more time per step", "same work, more cycles", {"text-anchor": "middle", "font-size": 12, fill: C.ink2});
+ dual(s, 846, 374, "the inspector crowds one alcove", "our probe saturates one core", {"text-anchor": "middle", "font-size": 12, fill: C.stoneD, "font-weight": 700});
+ // the ticket row: one cause per service
+ const T6 = [
+  ["Detector station", "Object detector", ["waits for a cook,", "then for the oven"], ["pool CPU, then GPU", "turns next to the VLA"], "2 · 6", [C.coral, C.sun]],
+  ["Camera station", "Depth camera", ["short of cooks,", "more readers", "(provisional)"], ["pool CPU + topic", "demand (provisional)"], "7", [C.coral]],
+  ["The greeter", "Interaction", ["our inspector", "in its alcove"], ["our probe on its", "reserved core"], "4", [C.stone]],
+  ["Voice line", "Voice chain", ["the waiter reads", "the whole book"], ["per-item logging,", "O(history)"], "5", [C.plum]],
+  ["Motor station", "Motor control", ["a crowded", "spice rack"], ["same work, more", "cycles (cluster)"], "3", [C.sky]],
+  ["The big order", "The VLA (bench)", ["needs long", "oven turns"], ["GPU-time-bound"], "6", [C.sun]]];
+ T6.forEach(([k, e, kl, ell, sn, cols], i) => { const x = 12 + i * 164, g = el("g", {}, s);
+  el("rect", Object.assign({x, y: 410, width: 156, height: 140, rx: 12, fill: "#FFFDF8"}, OL), g);
+  cols.forEach((c, j) => el("rect", {x: x + 2 + j * 152 / cols.length, y: 412, width: 152 / cols.length, height: 12, fill: c}, g));
+  dual(g, x + 10, 446, k, e, {"font-weight": 800, "font-size": 14});
+  kl.forEach((l, j) => tx(g, x + 10, 470 + j * 17, l, {"font-size": 12, class: "lbl-k"}));
+  ell.forEach((l, j) => tx(g, x + 10, 470 + j * 17, l, {"font-size": 12, class: "lbl-e"}));
+  tx(g, x + 10, 538, "scene " + sn, {"font-size": 12, "font-weight": 700, fill: C.ink2}); });
+})();
+
+/* ---------------- SCENE 1: symptoms, alone → full stack → + VLA ---------------- */
+(() => {
+ const s = svgOf("s-sym"), CX = [314, 498, 682], CW = 168, F = V("detector_frame_ms_solo_full"), IA = V("interaction_accepted_ms"), TL = V("transcript_latency_ms");
+ const rows = [
+  ["Detector station", "Object detector", "time per frame", "frame time", [F[0] + " ms", F[1] + " ms", "+{{@vlaAdd}} ms more*"], [["cooks, then oven", "pool CPU, then GPU"], [C.coral, C.sun]]],
+  ["Camera station", "Depth camera", "frames per second", "rate", [V("camera_hz_alone") + " Hz", "\u2212" + V("camera_full_stack_loss_hz") + " Hz", null], [["cooks + readers (prov.)", "pool CPU + fan-out (prov.)"], [C.coral]]],
+  ["The greeter", "Interaction service", "time to accept a request", "request accepted p50", [IA.alone + " ms", IA.probe_on_its_core + " ms", null], [["our inspector", "our observers"], [C.stone]]],
+  ["Voice line", "Speech recognizer", "time to transcript", "transcript p50", [TL.alone + " ms", TL.full + " ms", null], [["the waiter's reading", "per-item logging"], [C.plum]]],
+  ["Motor station", "Motor control", "cook time per loop, same work", "cycles per work unit", ["1×", "{{@cycLo}}× to {{@cycHi}}×", null], [["spice rack", "more cycles, same work"], [C.sky]]],
+  ["The big order", "The VLA", "orders offered", "offered rate", [null, null, V("vla_offered_hz") + " Hz offered"], [["oven time", "GPU-time-bound"], [C.sun]]]];
+ const hd = [["Alone", "Alone"], ["All at once", "Full stack"], ["+ the big order", "Full stack + VLA"]];
+ hd.forEach(([k, e], j) => dual(el("g", {"data-s": String(j + 1)}, s), CX[j], 30, k, e, {"text-anchor": "middle", "font-weight": 800, "font-size": 16}));
+ dual(el("g", {"data-s": "4"}, s), 880, 30, "Why", "Cause", {"text-anchor": "middle", "font-weight": 800, "font-size": 16});
+ illTag(el("g", {"data-s": "0"}, s), 984, 12);
+ rows.forEach(([k, e, ks, es, vals, cause], i) => { const y = 48 + i * 52, base = el("g", {"data-s": "0"}, s);
+  dual(base, 16, y + 18, k, e, {"font-weight": 800, "font-size": 15}); dual(base, 16, y + 36, ks, es, {"font-size": 12, fill: C.ink2});
+  el("line", {x1: 16, y1: y + 46, x2: 984, y2: y + 46, stroke: C.line, "stroke-width": 1.5}, base);
+  vals.forEach((v, j) => { const g = el("g", {"data-s": String(j + 1)}, s);
+   if (v == null) { tx(g, CX[j], y + 26, "\u2014", {"text-anchor": "middle", "font-size": 15, fill: C.ink2}); return; }
+   chip(g, CX[j] - CW / 2, y + 6, CW, 32, j === 0 ? C.leafT : C.card, j === 0 ? C.leafD : NAVY);
+   tx(g, CX[j], y + 27, v, {"text-anchor": "middle", "font-size": 14, "font-weight": 800});
+   if (j > 0 && vals[j - 1] != null) el("path", {d: `M${CX[j - 1] + CW / 2 + 4} ${y + 22} h${CX[j] - CX[j - 1] - CW - 14} m-6 -5 l6 5 -6 5`, fill: "none", stroke: C.ink2, "stroke-width": 2, "stroke-linecap": "round"}, g); });
+  const cg = el("g", {"data-s": "4"}, s);
+  chip(cg, 776, y + 6, 208, 32, "#FFFDF8", NAVY);
+  cause[1].forEach((c, j) => el("rect", {x: 784 + j * 14, y: y + 14, width: 12, height: 16, rx: 3, fill: c, stroke: NAVY, "stroke-width": 1.5}, cg));
+  dual(cg, 790 + cause[1].length * 14, y + 27, cause[0][0], cause[0][1], {"font-size": 12.5, "font-weight": 700}); });
+ tx(el("g", {"data-s": "3"}, s), 626, 362, "* my estimate: the sum of detector_vla_added_blocked_wait_run, mostly blocked", {"text-anchor": "middle", "font-size": 11.5, fill: C.ink2});
+ // step 4: the method strip
+ const m = el("g", {"data-s": "4"}, s);
+ el("rect", {x: 16, y: 372, width: 968, height: 58, rx: 18, fill: "#FFF4DE", stroke: NAVY, "stroke-width": 2.5}, m);
+ use(m, "i-note", 30, 378, 36, 46);
+ [["Predict in writing", "Pre-register prediction + rule"], ["Change one thing", "One-factor test, reviewed"], ["Correct in the open", "Keep the first reading, labelled"]].forEach(([k, e], i) => { const x = 96 + i * 300;
+  el("circle", {cx: x, cy: 401, r: 14, fill: NAVY}, m); tx(m, x, 406, i + 1, {"text-anchor": "middle", fill: "#fff", "font-weight": 800});
+  dual(m, x + 22, 406, k, e, {"font-size": 15, "font-weight": 700});
+  if (i < 2) el("path", {d: `M${x + 262} 401 h18 m-6 -5 l6 5 -6 5`, fill: "none", stroke: NAVY, "stroke-width": 2.5, "stroke-linecap": "round"}, m); });
+})();
+
+/* ---------------- SCENE 2a: wait per busy second (live) ---------------- */
+const wModel = s => ({w: s.w, wall: 1 + s.w});
+(() => {
+ const s = document.getElementById("wait"), X = t => 40 + 530 * t / 4;
+ tx(s, 40, 30, "One second of cooking, and the wait on the rail", {"font-size": 14, "font-weight": 800});
+ illTag(s, 570, 30);
+ el("rect", {x: X(0), y: 52, width: X(1) - X(0), height: 34, rx: 6, fill: C.card2, stroke: NAVY, "stroke-width": 2}, s);
+ dual(s, (X(0) + X(1)) / 2, 74, "cooking 1 s", "running 1 s", {"text-anchor": "middle", "font-size": 13, "font-weight": 700});
+ el("rect", {id: "w-bar", x: X(1), y: 52, height: 34, rx: 6, fill: C.coral, stroke: NAVY, "stroke-width": 2}, s);
+ tx(s, 0, 74, "", {id: "w-lbl", "font-size": 13, "font-weight": 800});
+ el("line", {x1: X(0), y1: 110, x2: X(4), y2: 110, stroke: NAVY, "stroke-width": 2}, s);
+ for (let t = 0; t <= 4; t++) { el("line", {x1: X(t), y1: 110, x2: X(t), y2: 117, stroke: NAVY, "stroke-width": 2}, s); tx(s, X(t), 132, t + " s", {"text-anchor": "middle", "font-size": 12, fill: C.ink2}); }
+ tx(s, X(4), 100, "wall time", {"text-anchor": "end", "font-size": 12, fill: C.ink2});
+ const mk = [[V("pool_wait_per_busy_camera_only"), "camera-only row", "start", 168], [V("pool_wait_per_busy_full"), "full stack", "start", 168]];
+ mk.forEach(([w, lab, anc, ly]) => { el("line", {x1: X(1 + w), y1: 92, x2: X(1 + w), y2: ly - 14, stroke: C.coralD, "stroke-width": 2, "stroke-dasharray": "3 3"}, s);
+  tx(s, X(1 + w) + 4, ly, `${lab} ${w}`, {"text-anchor": anc, "font-size": 12, "font-weight": 700, fill: C.coralD}); });
+ tx(s, 40, 222, "", {id: "w-sent", "font-size": 14, "font-weight": 800});
+ window.drawWait = o => { const b = document.getElementById("w-bar"); b.setAttribute("width", Math.max(2, X(1 + o.w) - X(1)));
+  const l = document.getElementById("w-lbl"); l.setAttribute("x", X(1 + o.w) + 6); l.textContent = `+${o.w.toFixed(2)} s waiting`;
+  if (X(1 + o.w) + 130 > 590) { l.setAttribute("x", X(1 + o.w) - 6); l.setAttribute("text-anchor", "end"); l.setAttribute("fill", NAVY); } else { l.removeAttribute("text-anchor"); l.removeAttribute("fill"); }
+  document.getElementById("w-sent").textContent = `1 CPU-second takes ${o.wall.toFixed(2)} s of wall time (my estimate).`; };
+ const r = document.getElementById("w"); r.min = V("pool_wait_per_busy_camera_only"); r.max = 1.5 * V("pool_wait_per_busy_full"); r.value = V("pool_wait_per_busy_full");
+})();
+
+/* ---------------- SCENE 2b: the detector's frame, alone → full stack ---------------- */
+(() => {
+ const s = svgOf("s-frame"), x0 = 170, k = 3.4, F = V("detector_frame_ms_solo_full"), [w, r, b] = SPLIT, X = ms => x0 + k * ms;
+ console.assert(F[0] + w + r + b === F[1], "detector: alone frame + wait + run + blocked = full-stack frame");
+ dual(s, 16, 78, "Alone", "Alone", {"font-weight": 800, "font-size": 16}); dual(s, 16, 178, "All at once", "Full stack", {"font-weight": 800, "font-size": 16});
+ illTag(s, 984, 24);
+ const g1 = el("g", {"data-s": "1"}, s);
+ el("rect", {x: X(0), y: 52, width: k * F[0], height: 40, rx: 6, fill: C.leafT, stroke: C.leafD, "stroke-width": 2.5}, g1);
+ tx(g1, X(F[0] / 2), 78, F[0] + " ms per frame", {"text-anchor": "middle", "font-size": 14, "font-weight": 800});
+ const g2 = el("g", {"data-s": "2"}, s);
+ el("rect", {x: X(0), y: 152, width: k * F[0], height: 40, rx: 6, fill: C.card2, stroke: NAVY, "stroke-width": 2}, g2);
+ tx(g2, X(F[0] / 2), 178, "the alone " + F[0] + " ms", {"text-anchor": "middle", "font-size": 13, fill: C.ink2});
+ const seg = [[w, F[0], C.coral, "2 5", ["+" + w + " waiting for a cook", "+" + w + " run-queue wait"]], [r, F[0] + w, C.sky, "3", ["+" + r + " slower", "+" + r + " run"]], [b, F[0] + w + r, "url(#hatch)", "4", ["+" + b, "+" + b]]];
+ seg.forEach(([ms, at, fill, ds, lab]) => { el("rect", {x: X(at), y: 152, width: k * ms, height: 40, rx: 4, fill, stroke: NAVY, "stroke-width": 2, class: "grow lit", "data-s": ds}, s);
+  dual(el("g", {"data-s": ds.split(" ")[0]}, s), X(at + ms / 2), 142, lab[0], lab[1], {"text-anchor": "middle", "font-size": 13, "font-weight": 800}); });
+ dual(el("g", {"data-s": "4"}, s), X(F[1]) - 2, 214, "blocked: oven, locks", "blocked: GPU sync, locks, I/O", {"text-anchor": "end", "font-size": 12, fill: C.sunD, "font-weight": 700});
+ const g5 = el("g", {"data-s": "5"}, s);
+ tx(g5, X(F[1]) + 8, 178, F[1] + " ms", {"font-size": 16, "font-weight": 800});
+ el("path", {d: `M${X(F[0])} 232 v8 H${X(F[1])} v-8`, fill: "none", stroke: NAVY, "stroke-width": 2}, g5);
+ dual(g5, (X(F[0]) + X(F[1])) / 2, 262, "added: the wait is the biggest part", "added: run-queue wait is the largest term", {"text-anchor": "middle", "font-size": 14, "font-weight": 800, fill: C.coralD});
+ tx(g5, (X(F[0]) + X(F[1])) / 2, 282, "{{@waitShare}} % of the added time (my estimate)", {"text-anchor": "middle", "font-size": 13, fill: C.ink2});
+})();
+
+/* ---------------- SCENE 3: same work, more cycles ---------------- */
+(() => {
+ const s = svgOf("s-cache");
+ for (let i = 0; i < 4; i++) { const x = 20 + i * 80;
+  el("rect", {x, y: 40, width: 72, height: 170, rx: 8, fill: "#FFFAF2", stroke: NAVY, "stroke-width": 2.5, "data-s": "0"}, s); }
+ dual(el("g", {"data-s": "0"}, s), 176, 24, "walled alcoves, one cluster", "reserved cores: one CPU cluster", {"text-anchor": "middle", "font-size": 13, "font-weight": 800});
+ const nb = el("g", {"data-s": "2"}, s);
+ for (let i = 0; i < 6; i++) { const alcove = i < 3 ? 0 : 1, j = i % 3; use(nb, "i-cook", 22 + alcove * 80 + (j === 1 ? 34 : 4), 52 + j * 46, 34, 54, `--c:${C.neutral};--skin:${SKIN[i % 4]}`); }
+ dual(nb, 96, 230, "busy neighbours", "cluster-mates", {"text-anchor": "middle", "font-size": 12, "font-weight": 800, fill: C.ink2});
+ use(s, "i-cook", 196, 106, 52, 84, `--c:${C.neutral};--skin:${SKIN[2]}`, {"data-s": "0"});
+ use(s, "i-cook", 276, 106, 52, 84, `--c:${C.neutral};--skin:${SKIN[0]}`, {"data-s": "0"});
+ use(s, "i-bell", 278, 64, 40, 32, "", {"data-s": "0"});
+ dual(el("g", {"data-s": "0"}, s), 256, 230, "motor station", "motor control", {"text-anchor": "middle", "font-size": 12, "font-weight": 800, fill: C.ink2});
+ const rk = el("g", {"data-s": "3"}, s);
+ el("rect", {x: 20, y: 290, width: 312, height: 10, rx: 3, fill: C.skyD, stroke: NAVY, "stroke-width": 2.5, class: "lit"}, rk);
+ for (let i = 0; i < 11; i++) el("rect", Object.assign({x: 26 + i * 28, y: 266 + (i % 2) * 4, width: 18, height: 24 - (i % 2) * 4, rx: 3, fill: i % 2 ? C.skyT : C.sky}, OL), rk);
+ for (let i = 0; i < 4; i++) el("line", {x1: 56 + i * 80, y1: 238, x2: 56 + i * 80, y2: 262, stroke: C.skyD, "stroke-width": 3, "stroke-dasharray": "5 4"}, rk);
+ dual(rk, 176, 322, "one shared spice rack", "shared cluster cache, memory path", {"text-anchor": "middle", "font-size": 13, "font-weight": 800, fill: C.skyD});
+ for (let i = 0; i < 3; i++) el("circle", {r: 6, fill: C.sky, stroke: NAVY, "stroke-width": 1.5, class: "st-tok", "data-s": "3", style: `offset-path:path('M${56 + i * 80} 262 V238');--dur:900ms;--d:${i * 150}ms`}, s);
+ const x0 = 580, L = 180, rowsY = [62, 98, 168, 204], ig = V("instr_growth");
+ dual(el("g", {"data-s": "0"}, s), 380, 52, "Recipe steps per loop", "Instructions per work unit", {"font-size": 14, "font-weight": 800});
+ dual(el("g", {"data-s": "0"}, s), 380, 158, "Cook time per loop", "Cycles per work unit", {"font-size": 14, "font-weight": 800});
+ illTag(el("g", {"data-s": "0"}, s), 984, 24);
+ [[rowsY[0], 1, C.leafT, C.leafD, "1", "alone"], [rowsY[1], 1 + ig, C.card2, NAVY, "2", "full"], [rowsY[2], 1, C.leafT, C.leafD, "1", "alone"]].forEach(([y, f, fill, st, ds, lab], i) => {
+  const g = el("g", {"data-s": ds}, s); tx(g, x0 - 10, y + 18, lab, {"text-anchor": "end", "font-size": 13, "font-weight": 700, fill: C.ink2});
+  el("rect", {x: x0, y, width: L * f, height: 26, rx: 5, fill, stroke: st, "stroke-width": 2, class: "grow"}, g);
+  if (i === 1) tx(g, x0 + L * f + 8, y + 18, "+{{instr_growth%}}", {"font-size": 14, "font-weight": 800}); });
+ const gc = el("g", {"data-s": "2"}, s), y = rowsY[3];
+ tx(gc, x0 - 10, y + 18, "full", {"text-anchor": "end", "font-size": 13, "font-weight": 700, fill: C.ink2});
+ el("rect", {x: x0, y, width: L * (1 + CG[1]), height: 26, rx: 5, fill: C.skyT, stroke: C.skyD, "stroke-width": 2, "stroke-dasharray": "5 4", class: "grow"}, gc);
+ el("rect", {x: x0, y, width: L * (1 + CG[0]), height: 26, rx: 5, fill: C.sky, stroke: NAVY, "stroke-width": 2, class: "grow"}, gc);
+ tx(gc, x0 + L * (1 + CG[1]) - 8, y + 44, "{{@cycLo}}× to {{@cycHi}}× the cycles", {"text-anchor": "end", "font-size": 13, "font-weight": 800, fill: C.skyD});
+ const g3 = el("g", {"data-s": "3"}, s);
+ dual(g3, 380, 280, "Nobody takes its cook: never preempted", "Never preempted: not run-queue wait", {"font-size": 15, "font-weight": 800});
+ dual(g3, 380, 306, "→ suspect the shared spice rack (or the board's traffic)", "→ suspect the cluster cache (or board traffic)", {"font-size": 14, "font-weight": 700, fill: C.skyD});
+})();
+
+/* ---------------- SCENE 3b: the cluster move, the removed fraction (static, gated) ---------------- */
+(() => {
+ const s = document.getElementById("frac"), X = f => 80 + 840 * f, line = V("cluster_move_class_line"), f = V("cluster_move_recovered");
+ el("rect", {x: X(0), y: 40, width: X(line) - X(0), height: 52, rx: 8, fill: "none", stroke: NAVY, "stroke-width": 2, "stroke-dasharray": "6 5"}, s);
+ tx(s, (X(0) + X(line)) / 2, 34, "written prediction: 'part' (below the line)", {"text-anchor": "middle", "font-size": 13, "font-weight": 700, fill: C.ink2});
+ illTag(s, 984, 34);
+ el("line", {x1: X(0), y1: 100, x2: X(1), y2: 100, stroke: NAVY, "stroke-width": 2}, s);
+ for (let t = 0; t <= 10; t++) { el("line", {x1: X(t / 10), y1: 100, x2: X(t / 10), y2: 106, stroke: NAVY, "stroke-width": 2}, s); if (t % 2 === 0) tx(s, X(t / 10), 122, t / 10, {"text-anchor": "middle", "font-size": 12, fill: C.ink2}); }
+ tx(s, X(1), 140, "f = share of the lost cycles given back", {"text-anchor": "end", "font-size": 12, fill: C.ink2});
+ el("line", {x1: X(line), y1: 30, x2: X(line), y2: 100, stroke: NAVY, "stroke-width": 3}, s);
+ tx(s, X(line) + 6, 140, "pre-registered line " + line, {"font-size": 12, "font-weight": 700});
+ el("path", {d: `M${X(f)} 54 l10 12 -10 12 -10 -12z`, fill: C.leaf, stroke: NAVY, "stroke-width": 2}, s);
+ tx(s, X(f) + 16, 62, "f = {{cluster_move_recovered}}: about two thirds", {"font-size": 15, "font-weight": 800, fill: C.leafD});
+ tx(s, X(f) + 16, 82, "'most (or less board traffic)'", {"font-size": 13, "font-weight": 700});
+ [["The move is not free", "the camera loses {{cluster_move_camera_cost_hz~}} Hz", C.coral], ["Board memory traffic fell too", "hence '(or less board traffic)'", C.sky], ["1 − f = {{@oneMinusF}} not separated", "own load, probe heartbeat, traffic", C.stone]].forEach(([a, b, c], i) => { const x = 20 + i * 330;
+  chip(s, x, 168, 310, 64, "#FFFDF8", NAVY); el("rect", {x: x + 10, y: 180, width: 12, height: 40, rx: 3, fill: c, stroke: NAVY, "stroke-width": 1.5}, s);
+  tx(s, x + 32, 194, a, {"font-size": 14, "font-weight": 800}); tx(s, x + 32, 216, b, {"font-size": 13, fill: C.ink2}); });
+ tx(s, 500, 252, "1 − f: my estimate from cluster_move_recovered", {"text-anchor": "middle", "font-size": 11.5, fill: C.ink2});
+})();
+
+/* ---------------- SCENE 4: where the inspector stands ---------------- */
+(() => {
+ const s = svgOf("s-core"), base = el("g", {"data-s": "0"}, s), IA = V("interaction_accepted_ms");
+ dual(base, 200, 24, "The shared floor", "The pool", {"text-anchor": "middle", "font-size": 14, "font-weight": 800});
+ for (let i = 0; i < 8; i++) { const x = 22 + (i % 4) * 92, y = 36 + Math.floor(i / 4) * 104;
+  el("rect", {x, y, width: 84, height: 96, rx: 8, fill: "#FBF1E2", stroke: C.line, "stroke-width": 2}, base);
+  use(base, "i-cook", x + 22, y + 12, 40, 64, `--skin:${SKIN[i % 4]}`); }
+ el("rect", {x: 296, y: 140, width: 84, height: 96, rx: 8, fill: "none", stroke: C.stoneD, "stroke-width": 3, "stroke-dasharray": "6 4", "data-s": "2"}, s);
+ dual(base, 700, 24, "Walled alcoves", "Reserved cores", {"text-anchor": "middle", "font-size": 14, "font-weight": 800});
+ illTag(base, 984, 24);
+ for (let i = 0; i < 4; i++) { const x = 420 + i * 140;
+  el("rect", {x, y: 36, width: 130, height: 200, rx: 10, fill: "#FFFAF2", stroke: NAVY, "stroke-width": 2.5}, base); }
+ use(base, "i-cook", 460, 90, 50, 80, `--c:${C.neutral};--skin:${SKIN[1]}`); dual(base, 485, 222, "router", "middleware router", {"text-anchor": "middle", "font-size": 12, fill: C.ink2});
+ use(base, "i-cook", 566, 60, 44, 70, `--c:${C.neutral};--skin:${SKIN[2]}`); use(base, "i-cook", 612, 60, 44, 70, `--c:${C.neutral};--skin:${SKIN[3]}`);
+ dual(base, 588, 142, "greeter", "interaction", {"text-anchor": "middle", "font-size": 11, fill: C.ink2}); dual(base, 634, 142, "helper", "controller", {"text-anchor": "middle", "font-size": 11, fill: C.ink2});
+ use(s, "i-insp", 572, 150, 48, 72, "", {class: "st-at", "data-s": "1"});
+ use(s, "i-insp", 314, 148, 48, 72, "", {class: "st-at", "data-s": "2 3 4"});
+ el("circle", {r: 8, fill: C.stone, stroke: NAVY, "stroke-width": 2, class: "st-tok", "data-s": "2", style: `offset-path:path('M596 186 C 520 300, 400 300, 338 186');--dur:1200ms`}, s);
+ tx(s, 626, 226, "3 × {{saturated_core_equal_share}}", {class: "st-at", "data-s": "1", "font-size": 12, "font-weight": 800, fill: C.stoneD});
+ use(base, "i-cook", 740, 100, 50, 80, `--c:${C.neutral};--skin:${SKIN[0]}`); use(base, "i-cook", 880, 100, 50, 80, `--c:${C.neutral};--skin:${SKIN[2]}`);
+ use(base, "i-bell", 884, 60, 42, 34); el("rect", {x: 745, y: 212, width: 180, height: 20, rx: 6, fill: "#FFFAF2"}, base); dual(base, 835, 226, "motor station, fast bell", "motor control, fast loop", {"text-anchor": "middle", "font-size": 12, fill: C.ink2});
+ const nv = el("g", {"data-s": "4"}, s);
+ el("rect", {x: 702, y: 30, width: 266, height: 212, rx: 12, fill: "none", stroke: NAVY, "stroke-width": 3.5, "stroke-dasharray": "10 6"}, nv);
+ chip(nv, 760, 184, 150, 26, "#FFFDF8", NAVY); tx(nv, 835, 202, "never observers here", {"text-anchor": "middle", "font-size": 13, "font-weight": 800});
+ const vals = (ds, x, label, val, fill, st) => { const g = el("g", {class: "st-at", "data-s": ds}, s); chip(g, x, 262, 300, 52, fill, st); tx(g, x + 14, 284, label, {"font-size": 13, fill: C.ink2, "font-weight": 700}); tx(g, x + 14, 304, val, {"font-size": 16, "font-weight": 800}); };
+ vals("1", 20, "accepted p50, inspector in the alcove", IA.probe_on_its_core + " ms   (alone " + IA.alone + ")", C.stoneT, C.stoneD);
+ vals("2 3 4", 20, "accepted p50, inspector on the floor", IA.probe_moved + " ms   (alone " + IA.alone + ")", C.leafT, C.leafD);
+ vals("1", 340, "the greeter's alcove", "saturated: 3 equal caps", C.stoneT, C.stoneD);
+ vals("2 3 4", 340, "the greeter's alcove", "no longer saturated", C.leafT, C.leafD);
+ vals("1 2", 660, "camera, inspector in an alcove", "full-stack rate", C.card, NAVY);
+ vals("3 4", 660, "camera, inspector on the floor", "\u2212{{probe_on_pool_camera_cost_hz}} Hz more", C.coralT, C.coralD);
+})();
+
+/* ---------------- SCENE 5: the waiter's reading (live) ---------------- */
+const vModel = s => { const per = V("ms_per_history_item"), loop = s.filt ? V("context_build_ms_filtered") : s.n * per; return {n: s.n, per, loop, filt: !!s.filt}; };
+(() => {
+ const s = document.getElementById("voice"), X = ms => 60 + 500 * ms / 300;
+ illTag(s, 590, 18);
+ el("line", {x1: X(0), y1: 26, x2: X(0), y2: 128, stroke: NAVY, "stroke-width": 2}, s);
+ tx(s, X(0) + 4, 22, "turn commit", {"font-size": 12, "font-weight": 700, fill: C.ink2});
+ dual(s, X(0) + 4, 46, "the waiter reads the book", "context loop: one INFO line per item", {"font-size": 13, "font-weight": 800, fill: C.plumD});
+ el("rect", {id: "v-bar", x: X(0), y: 54, height: 28, rx: 6, fill: C.plum, stroke: NAVY, "stroke-width": 2}, s);
+ tx(s, 0, 74, "", {id: "v-blab", "font-size": 13, "font-weight": 800});
+ use(s, "i-ticket", X(0), 88, 22, 30, "", {id: "v-tkt"});
+ tx(s, 0, 108, "", {id: "v-hlab", "font-size": 12, "font-weight": 800, fill: C.plumD});
+ el("line", {x1: X(0), y1: 128, x2: X(300), y2: 128, stroke: NAVY, "stroke-width": 2}, s);
+ for (let t = 0; t <= 300; t += 50) { el("line", {x1: X(t), y1: 128, x2: X(t), y2: 134, stroke: NAVY, "stroke-width": 2}, s); tx(s, X(t), 148, t + " ms", {"text-anchor": "middle", "font-size": 11, fill: C.ink2}); }
+ // the transcript p50 bars (illustrative measurements)
+ const TL = V("transcript_latency_ms"), XB = ms => 150 + 400 * ms / 1000;
+ tx(s, 10, 184, "Transcript p50, end of speech → transcript", {"font-size": 13, "font-weight": 800});
+ [["alone", "alone", TL.alone, C.leafT, C.leafD], ["all at once", "full stack", TL.full, C.plum, NAVY], ["book not read aloud", "full stack, filter on", TL.full_filtered, C.leaf, NAVY]].forEach(([k, e, v, f, st], i) => { const y = 196 + i * 34;
+  dual(s, 140, y + 18, k, e, {"text-anchor": "end", "font-size": 12, "font-weight": 700});
+  el("rect", {x: XB(0), y, width: XB(v) - XB(0), height: 24, rx: 5, fill: f, stroke: st, "stroke-width": 2}, s);
+  tx(s, XB(v) + 6, y + 17, v + " ms", {"font-size": 13, "font-weight": 800}); });
+ window.drawVoice = o => { const b = document.getElementById("v-bar"); b.setAttribute("width", Math.max(3, X(o.loop) - X(0))); b.setAttribute("fill", o.filt ? C.leaf : C.plum);
+  const bl = document.getElementById("v-blab"); const lx = X(o.loop) + 6; bl.setAttribute("x", Math.min(lx, 470)); bl.textContent = o.filt ? `${o.loop} ms (filter on)` : `${o.loop.toFixed(0)} ms`;
+  if (lx > 470) { bl.setAttribute("x", X(o.loop) - 6); bl.setAttribute("text-anchor", "end"); bl.setAttribute("fill", "#fff"); } else { bl.removeAttribute("text-anchor"); bl.removeAttribute("fill"); }
+  const tk = document.getElementById("v-tkt"); tk.setAttribute("x", X(o.loop) + 2);
+  const hl = document.getElementById("v-hlab"), hx = X(o.loop) + 30; hl.setAttribute("x", Math.min(hx, 590)); hl.setAttribute("text-anchor", hx > 400 ? "end" : "start");
+  if (hx > 400) hl.setAttribute("x", X(o.loop) - 4);
+  hl.textContent = o.filt ? "transcript handled at once" : "transcript waits until the reading ends (schematic)"; };
+ const r = document.getElementById("vn"); r.min = 0; r.max = V("history_items"); r.value = V("history_items");
+})();
+
+/* ---------------- SCENE 6: the oven takes turns ---------------- */
+(() => {
+ const s = svgOf("s-oven"), base = el("g", {"data-s": "0"}, s), x0 = 270, W = 48, lanes = [["Detector", "detector"], ["VLA", "VLA"], ["others", "others"]].map((l, i) => [l[0], l[1], 70 + 60 * i]);
+ use(base, "i-oven", 24, 50, 160, 160, "", {"data-ref": "oven"});
+ dual(base, 104, 232, "one oven, one batch", "GPU: one context at a time", {"text-anchor": "middle", "font-size": 13, "font-weight": 800});
+ lanes.forEach(([k, e, y]) => { dual(base, x0 - 12, y + 20, k, e + " context", {"text-anchor": "end", "font-size": 14, "font-weight": 800}); el("line", {x1: x0, y1: y + 15, x2: x0 + 14 * W, y2: y + 15, stroke: C.line, "stroke-width": 2, "stroke-dasharray": "4 6"}, base); });
+ tx(base, x0 + 14 * W, 36, "illustrative order of turns", {"text-anchor": "end", "font-size": 12, fill: C.sunD, "font-weight": 700});
+ const seq = [0, 1, 2, 1, 0, 1, 1, 2, 0, 1, 2, 1, 0, 1];
+ const g1 = el("g", {"data-s": "1"}, s);
+ seq.forEach((l, i) => el("rect", {x: x0 + i * W + 1, y: lanes[l][2], width: W - 2, height: 30, rx: 5, fill: C.sun, stroke: NAVY, "stroke-width": 2}, g1));
+ el("circle", {r: 7, fill: "#fff", stroke: NAVY, "stroke-width": 2.5, class: "st-tok", "data-s": "1", style: `offset-path:path('M${x0} 56 H${x0 + 14 * W}');--dur:2400ms`}, s);
+ const g2 = el("g", {"data-s": "2"}, s), dt = seq.map((l, i) => l === 0 ? i : -1).filter(i => i >= 0);
+ for (let j = 0; j < dt.length - 1; j++) el("rect", {x: x0 + (dt[j] + 1) * W + 1, y: lanes[0][2] + 4, width: (dt[j + 1] - dt[j] - 1) * W - 2, height: 22, rx: 5, fill: "url(#hatch)", stroke: NAVY, "stroke-width": 2, class: "grow"}, g2);
+ dual(g2, x0, 236, "hatched = the detector's tray waiting: the others' turns", "hatched = detector blocked while other contexts run", {"font-size": 14, "font-weight": 800, fill: C.sunD});
+ const g3 = el("g", {class: "st-at", "data-s": "3"}, s);
+ chip(g3, x0, 254, 672, 52, "#FFFDF8", NAVY); el("rect", {x: x0 + 12, y: 266, width: 12, height: 28, rx: 3, fill: C.sky, stroke: NAVY, "stroke-width": 1.5}, g3);
+ dual(g3, x0 + 36, 278, "A co-tenant making many pantry trips, same oven time", "Copy co-tenant: heavy DRAM traffic, same GPU time", {"font-size": 14, "font-weight": 800});
+ tx(g3, x0 + 36, 298, "the detector's added blocked time: {{dram_null_added_ms}} ms → memory traffic adds nothing measurable", {"font-size": 13, fill: C.ink2});
+ const g4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ chip(g4, x0, 254, 672, 52, "#FFFDF8", NAVY); el("rect", {x: x0 + 12, y: 266, width: 12, height: 28, rx: 3, fill: C.sun, stroke: NAVY, "stroke-width": 1.5}, g4);
+ dual(g4, x0 + 36, 278, "A co-tenant at the VLA's share of oven time costs the same", "Compute co-tenant at the VLA's dose: C*/R ≈ {{@cstarR}}", {"font-size": 14, "font-weight": 800});
+ tx(g4, x0 + 36, 298, "Pre-registered verdict: \"dose explains\" (camera + detector row, idle pool)", {"font-size": 13, fill: C.ink2});
+})();
+
+/* ---------------- SCENE 6b: the dose curve (live, gated) ---------------- */
+const dModel = s => curve(s.O);
+(() => {
+ const s = document.getElementById("dose"), X = O => 60 + 510 * O / 80, Y = ms => 290 - 250 * ms / 180;
+ illTag(s, 590, 22);
+ el("line", {x1: X(0), y1: Y(0), x2: X(80), y2: Y(0), stroke: NAVY, "stroke-width": 2}, s); el("line", {x1: X(0), y1: Y(0), x2: X(0), y2: Y(180), stroke: NAVY, "stroke-width": 2}, s);
+ for (let o = 0; o <= 80; o += 20) { el("line", {x1: X(o), y1: Y(0), x2: X(o), y2: Y(0) + 6, stroke: NAVY, "stroke-width": 2}, s); tx(s, X(o), Y(0) + 22, o, {"text-anchor": "middle", "font-size": 12, fill: C.ink2}); }
+ for (let m = 0; m <= 150; m += 50) { el("line", {x1: X(0) - 6, y1: Y(m), x2: X(0), y2: Y(m), stroke: NAVY, "stroke-width": 2}, s); tx(s, X(0) - 10, Y(m) + 4, m, {"text-anchor": "end", "font-size": 12, fill: C.ink2}); }
+ tx(s, X(80), Y(0) + 40, "others' share of GPU time, O (points)", {"text-anchor": "end", "font-size": 12, fill: C.ink2});
+ tx(s, X(0) + 6, 22, "detector's added blocked ms per frame", {"font-size": 12, fill: C.ink2, "font-weight": 700});
+ el("polyline", {points: DOSE.map(([o, m]) => `${X(o)},${Y(m)}`).join(" "), fill: "none", stroke: C.sunD, "stroke-width": 3, "stroke-linejoin": "round"}, s);
+ el("line", {id: "d-seg", stroke: NAVY, "stroke-width": 6, "stroke-linecap": "round", opacity: .35}, s);
+ DOSE.forEach(([o, m]) => el("circle", {cx: X(o), cy: Y(m), r: 7, fill: C.sun, stroke: NAVY, "stroke-width": 2}, s));
+ el("path", {d: `M${X(VP[0])} ${Y(VP[1]) - 10} l10 10 -10 10 -10 -10z`, fill: "#fff", stroke: NAVY, "stroke-width": 2.5}, s);
+ tx(s, X(VP[0]) + 14, Y(VP[1]) + 22, "VLA arm", {"font-size": 12, "font-weight": 800});
+ tx(s, X(DOSE[3][0]) - 12, Y(DOSE[3][1]) + 4, "compute arms", {"text-anchor": "end", "font-size": 12, "font-weight": 700, fill: C.sunD});
+ el("circle", {id: "d-dot", r: 9, fill: C.coral, stroke: NAVY, "stroke-width": 2.5}, s);
+ window.drawDose = o => { const d = document.getElementById("d-dot"); d.setAttribute("cx", X(o.O)); d.setAttribute("cy", Y(o.ms));
+  const a = DOSE[o.seg], b = DOSE[o.seg + 1], g = document.getElementById("d-seg"); g.setAttribute("x1", X(a[0])); g.setAttribute("y1", Y(a[1])); g.setAttribute("x2", X(b[0])); g.setAttribute("y2", Y(b[1])); };
+ const r = document.getElementById("dO"); r.max = DOSE[DOSE.length - 1][0]; r.value = VP[0];
+})();
+
+/* ---------------- SCENE 7: the camera, one load at a time ---------------- */
+(() => {
+ const s = svgOf("s-cam"), Y = L => 250 - 200 * L / 8, X0 = 70, BW = 120, GAP = 50, PL = V("camera_pool_loss_hz"), full = V("camera_full_stack_loss_hz");
+ const base = el("g", {"data-s": "0"}, s);
+ el("line", {x1: X0, y1: Y(0), x2: 980, y2: Y(0), stroke: NAVY, "stroke-width": 2}, base); el("line", {x1: X0, y1: Y(0), x2: X0, y2: Y(8), stroke: NAVY, "stroke-width": 2}, base);
+ for (const L of [0, 2, 4, 6, 8]) { el("line", {x1: X0 - 5, y1: Y(L), x2: X0, y2: Y(L), stroke: NAVY, "stroke-width": 2}, base); tx(base, X0 - 8, Y(L) + 4, L, {"text-anchor": "end", "font-size": 11, fill: C.ink2}); }
+ tx(base, X0 + 4, Y(8) - 8, "camera loss (Hz)", {"font-size": 12, fill: C.ink2, "font-weight": 700});
+ illTag(base, 980, 30);
+ el("line", {x1: X0, y1: Y(full), x2: 980, y2: Y(full), stroke: NAVY, "stroke-width": 2, "stroke-dasharray": "6 5"}, base);
+ tx(base, 976, Y(full) - 6, "the full stack's loss: {{camera_full_stack_loss_hz}} Hz", {"text-anchor": "end", "font-size": 12, "font-weight": 800});
+ const bars = [
+  ["1", V("camera_gpu_only_loss_hz"), ["oven only", ""], ["GPU co-tenant,", "idle pool"], C.sun, NAVY, true],
+  ["2", PL.half_full_wait, ["fewer cooks:", "half the wait"], ["pool load at half", "the full stack's wait"], C.coral, NAVY, true],
+  ["2", PL.twice_full_wait, ["fewer cooks:", "twice the wait"], ["pool load at twice", "the full stack's wait"], "#fff", C.coralD, false],
+  ["3", V("camera_fanout_loss_hz"), ["more readers", ""], ["topic fan-out", ""], C.coralT, C.coralD, true]];
+ bars.forEach(([ds, l, kl, ell, f, st, ok], i) => { const x = X0 + 40 + i * (BW + GAP), g = el("g", {"data-s": ds}, s);
+  const h = Math.max(3, Y(0) - Y(l));
+  el("rect", {x, y: Y(0) - h, width: BW, height: h, rx: 4, fill: f, stroke: st, "stroke-width": 2.5, "stroke-dasharray": ok ? "" : "6 4", class: "grow"}, g);
+  tx(g, x + BW / 2, Y(0) - h - 8, l + " Hz" + (ok ? "" : " (VOID)"), {"text-anchor": "middle", "font-size": 14, "font-weight": 800, fill: ok ? C.ink : C.coralD});
+  kl.forEach((t, j) => t && tx(g, x + BW / 2, Y(0) + 18 + j * 15, t, {"text-anchor": "middle", "font-size": 12, fill: C.ink2, class: "lbl-k"}));
+  (ell[0] ? ell : kl).forEach((t, j) => t && tx(g, x + BW / 2, Y(0) + 18 + j * 15, t, {"text-anchor": "middle", "font-size": 12, fill: C.ink2, class: "lbl-e"})); });
+ const g3 = s.querySelectorAll('[data-s="3"]')[0];
+ tx(g3, X0 + 40 + 3 * (BW + GAP) + BW / 2, Y(V("camera_fanout_loss_hz")) - 28, "about one fifth (my estimate)", {"text-anchor": "middle", "font-size": 12, "font-weight": 700});
+ const g4 = el("g", {"data-s": "4"}, s);
+ chip(g4, 20, 294, 960, 40, "#FFF4DE", NAVY);
+ tx(g4, 500, 319, "GPU: minor  ·  pool: \"undecided at dose\"  ·  fan-out: a minor share  ·  all three together: not tested", {"text-anchor": "middle", "font-size": 15, "font-weight": 800});
+})();
+
+/* ---------------- SCENE 8: corrections as flip cards ---------------- */
+(() => {
+ const cards = [
+  {k: "The busy kitchen", e: "\"The interaction service is slowed by platform load\"", art: "i-insp", looks: "Its accepted latency rises from {{interaction_accepted_ms.alone}} to {{interaction_accepted_ms.probe_on_its_core}} ms (illustrative), so the board must be loaded.", really: "About 90 % of the rise was our probe on the same reserved core (my estimate from interaction_accepted_ms).", rule: "Move one factor, the observers, and measure again. (A5)"},
+  {k: "Shouting inside one family", e: "\"nice on the camera's threads tests CPU priority\"", art: "i-cook", looks: "A negative nice should give the camera more CPU against the others.", really: "Each container is its own cgroup, so nice inside it changes nothing against other containers: the camera's wait did not fall. cpu.weight {{cpu_weight_default}} → {{weight_raised}} does work: wait {{weight_wait_per_cpu_s.0}} → {{weight_wait_per_cpu_s.1}} s per CPU-s, camera {{weight_camera_hz.0}} → {{weight_camera_hz.1}} Hz, not back to alone. Verdict: split. Others wait {{weight_others_wait_rise~%}} longer: the wait moves.", rule: "A manipulation check: the target's wait must fall. (A3)"},
+  {k: "Blaming the oven", e: "\"The camera is GPU-bound\"", art: "i-oven", looks: "The camera uses the GPU and slows when the GPU is shared.", really: "GPU sharing alone cost the camera {{camera_gpu_only_loss_hz}} Hz (illustrative) with an idle pool. GPU load together with pool load was not tested.", rule: "One load at a time. (B1)"},
+  {k: "Fighting over trays", e: "\"SM contention\" between the detector and the VLA", art: "i-oven", looks: "The detector and the VLA compete for SMs.", really: "Without MPS, work from different CUDA contexts does not run at the same time; the wait is time-slicing.", rule: "Read the sharing mode before naming the resource. (B1)"},
+  {k: "The half-empty oven", e: "\"A low SM issue rate means free room\"", art: "i-oven", looks: "The SMs issue at only {{sm_issue_full_stack%}} of peak (illustrative), so another model should fit.", really: "By launch configuration, about {{kernel_time_sms_full_share%}} of the kernel time (illustrative) already fills the SMs on some resource. This fill is theoretical, not measured.", rule: "Compute the fill from launch configurations. (B2)"},
+  {k: "The wrong yardstick", e: "\"The vision encoder is several times slower than predicted\"", art: "i-note", looks: "The VLA's vision encoder is far slower than its prediction.", really: "The prediction used the bandwidth form, {{vision_pred_bandwidth_form_ms}} ms, on a board where vision is compute-bound; the compute form gives {{vision_compute_form_ms~}} ms (illustrative).", rule: "Choose the prediction's form from the board's ridge. (B4)"}];
+ const box = document.getElementById("cards");
+ cards.forEach(c => { const k = T(c.k), e = T(c.e);
+  const b = document.createElement("button"); b.className = "st-card"; b.setAttribute("aria-label", `First reading: ${e}. Tap to see the correction.`);
+  b.innerHTML = `<div class="in"><div class="face front"><svg viewBox="0 0 220 120" role="img" aria-label="${k}"></svg><h3>${k}</h3><div style="font-size:14px;color:var(--ink-2)">First reading: ${e}</div><div class="hint">tap to see the correction ↻</div></div>
+   <div class="face back"><h3>${k}</h3><dl><dt>Looks like</dt><dd>${T(c.looks)}</dd><dt>Really</dt><dd>${T(c.really)}</dd><dt>Caught by</dt><dd>${T(c.rule)}</dd></dl></div></div>`;
+  box.appendChild(b);
+  const s = b.querySelector("svg");
+  el("rect", {x: 0, y: 0, width: 220, height: 120, rx: 14, fill: "#F3E6D0"}, s);
+  use(s, c.art, 20, 14, 80, 92);
+  el("rect", {x: 112, y: 42, width: 96, height: 34, rx: 8, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2.5, "stroke-dasharray": "6 4", transform: "rotate(-8 160 59)"}, s);
+  tx(s, 160, 65, "corrected", {"text-anchor": "middle", "font-size": 15, "font-weight": 800, transform: "rotate(-8 160 59)"}); });
+})();
+
+/* ---------------- sources table from the params block ---------------- */
+(() => { const tb = document.querySelector("#src tbody"), esc = x => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+ const cls = c => c === "public" ? "pub" : c === "sibling" ? "sib" : "ill";
+ for (const [k, o] of Object.entries(P)) { if (k.startsWith("_")) continue; const v = typeof o.value === "object" ? JSON.stringify(o.value) : o.value;
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td><code>${k}</code></td><td>${esc(v)} ${esc(o.unit)}</td><td><span class="tag ${cls(o.class)}">${o.class}</span></td><td>${esc(o.source)}</td>`; tb.appendChild(tr); } })();
+</script>
+<script src="../../stories/story.js"></script>
+<script>
+/* live figures: one pure model each, bound after story.js */
+Story.bind(document.getElementById("s2"), wModel, o => {
+ document.getElementById("w-v").textContent = o.w.toFixed(2); drawWait(o);
+ const near = [["the camera-only row", V("pool_wait_per_busy_camera_only")], ["the full stack", V("pool_wait_per_busy_full")]].find(([, v]) => Math.abs(v - o.w) < 0.026);
+ document.getElementById("w-read").innerHTML = `Wait <b>${o.w.toFixed(2)} s</b> per busy second${near ? ` (${near[0]}, illustrative)` : ""} → each CPU-second takes <b>${o.wall.toFixed(2)} s</b> of wall time (my estimate).`;
+});
+Story.bind(document.getElementById("s5"), vModel, o => {
+ document.getElementById("vn-v").textContent = o.n; drawVoice(o);
+ document.getElementById("v-read").innerHTML = o.filt
+  ? `Filter on: the context loop takes <b>${o.loop} ms</b> (illustrative), whatever the book's length. The transcript does not wait.`
+  : `${o.n} items × ${o.per} ms = <b>${o.loop.toFixed(0)} ms</b> of reading before each reply (my estimate). A transcript that arrives meanwhile waits behind it (head-of-line).`;
+});
+Story.bind(document.getElementById("s6"), dModel, o => {
+ document.getElementById("dO-v").textContent = o.O.toFixed(0); drawDose(o);
+ document.getElementById("d-read").innerHTML = `At O = <b>${o.O.toFixed(0)}</b> points the detector gains <b>${o.ms.toFixed(0)} ms</b> of blocked time per frame (interpolated, illustrative). Here each point costs <b>${o.slope.toFixed(0)} ms</b> (slopes ${fmtV(V("dose_slopes"))} ms per point).`;
+});
+/* self-tests: reproduce the page's claims from the inlined constants */
+console.assert(COMP.waitShare === "\u2248 50", "detector: wait is about half of the added frame time (A1)");
+console.assert(wModel({w: V("pool_wait_per_busy_full")}).wall === 3, "2.0 s wait per busy s → about 3 s wall per CPU-s (A1)");
+console.assert([20, 50, 70].every((O, i) => dModel({O}).slope === V("dose_slopes", i)), "dose-curve segment slopes match dose_slopes (B1)");
+console.assert(COMP.cstarR === "1", "C*/R = 1.0 at the VLA's dose (B1)");
+console.assert(COMP.highOverR === "1.6" && COMP.firstOverR === "40", "highest dose 1.6 R; first test about 40 % of R (B1)");
+console.assert(COMP.doseX === "2" && COMP.waitX === "4", "convex: dose ×2 gives wait ×4 (B1)");
+console.assert(COMP.mulLo === "4.2" && COMP.mulHi === "6", "pool step: 4.2× to 6× alone wall time (A4)");
+console.assert(vModel({n: V("history_items"), filt: false}).loop === 225, "150 items × 1.5 ms = 225 ms (A4)");
+console.assert(V("cluster_move_recovered") > V("cluster_move_class_line") && COMP.oneMinusF === "0.35", "f above the line; 1 − f = 0.35 (A2)");
+(() => { const a = V("interaction_accepted_ms"); console.assert(Math.abs((a.probe_on_its_core - a.probe_moved) / (a.probe_on_its_core - a.alone) - 0.92) < 0.005, "about 90 % of the rise was the probe (A5)"); })();
+console.assert(V("camera_gpu_only_loss_hz") === 0 && V("camera_fanout_loss_hz") / V("camera_full_stack_loss_hz") === 0.2, "camera: GPU alone 0 Hz; fan-out one fifth (B1)");
+console.assert(V("detector_vla_added_blocked_wait_run")[0] > V("detector_vla_added_blocked_wait_run")[1] + V("detector_vla_added_blocked_wait_run")[2], "next to the VLA the rise is mostly blocked (B1)");
+</script>
+</body>
+</html>
