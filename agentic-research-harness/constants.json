@@ -1,0 +1,612 @@
+{
+ "_about": "Numbers cited by the agentic-research-harness kit. Every entry has class 'public' (a real value from a cited public source, or my arithmetic on one) or 'illustrative' (a round number invented to explain an idea, a design parameter of the method, or output of a demonstration simulator; never a measurement of a real platform). No result of the internal first campaign is reproduced: its entries keep only the shape of the story. Load this file; do not retype the numbers.",
+ "pub_strathern_year": {
+  "value": 1997,
+  "unit": "year",
+  "class": "public",
+  "source": "Strathern, 'Improving ratings: audit in the British University system', European Review 5(3):305-321, 1997"
+ },
+ "pub_goodhart_year": {
+  "value": 1975,
+  "unit": "year",
+  "class": "public",
+  "source": "Goodhart, 'Problems of monetary management: the U.K. experience', Papers in Monetary Economics, Reserve Bank of Australia, 1975"
+ },
+ "pub_react_year": {
+  "value": 2022,
+  "unit": "year",
+  "class": "public",
+  "source": "Yao et al., 'ReAct: Synergizing Reasoning and Acting in Language Models', arXiv:2210.03629, 2022 (ICLR 2023)"
+ },
+ "pub_liu_layland_year": {
+  "value": 1973,
+  "unit": "year",
+  "class": "public",
+  "source": "Liu & Layland, 'Scheduling Algorithms for Multiprogramming in a Hard-Real-Time Environment', JACM 20(1):46-61, 1973"
+ },
+ "pub_edf_utilization_bound": {
+  "value": 1.0,
+  "unit": "utilization",
+  "class": "public",
+  "source": "Liu & Layland 1973, Theorem 7: EDF schedules a set of independent periodic tasks with deadline = period on one preemptive processor iff total utilization <= 1"
+ },
+ "pub_rm_bound_limit": {
+  "value": 0.693,
+  "unit": "utilization",
+  "class": "public",
+  "source": "Liu & Layland 1973: the rate-monotonic bound n(2^(1/n)-1) tends to ln 2 as n grows; value is my arithmetic"
+ },
+ "pub_amdahl_year": {
+  "value": 1967,
+  "unit": "year",
+  "class": "public",
+  "source": "Amdahl, 'Validity of the single processor approach to achieving large scale computing capabilities', AFIPS Spring Joint Computer Conference, 1967"
+ },
+ "pub_heft_year": {
+  "value": 2002,
+  "unit": "year",
+  "class": "public",
+  "source": "Topcuoglu, Hariri, Wu, 'Performance-effective and low-complexity task scheduling for heterogeneous computing' (HEFT), IEEE TPDS 13(3):260-274, 2002"
+ },
+ "pub_popper_year": {
+  "value": 1959,
+  "unit": "year",
+  "class": "public",
+  "source": "Popper, The Logic of Scientific Discovery, English edition, Hutchinson, 1959"
+ },
+ "pub_disjoint_null_probability_20v20": {
+  "value": 7.25e-12,
+  "unit": "probability",
+  "class": "public",
+  "source": "my arithmetic: if candidate and champion samples are 20 i.i.d. draws each from one continuous distribution, every ordering of the 40 values is equally likely, so P(all 20 candidate values below all 20 champion values) = 1 / C(40,20) = 1 / 137 846 528 820"
+ },
+ "pub_median_null_probability": {
+  "value": 0.5,
+  "unit": "probability",
+  "class": "public",
+  "source": "my arithmetic: under the same no-difference assumption, the candidate's median is below the champion's median with probability 1/2 (symmetry)"
+ },
+ "harness_margin_cap_first_campaign": {
+  "value": 0.85,
+  "unit": "binding ratio",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "promotion needs binding <= this in the first campaign"
+ },
+ "harness_margin_cap_scheduling": {
+  "value": 0.9,
+  "unit": "binding ratio",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "promotion needs binding <= this in the scheduling topic (topic.json margin.max_for_promotion)"
+ },
+ "harness_timed_calls": {
+  "value": 20,
+  "unit": "timed calls per run",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "first campaign: promotion needs all 20 timed calls faster than all 20 of the champion"
+ },
+ "harness_lessons_max_lines": {
+  "value": 70,
+  "unit": "lines",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "slow-memory size limit (about 70 lines)"
+ },
+ "harness_win_spread_multiple": {
+  "value": 3,
+  "unit": "x rerun spread",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "one-page proposal: a timing win must exceed three times the rerun spread"
+ },
+ "harness_win_min_rel": {
+  "value": 1,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "one-page proposal: a timing win must also be at least 1 %"
+ },
+ "harness_e2e_rmse_multiple": {
+  "value": 3,
+  "unit": "x reduced-precision noise",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "one-page proposal: end-to-end output error at most three times the legitimate reduced-precision noise"
+ },
+ "harness_plan_steps": {
+  "value": [
+   3,
+   6
+  ],
+  "unit": "steps per task",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "planner tasks have 3-6 concrete steps"
+ },
+ "harness_task_hours": {
+  "value": 1,
+  "unit": "hour",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "a planner task is sized for about one hour of one researcher"
+ },
+ "topic_researchers_parallel": {
+  "value": 2,
+  "unit": "researchers",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_tasks_per_round": {
+  "value": 2,
+  "unit": "tasks",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_submissions_per_researcher": {
+  "value": 4,
+  "unit": "submissions",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_planner_wall_min": {
+  "value": 30,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_researcher_wall_min": {
+  "value": 60,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_planner_credits": {
+  "value": 100,
+  "unit": "credits",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_researcher_credits": {
+  "value": 300,
+  "unit": "credits",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_usd_per_credit": {
+  "value": 0.04,
+  "unit": "USD per credit",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)",
+  "note": "an illustrative conversion factor from agent credits to dollars"
+ },
+ "topic_baseline_max_age_min": {
+  "value": 1440,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)",
+  "note": "a paired baseline stays valid for a day because the simulator is deterministic"
+ },
+ "topic_soft_miss_limit": {
+  "value": 5,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "soft chains may miss at most 5 % of deadlines"
+ },
+ "topic_decision_time_limit_ms": {
+  "value": 2,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "mean scheduler decision time limit (host wall clock)"
+ },
+ "topic_visible_seeds": {
+  "value": 20,
+  "unit": "seeds",
+  "class": "illustrative",
+  "source": "design parameter of the harness"
+ },
+ "topic_horizon_s": {
+  "value": 5,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter of the harness"
+ },
+ "topic_heldout_sets": {
+  "value": 2,
+  "unit": "workloads",
+  "class": "illustrative",
+  "source": "design parameter of the harness"
+ },
+ "topic_heldout_seeds": {
+  "value": 8,
+  "unit": "seeds per held-out workload",
+  "class": "illustrative",
+  "source": "design parameter of the harness"
+ },
+ "topic_quick_seeds": {
+  "value": 4,
+  "unit": "seeds",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "development (quick) run, visible set only, record INVALID by design"
+ },
+ "sched_cpu_cores": {
+  "value": 4,
+  "unit": "cores",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "visible workload: 4 CPU cores, 1 GPU, 1 DLA"
+ },
+ "sched_chains": {
+  "value": 7,
+  "unit": "chains",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_perception_rate_hz": {
+  "value": 30,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_node_ms": {
+  "value": {
+   "capture_cpu": 2,
+   "preprocess_cpu": 9,
+   "preprocess_gpu": 2.5,
+   "detector_gpu": 10,
+   "detector_dla": 18,
+   "segmenter_gpu": 8,
+   "segmenter_dla": 14,
+   "tracker_cpu": 4
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "perception chain: capture -> preprocess -> (detector || segmenter) -> tracker"
+ },
+ "sched_work_floor_ms": {
+  "value": 22.5,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "nominal floor with segmenter on the DLA in parallel with the detector on the GPU: 2 + 2.5 + 14 + 4 (my arithmetic matches the source value)"
+ },
+ "sched_control_period_ms": {
+  "value": 10,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_control_deadline_ms": {
+  "value": 20,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_global_plan_ms": {
+  "value": 25,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "a long CPU job in the planning chain"
+ },
+ "sched_baseline_gpu_util": {
+  "value": 91,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "baseline (shortest-execution placement)"
+ },
+ "sched_baseline_dla_util": {
+  "value": 0,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_baseline_cpu_util": {
+  "value": 33,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_heldout_a": {
+  "value": {
+   "cpu_cores": 3,
+   "perception_hz": 40
+  },
+  "unit": "-",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "lighter load on fewer cores at a higher perception rate"
+ },
+ "sched_heldout_b_grasp_ms": {
+  "value": 200,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "held-out b: a different robot with a two-camera fan-in chain, a long GPU grasp planner, no DLA"
+ },
+ "sched_eval_seconds": {
+  "value": 1,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "a full evaluation of one candidate takes about 1 s"
+ },
+ "sched_cal1_fifo_ms": {
+  "value": 29.2,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "first, superseded calibration; binding 0.66"
+ },
+ "sched_cal1_fifo_binding": {
+  "value": 0.66,
+  "unit": "binding ratio",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_cal1_edf_ms": {
+  "value": 16.6,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "first, superseded calibration"
+ },
+ "sched_cal1_floor_ms": {
+  "value": 15.5,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "work floor of the first visible workload"
+ },
+ "sched_cal1_util": {
+  "value": {
+   "cpu": 24,
+   "gpu": 42
+  },
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_cal1_heldout_b": {
+  "value": {
+   "gpu_greedy": 37,
+   "cpu_placement": 29
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "diagnostic probe: GPU-greedy placement loses because a long grasp-planner job blocks the GPU"
+ },
+ "sched_alphabetical_perception_ms": {
+  "value": 626,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "alphabetical placement put every accelerator job on the DLA; the densified workload failed outright"
+ },
+ "sched_baseline": {
+  "value": {
+   "median": 34.7,
+   "min": 32.3,
+   "max": 45.4,
+   "binding_visible": 0.49,
+   "binding_a": 0.34,
+   "binding_b": 0.44
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "FIFO dispatch, shortest-execution placement; ACCEPTED"
+ },
+ "sched_edf_gpu_first": {
+  "value": {
+   "median": 34.5,
+   "min": 31.6,
+   "max": 41.6,
+   "binding_visible": 0.6,
+   "binding_a": 0.26,
+   "binding_b": 0.43
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "EDF dispatch, same placement; ACCEPTED, ranges overlap, not promotable"
+ },
+ "sched_probe_least_laxity_ms": {
+  "value": 34.2,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "diagnostic, 8 seeds"
+ },
+ "sched_control_wallclock_ms": {
+  "value": 53.5,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "negative control with a wall-clock tie-break; REJECTED by the order probe"
+ },
+ "sched_baseline_segmenter_wait_ms": {
+  "value": 11.2,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "diagnostic: mean GPU queueing time of the segmenter under the baseline"
+ },
+ "sched_r1_eft_metric_first": {
+  "value": {
+   "median": 25.8,
+   "min": 23.7,
+   "max": 30.7,
+   "binding": 0.474
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "earliest-finish placement + metric-chain-first dispatch; promoted"
+ },
+ "sched_r1_eft_placement": {
+  "value": {
+   "median": 27.8,
+   "min": 23.7,
+   "max": 34.2,
+   "binding": 0.434
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, ranges overlap the baseline, not promoted"
+ },
+ "sched_r1_metric_reserve": {
+  "value": {
+   "median": 30.0,
+   "min": 27.9,
+   "max": 31.2,
+   "binding": 0.807
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, not promoted"
+ },
+ "sched_r1_eft_reserve": {
+  "value": {
+   "median": 23.9,
+   "min": 23.7,
+   "max": 24.1,
+   "binding": 0.78
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, best seed ties the champion's best seed at the floor; not promotable"
+ },
+ "sched_r1_gpu_util": {
+  "value": 65,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "after earliest-finish placement (from 91 %)"
+ },
+ "sched_r1_dla_util": {
+  "value": 42,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "after earliest-finish placement (from 0 %)"
+ },
+ "sched_r1_wall_min": {
+  "value": 13,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "round 1 wall time from start to campaign end"
+ },
+ "sched_r1_submissions": {
+  "value": 4,
+  "unit": "submissions",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "c1_baseline_ms_illustrative": {
+  "value": 400,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "starting latency of one policy call on the accelerator"
+ },
+ "c1_after_handrun_ms_illustrative": {
+  "value": 100,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "after the hand-run rounds"
+ },
+ "c1_handrun_days_illustrative": {
+  "value": 3,
+  "unit": "days",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values"
+ },
+ "c1_handrun_sessions_illustrative": {
+  "value": 12,
+  "unit": "researcher sessions",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values"
+ },
+ "c1_after_auto_ms_illustrative": {
+  "value": 88,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "after the automated rounds: a further ~12 %, my arithmetic"
+ },
+ "c1_auto_rounds_illustrative": {
+  "value": 5,
+  "unit": "rounds",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values"
+ },
+ "c1_auto_spend_usd_illustrative": {
+  "value": 50,
+  "unit": "USD",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "LLM spend of the automated rounds: a few tens of dollars"
+ },
+ "c1_host_shift_illustrative": {
+  "value": 10,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "shift of absolute latency between two hosts of the same type"
+ },
+ "c1_launches_planned_illustrative": {
+  "value": 5,
+  "unit": "graph launches per call",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "what the proposal assumed"
+ },
+ "c1_launches_profiled_illustrative": {
+  "value": 80,
+  "unit": "graph launches per call",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "what the first profile showed"
+ },
+ "c1_standalone_slowdown_illustrative": {
+  "value": 2.5,
+  "unit": "x",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "stand-alone component profile vs the same component in the model"
+ },
+ "c1_batch_position_shift_illustrative": {
+  "value": 1,
+  "unit": "% of the metric",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "median shift caused by a run's position in a batch"
+ },
+ "c1_control_scale_illustrative": {
+  "value": 3,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "output-scaling negative control"
+ },
+ "c1_frozen_inputs_illustrative": {
+  "value": 10,
+  "unit": "observations",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "size of the frozen visible input set"
+ }
+}

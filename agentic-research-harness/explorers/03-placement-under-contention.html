@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The fastest unit is the wrong choice when it is busy — placement-under-contention explorer</title>
+<style>
+  :root{--bg:#0f1115;--panel:#1a1d24;--ink:#eef1f6;--muted:#aeb6c4;--accent:#5ec8ff;--ok:#49d17a;--bad:#ff7a7a;--warn:#ffd36b;--line:#3a3f4a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 6px}
+  .sub{color:var(--muted);max-width:80ch;margin:4px 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:2px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 14px;padding:10px 12px}
+  legend{color:var(--muted);font-size:12.5px;padding:0 4px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover,button:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:1px}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:128px;flex:1 1 128px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:0 5px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:5px;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.asm{color:#d7a6ff;border-color:#d7a6ff}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-top:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:12px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why p{margin:0 0 6px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:8px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .banner{border-left:3px solid #d7a6ff;padding:8px 12px;margin:8px 0 0;background:#1a1522;color:#e6d6f5;border-radius:0 8px 8px 0;max-width:80ch;font-size:13.5px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  td.ok{color:var(--ok)} td.bad{color:var(--bad)} td.warn{color:var(--warn)}
+  .tablewrap{overflow-x:auto}
+  #sources td:nth-child(3){white-space:nowrap}
+  #sources td:first-child{min-width:12ch}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  figure{margin:0}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  .lgd{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12px;color:var(--muted);margin-top:6px}
+  .lgd span{display:inline-flex;align-items:center;gap:5px}
+  .sw{display:inline-block;width:12px;height:10px;border:1px solid #0f1115}
+</style>
+</head>
+<body>
+<header>
+  <h1>On non-preemptive units the fastest unit is the wrong choice when it is busy: load-aware placement beats GPU-greedy as other chains load the GPU</h1>
+  <p class="sub">A tiny discrete-event simulator in your browser, shaped like the scheduling topic's perception chain (note C2): capture (CPU) →
+  preprocess (CPU or GPU) → detector and segmenter in parallel (each GPU or DLA) → tracker (CPU), released periodically. Other chains put
+  their own jobs on the single GPU. Units are non-preemptive: a started job runs to the end. <strong>GPU-greedy</strong> places each job on
+  its shortest-execution option (the topic's baseline placement). <strong>Balanced</strong> places it where it is predicted to finish first,
+  given the work already queued (earliest-finish-time placement, HEFT). Dispatch is FIFO by ready time for both. The metric is the p95
+  end-to-end latency of the chain per seed; the page reports the median and the range over seeds, like the topic's records.</p>
+  <p class="banner">This is an illustrative page model, not the demonstration simulator: one chain plus a generic GPU background load, no
+  deadlines for the other chains, so no gate. Job times are loaded from <code>sched_node_ms</code> (illustrative). The two models share
+  the <span data-p="sched_work_floor_ms"></span> ms work floor, which this page reproduces exactly; its other numbers are its own and say nothing about a real robot computer.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <fieldset>
+      <legend>Preloaded cases (illustrative)</legend>
+      <div class="cases" id="cases"></div>
+    </fieldset>
+    <div class="ctrl">
+      <label for="u">GPU load from other chains <span class="val" id="u_v"></span></label>
+      <input id="u" type="range" min="0" max="0.7" step="0.005">
+      <div class="hint">Share of GPU time other chains' jobs take. The default is derived: the topic's baseline GPU at <span data-p="sched_baseline_gpu_util"></span> % minus this chain's own GPU share under GPU-greedy.</div>
+    </div>
+    <div class="ctrl">
+      <label for="len">Length of one other-chain GPU job <span class="val" id="len_v"></span></label>
+      <input id="len" type="range" min="0" max="1" step="any">
+      <div class="hint">Log scale, 1–250 ms. Many short jobs, or one long job such as held-out b's <span data-p="sched_heldout_b_grasp_ms"></span> ms grasp planner (note C3).</div>
+    </div>
+    <div class="ctrl">
+      <label for="rate">Perception rate <span class="val" id="rate_v"></span></label>
+      <input id="rate" type="range" min="10" max="45" step="1">
+    </div>
+    <div class="ctrl">
+      <label for="cores">CPU cores <span class="val" id="cores_v"></span></label>
+      <input id="cores" type="range" min="1" max="6" step="1">
+    </div>
+    <div class="ctrl">
+      <label for="jit">Run-time jitter <span class="val" id="jit_v"></span></label>
+      <input id="jit" type="range" min="0" max="0.2" step="0.01">
+      <div class="hint">Each job's time varies uniformly by up to ± this fraction (seeded; same draws for both policies).</div>
+    </div>
+    <div class="ctrl"><label for="dla"><input id="dla" type="checkbox"> The platform has a DLA</label>
+      <div class="hint">Held-out b has no DLA (note C2).</div></div>
+    <div class="ctrl">
+      <label for="pol">Timeline shows</label>
+      <select id="pol"><option value="greedy">GPU-greedy placement</option><option value="eft">Balanced (earliest-finish) placement</option></select>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <figure class="panel st-scene" id="outputs" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <h2>p95 end-to-end latency against the other chains' GPU load</h2>
+    <svg id="sweep" viewBox="0 0 720 270" role="img" aria-labelledby="sw_t"><title id="sw_t">Median and range over seeds of the p95 latency for both placements, against GPU load</title></svg>
+    <h2 style="margin-top:14px">First 110 ms of seed 1: <span id="gantt_h"></span></h2>
+    <svg id="gantt" viewBox="0 0 720 200" role="img" aria-labelledby="g_t"><title id="g_t">Timeline of jobs on each unit for the first 110 ms</title></svg>
+    <div class="lgd" id="lgd"></div>
+    <div class="why"><p id="why1"></p><p id="why2"></p><div class="callout" id="callout"></div></div>
+  </figure>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Demonstration records">
+  <h2>What the demonstration simulator itself recorded (different, richer workload; notes C3)</h2>
+  <p class="hint">Seven chains, a densified workload and a gate; outputs of a demonstration simulator, <span class="tag ill">illustrative</span>.
+  Shown as context, not overlaid on the chart above, because the two models differ.</p>
+  <div class="tablewrap"><table><thead><tr><th>Quantity</th><th>Shortest-execution (GPU-greedy) baseline</th><th>Earliest-finish placement</th></tr></thead><tbody id="rectab"></tbody></table></div>
+</section>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h2>Parameters &amp; sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag ill">illustrative</span> = design parameter or demonstration-simulator output, never a measurement.
+  <span class="tag asm">assumption</span> = a choice of this page, not in <code>constants.json</code>. <span class="tag der">derived</span> = computed on this page.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  <p class="hint">Self-tests: <span id="tests-sum">not run</span>.</p>
+</section>
+
+<footer>
+  Generated 2026-11-12 · Study aid for <em>agentic-research-harness</em> (rung 3). Sources: notes C2 and C3, <code>constants.json</code>;
+  discrete-event simulation (Banks, Carson, Nelson &amp; Nicol); earliest-finish-time placement (Topcuoglu, Hariri &amp; Wu 2002, HEFT).
+  Simplifications: one chain; other chains are a periodic stream of equal GPU jobs with a seeded phase; no data-transfer cost, no
+  preemption, no memory contention (the same exclusions the topic's README lists). Headline uses 20 seeds, the chart 6 seeds per point.
+  This is a study aid; numbers are from the listed sources or labelled.
+</footer>
+
+<script type="application/json" id="params" data-keys="sched_node_ms,sched_perception_rate_hz,sched_cpu_cores,sched_work_floor_ms,topic_horizon_s,topic_visible_seeds,sched_baseline_gpu_util,sched_baseline_dla_util,sched_r1_gpu_util,sched_r1_dla_util,sched_baseline,sched_r1_eft_placement,sched_heldout_b_grasp_ms,sched_cal1_heldout_b,e3_jitter_frac,e3_short_bg_job_ms,e3_long_bg_period_ms">
+{
+ "sched_node_ms": {
+  "value": {
+   "capture_cpu": 2,
+   "preprocess_cpu": 9,
+   "preprocess_gpu": 2.5,
+   "detector_gpu": 10,
+   "detector_dla": 18,
+   "segmenter_gpu": 8,
+   "segmenter_dla": 14,
+   "tracker_cpu": 4
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "perception chain: capture -> preprocess -> (detector || segmenter) -> tracker"
+ },
+ "sched_perception_rate_hz": {
+  "value": 30,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_cpu_cores": {
+  "value": 4,
+  "unit": "cores",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "visible workload: 4 CPU cores, 1 GPU, 1 DLA"
+ },
+ "sched_work_floor_ms": {
+  "value": 22.5,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "nominal floor with segmenter on the DLA in parallel with the detector on the GPU: 2 + 2.5 + 14 + 4 (my arithmetic matches the source value)"
+ },
+ "topic_horizon_s": {
+  "value": 5,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter of the harness"
+ },
+ "topic_visible_seeds": {
+  "value": 20,
+  "unit": "seeds",
+  "class": "illustrative",
+  "source": "design parameter of the harness"
+ },
+ "sched_baseline_gpu_util": {
+  "value": 91,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "baseline (shortest-execution placement)"
+ },
+ "sched_baseline_dla_util": {
+  "value": 0,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_r1_gpu_util": {
+  "value": 65,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "after earliest-finish placement (from 91 %)"
+ },
+ "sched_r1_dla_util": {
+  "value": 42,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "after earliest-finish placement (from 0 %)"
+ },
+ "sched_baseline": {
+  "value": {
+   "median": 34.7,
+   "min": 32.3,
+   "max": 45.4,
+   "binding_visible": 0.49,
+   "binding_a": 0.34,
+   "binding_b": 0.44
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "FIFO dispatch, shortest-execution placement; ACCEPTED"
+ },
+ "sched_r1_eft_placement": {
+  "value": {
+   "median": 27.8,
+   "min": 23.7,
+   "max": 34.2,
+   "binding": 0.434
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, ranges overlap the baseline, not promoted"
+ },
+ "sched_heldout_b_grasp_ms": {
+  "value": 200,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "held-out b: a different robot with a two-camera fan-in chain, a long GPU grasp planner, no DLA"
+ },
+ "sched_cal1_heldout_b": {
+  "value": {
+   "gpu_greedy": 37,
+   "cpu_placement": 29
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "diagnostic probe: GPU-greedy placement loses because a long grasp-planner job blocks the GPU"
+ },
+ "e3_jitter_frac": {
+  "value": 0.05,
+  "unit": "fraction",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): each job's run time varies uniformly by up to this fraction of its listed time"
+ },
+ "e3_short_bg_job_ms": {
+  "value": 5,
+  "unit": "ms",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): length of one other-chain GPU job in the 'many short jobs' cases"
+ },
+ "e3_long_bg_period_ms": {
+  "value": 1000,
+  "unit": "ms",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): release period of the long GPU job in the 'long job blocks the GPU' case"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+var MODEL = (function(){
+  "use strict";
+  function mix(a){ a = a >>> 0; a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
+  // Uniform draw keyed by (seed, stream, index): both policies see the same draw for the same job (common random numbers).
+  const u01 = (seed, s, i) => mix(Math.imul(seed + 1, 2654435761) ^ Math.imul(s + 7, 40503) ^ Math.imul(i + 3, 69069));
+
+  // Binary min-heap on (t, seq).
+  function Heap(){ const a = []; const lt = (x, y) => x.t < y.t || (x.t === y.t && x.seq < y.seq);
+    return {push(e){ a.push(e); let i = a.length - 1; while (i){ const p = (i - 1) >> 1; if (!lt(a[i], a[p])) break; [a[i], a[p]] = [a[p], a[i]]; i = p; } },
+      pop(){ const top = a[0], last = a.pop(); if (a.length){ a[0] = last; let i = 0; for (;;){ const l = 2 * i + 1, r = l + 1; let m = i;
+        if (l < a.length && lt(a[l], a[m])) m = l; if (r < a.length && lt(a[r], a[m])) m = r; if (m === i) break; [a[i], a[m]] = [a[m], a[i]]; i = m; } } return top; },
+      get size(){ return a.length; }}; }
+
+  // Note C2 chain shape: capture(CPU) -> preprocess(CPU|GPU) -> detector(GPU|DLA) || segmenter(GPU|DLA) -> tracker(CPU).
+  function chain_options(node){ return [
+    {name: "capture", opts: {CPU: node.capture_cpu}},
+    {name: "preprocess", opts: {CPU: node.preprocess_cpu, GPU: node.preprocess_gpu}},
+    {name: "detector", opts: {GPU: node.detector_gpu, DLA: node.detector_dla}},
+    {name: "segmenter", opts: {GPU: node.segmenter_gpu, DLA: node.segmenter_dla}},
+    {name: "tracker", opts: {CPU: node.tracker_cpu}}]; }
+
+  // Note C2: the work floor = every job on its fastest option, no queueing, detector || segmenter.
+  // With one GPU and one DLA the parallel pair cannot both use the GPU at once; the floor puts one of them on each unit.
+  function work_floor_C2(node){
+    const pre = Math.min(node.preprocess_cpu, node.preprocess_gpu);
+    const pair = Math.min(Math.max(node.detector_gpu, node.segmenter_dla), Math.max(node.detector_dla, node.segmenter_gpu), node.detector_gpu + node.segmenter_gpu);
+    return node.capture_cpu + pre + pair + node.tracker_cpu;
+  }
+
+  // Discrete-event simulation (Banks et al.): non-preemptive units, FIFO dispatch by ready time.
+  // policy "greedy" = shortest-execution placement (C2 baseline); "eft" = earliest predicted finish (HEFT-style, C3 round 1).
+  function simulate_C2(cfg, policy, seed, traceUntil){
+    const period = 1000 / cfg.rate, H = cfg.horizon_ms, T = chain_options(cfg.node);
+    const units = {CPU: [], GPU: [{}], DLA: cfg.dla ? [{}] : []};
+    for (let c = 0; c < cfg.cores; c++) units.CPU.push({});
+    for (const k in units) units[k].forEach((u, i) => { u.job = null; u.idx = i; u.busy = 0; });
+    const queue = {CPU: [], GPU: [], DLA: []}, heap = Heap(); let seq = 0;
+    const lat = [], trace = [];
+    const jf = (s, i) => 1 + cfg.jitter * (2 * u01(seed, s, i) - 1);
+    const est_finish = (type, now, nominal) => {
+      if (!units[type].length) return Infinity;
+      const free = units[type].map(u => u.job ? Math.max(now, u.job.start + u.job.nominal) : now);
+      for (const q of queue[type]){ free.sort((a, b) => a - b); free[0] += q.nominal; }
+      return Math.min(...free) + nominal;
+    };
+    function ready(job, now){
+      const types = Object.keys(job.opts).filter(t => units[t].length);
+      let best = types[0], bestV = Infinity;
+      for (const t of types){ const v = policy === "eft" ? est_finish(t, now, job.opts[t]) : job.opts[t]; if (v < bestV - 1e-12){ bestV = v; best = t; } }
+      job.type = best; job.nominal = job.opts[best]; job.exec = job.nominal * job.jf; job.ready = now;
+      queue[best].push(job); dispatch(best, now);
+    }
+    function dispatch(type, now){
+      for (const u of units[type]){ if (u.job || !queue[type].length) continue;
+        const j = queue[type].shift(); u.job = j; j.start = now; j.unit = u.idx;
+        if (now < H) u.busy += Math.min(j.exec, H - now);
+        heap.push({t: now + j.exec, seq: seq++, kind: "fin", type, u}); }
+    }
+    for (let i = 0; i * period < H; i++) heap.push({t: i * period, seq: seq++, kind: "rel", i});
+    if (cfg.bgLoad > 0 && cfg.bgJob > 0){ const bp = cfg.bgJob / cfg.bgLoad, ph = u01(seed, 99, 0) * bp;
+      for (let k = 0; ph + k * bp < H; k++) heap.push({t: ph + k * bp, seq: seq++, kind: "bg", k}); }
+    while (heap.size){
+      const e = heap.pop(), now = e.t;
+      if (e.kind === "rel"){
+        const inst = {release: now, left: 2, jobs: {}};
+        T.forEach((d, n) => inst.jobs[d.name] = {name: d.name, opts: d.opts, inst, jf: jf(n, e.i), i: e.i});
+        ready(inst.jobs.capture, now);
+      } else if (e.kind === "bg"){
+        ready({name: "other", opts: {GPU: cfg.bgJob}, jf: jf(50, e.k), bg: true}, now);
+      } else {
+        const j = e.u.job; e.u.job = null; j.finish = now;
+        if (traceUntil && j.start < traceUntil) trace.push({lane: e.type + e.u.idx, type: e.type, name: j.name, start: j.start, finish: now, i: j.i});
+        const I = j.inst;
+        if (j.name === "capture") ready(I.jobs.preprocess, now);
+        else if (j.name === "preprocess"){ ready(I.jobs.detector, now); ready(I.jobs.segmenter, now); }
+        else if (j.name === "detector" || j.name === "segmenter"){ if (--I.left === 0) ready(I.jobs.tracker, now); }
+        else if (j.name === "tracker") lat.push(now - I.release);
+        dispatch(e.type, now);
+      }
+    }
+    const util = k => units[k].length ? units[k].reduce((a, u) => a + u.busy, 0) / (H * units[k].length) : 0;
+    return {lat, p95: p95(lat), util: {CPU: util("CPU"), GPU: util("GPU"), DLA: util("DLA")}, trace};
+  }
+  // Nearest-rank 95th percentile.
+  function p95(xs){ const s = xs.slice().sort((a, b) => a - b); return s[Math.max(0, Math.ceil(0.95 * s.length) - 1)]; }
+  function median(xs){ const s = xs.slice().sort((a, b) => a - b), k = s.length >> 1; return s.length % 2 ? s[k] : (s[k - 1] + s[k]) / 2; }
+  // Record over seeds, like the topic's evidence record: median and range of the per-seed p95.
+  function record(cfg, policy, seeds){
+    const per = [], u = {CPU: 0, GPU: 0, DLA: 0};
+    for (const s of seeds){ const r = simulate_C2(cfg, policy, s); per.push(r.p95); for (const k in u) u[k] += r.util[k] / seeds.length; }
+    return {per, median: median(per), min: Math.min(...per), max: Math.max(...per), util: u};
+  }
+  // Note B7 disjoint-range rule, lower is better.
+  const promotes_B7 = (cand, champ) => cand.max < champ.min;
+  // Derived default: other chains' GPU share = baseline GPU utilization minus this chain's GPU share under GPU-greedy.
+  function chain_gpu_share_greedy(node, rate){ return (node.preprocess_gpu + node.detector_gpu + node.segmenter_gpu) * rate / 1000; }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const near = (a, b, t) => Math.abs(a - b) <= t;
+    const node = P.sched_node_ms.value, rate = P.sched_perception_rate_hz.value, floor = P.sched_work_floor_ms.value;
+    const base = {node, rate, cores: P.sched_cpu_cores.value, dla: true, horizon_ms: P.topic_horizon_s.value * 1000, jitter: 0, bgLoad: 0, bgJob: P.e3_short_bg_job_ms.value};
+    ok(near(work_floor_C2(node), floor, 1e-9), "T1 work floor 2 + 2.5 + 14 + 4 = 22.5 ms (constants)");
+    const e0 = simulate_C2(base, "eft", 1), g0 = simulate_C2(base, "greedy", 1);
+    ok(e0.lat.every(x => near(x, floor, 1e-9)), "T2 balanced, no load, no jitter: every instance at the 22.5 ms floor");
+    ok(g0.lat.every(x => near(x, 26.5, 1e-9)), "T3 GPU-greedy, no load: 2 + 2.5 + 10 + 8 + 4 = 26.5 ms (my arithmetic)");
+    ok(g0.util.DLA === 0 && P.sched_baseline_dla_util.value === 0, "T4 GPU-greedy leaves the DLA idle, as the topic's baseline did (0 %)");
+    const sh = chain_gpu_share_greedy(node, rate);
+    ok(near(g0.util.GPU, sh, 0.01) && near(sh, 0.615, 1e-9), "T5 this chain alone takes 61.5 % of the GPU under GPU-greedy");
+    ok(near(P.sched_baseline_gpu_util.value / 100 - sh, 0.295, 1e-9), "T6 derived other-chain GPU load = 91 % - 61.5 % = 29.5 %");
+    const nd = Object.assign({}, base, {dla: false});
+    ok(simulate_C2(nd, "eft", 1).lat.every(x => near(x, 26.5, 1e-9)), "T7 no DLA, no load: balanced cannot beat 26.5 ms either");
+    const seeds = Array.from({length: 8}, (_, i) => i + 1);
+    const long = Object.assign({}, base, {jitter: P.e3_jitter_frac.value, bgJob: P.sched_heldout_b_grasp_ms.value, bgLoad: P.sched_heldout_b_grasp_ms.value / P.e3_long_bg_period_ms.value});
+    const lg = record(long, "greedy", seeds), le = record(long, "eft", seeds);
+    ok(le.median < lg.median, "T8 a long job on the GPU: balanced beats GPU-greedy (the C3 finding, in this model)");
+    const fw = seeds.map(s => simulate_C2(long, "eft", s).p95), bw = seeds.slice().reverse().map(s => simulate_C2(long, "eft", s).p95).reverse();
+    ok(fw.every((x, i) => x === bw[i]), "T9 order probe: seeds run in reverse give identical per-seed results");
+    const vis = Object.assign({}, base, {jitter: P.e3_jitter_frac.value, bgLoad: 0.295});
+    const vg = record(vis, "greedy", seeds), ve = record(vis, "eft", seeds);
+    ok(ve.util.DLA > 0.2 && ve.util.GPU < vg.util.GPU, "T10 balanced moves work from the GPU to the DLA (direction of C3: GPU 91 -> 65 %, DLA 0 -> 42 %)");
+    ok([vg, ve, lg, le].every(r => r.per.every(isFinite)), "T11 all per-seed results finite");
+    return {passed, failed};
+  }
+  return {simulate_C2, record, promotes_B7, work_floor_C2, chain_gpu_share_greedy, p95, median, selfTest};
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = MODEL;
+/*MODEL-END*/
+
+if (typeof window !== "undefined") (function(){
+  // ---- shared page helpers (identical on every explorer of this kit) ----
+  const $ = id => document.getElementById(id);
+  const P = JSON.parse($("params").textContent);
+  const V = k => P[k].value;
+  const fmt = (x, d) => Number(x).toFixed(d);
+  const pct = (x, d) => (x * 100).toFixed(d === undefined ? 1 : d) + " %";
+  const TAG = {ill: "illustrative", der: "derived", pub: "public", asm: "assumption"};
+  const metric = (k, v, t) => `<div class="metric"><div class="k">${k}<span class="tag ${t}">${TAG[t]}</span></div><div class="v">${v}</div></div>`;
+  function renderSources(){
+    const tb = $("sources").querySelector("tbody");
+    for (const [k, o] of Object.entries(P)){
+      const val = Array.isArray(o.value) ? o.value.join("–") : (o.value !== null && typeof o.value === "object" ? Object.entries(o.value).map(([a, b]) => a + " " + b).join(", ") : o.value);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>${k}</code></td><td>${val} ${o.unit || ""}</td><td>${o.class}</td><td>${o.source}${o.note ? " — " + o.note : ""}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  // Fill every <span data-p="key" [data-f="path"] [data-x="scale"]> from the params block, so prose never retypes a constant.
+  document.querySelectorAll("[data-p]").forEach(el => { let v = V(el.dataset.p);
+    if (el.dataset.f) v = v[el.dataset.f]; if (el.dataset.x) v = +(v * +el.dataset.x).toFixed(6); el.textContent = v; });
+  function makeCases(CASES, apply){
+    CASES.forEach((c, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+      if (c.note) b.title = c.note;
+      b.addEventListener("click", () => { apply(c.set); mark(i); }); $("cases").appendChild(b);
+    });
+  }
+  function mark(i){ [...$("cases").children].forEach((b, j) => b.setAttribute("aria-pressed", String(j === i))); }
+  function wire(ids, update){
+    let raf = 0;
+    ids.forEach(id => $(id).addEventListener("input", () => { mark(-1); cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }));
+  }
+  const node = V("sched_node_ms"), floor = V("sched_work_floor_ms");
+  const lenLo = 1, lenHi = 250, lenOf = t => lenLo * Math.pow(lenHi / lenLo, t), tOf = v => Math.log(v / lenLo) / Math.log(lenHi / lenLo);
+  const uDef = V("sched_baseline_gpu_util") / 100 - MODEL.chain_gpu_share_greedy(node, V("sched_perception_rate_hz"));
+  const grasp = V("sched_heldout_b_grasp_ms"), longP = V("e3_long_bg_period_ms");
+  const base = {u: uDef, len: V("e3_short_bg_job_ms"), rate: V("sched_perception_rate_hz"), cores: V("sched_cpu_cores"), jit: V("e3_jitter_frac"), dla: true, pol: "greedy"};
+  const CASES = [
+    {name: "No other load", set: {u: 0, jit: 0}},
+    {name: "Others fill the GPU to ≈ 91 % (short jobs)", set: {}},
+    {name: "A 200 ms job blocks the GPU", set: {u: grasp / longP, len: grasp}},
+    {name: "Long job, balanced timeline", set: {u: grasp / longP, len: grasp, pol: "eft"}},
+    {name: "Long job, no DLA", set: {u: grasp / longP, len: grasp, dla: false}},
+    {name: "Heavy short-job load", set: {u: 0.45}}
+  ];
+  const ids = ["u", "len", "rate", "cores", "jit"];
+  function apply(st){ const s = Object.assign({}, base, st);
+    $("u").value = s.u; $("len").value = tOf(s.len); $("rate").value = s.rate; $("cores").value = s.cores; $("jit").value = s.jit; $("dla").checked = s.dla; $("pol").value = s.pol; update(); }
+  makeCases(CASES, apply);
+  const COL = {capture: "#8fa3bf", preprocess: "#b48cff", detector: "#5ec8ff", segmenter: "#49d17a", tracker: "#ffd36b", other: "#6b5050"};
+  $("lgd").innerHTML = Object.entries(COL).map(([k, c]) => `<span><i class="sw" style="background:${c}"></i>${k === "other" ? "other chains' GPU job" : k}</span>`).join("");
+  const SEEDS = Array.from({length: V("topic_visible_seeds")}, (_, i) => i + 1), SW = SEEDS.slice(0, 6);
+
+  function cfgOf(u, len, rate, cores, jit, dla){ return {node, rate, cores, dla, jitter: jit, bgLoad: u, bgJob: len, horizon_ms: V("topic_horizon_s") * 1000}; }
+
+  function drawSweep(c, cur){
+    const W = 720, H = 270, pl = 54, pr = 16, pt = 30, pb = 38, pw = W - pl - pr, ph = H - pt - pb;
+    const pts = [];
+    for (let i = 0; i <= 10; i++){ const u = 0.7 * i / 10, cc = Object.assign({}, c, {bgLoad: u});
+      pts.push({u, g: MODEL.record(cc, "greedy", SW), e: MODEL.record(cc, "eft", SW)}); }
+    const top = Math.min(250, Math.max(40, ...pts.map(p => Math.max(p.g.max, p.e.max)), cur.g.max, cur.e.max) * 1.08);
+    const X = u => pl + pw * u / 0.7, Y = v => pt + ph * (1 - Math.min(v, top) / top);
+    let s = "";
+    const step = top > 150 ? 50 : (top > 60 ? 20 : 10);
+    for (let v = 0; v <= top; v += step) s += `<line x1="${pl}" y1="${Y(v)}" x2="${pl + pw}" y2="${Y(v)}" stroke="#262a33"/><text x="${pl - 6}" y="${Y(v) + 4}" font-size="11" fill="#aeb6c4" text-anchor="end">${v} ms</text>`;
+    for (let u = 0; u <= 0.7001; u += 0.1) s += `<text x="${X(u)}" y="${pt + ph + 16}" font-size="11" fill="#aeb6c4" text-anchor="middle">${Math.round(u * 100)}%</text>`;
+    const band = (k, col) => { const up = pts.map(p => `${X(p.u).toFixed(1)},${Y(p[k].max).toFixed(1)}`), dn = pts.slice().reverse().map(p => `${X(p.u).toFixed(1)},${Y(p[k].min).toFixed(1)}`);
+      return `<polygon points="${up.concat(dn).join(" ")}" fill="${col}" opacity="0.18"/>`; };
+    const line = (k, col, dash) => `<path d="${pts.map((p, i) => (i ? "L" : "M") + X(p.u).toFixed(1) + " " + Y(p[k].median).toFixed(1)).join(" ")}" fill="none" stroke="${col}" stroke-width="2.5" ${dash ? 'stroke-dasharray="7 4"' : ""}/>`;
+    s += band("g", "#ff7a7a") + band("e", "#49d17a") + line("g", "#ff7a7a", true) + line("e", "#49d17a", false);
+    const clipped = pts.some(p => p.g.max > top || p.e.max > top) || cur.g.max > top;
+    s += `<line x1="${pl}" y1="${Y(floor)}" x2="${pl + pw}" y2="${Y(floor)}" stroke="#ffd36b" stroke-dasharray="3 3"/>`;
+    s += `<line x1="${X(cur.u)}" y1="${pt}" x2="${X(cur.u)}" y2="${pt + ph}" stroke="#5ec8ff"/>`;
+    s += `<rect x="${X(cur.u) - 4.5}" y="${Y(cur.g.median) - 4.5}" width="9" height="9" fill="#ff7a7a"/><circle cx="${X(cur.u)}" cy="${Y(cur.e.median)}" r="5" fill="#49d17a"/>`;
+    s += `<text x="${pl + pw / 2}" y="${H - 4}" font-size="11" fill="#aeb6c4" text-anchor="middle">GPU load from other chains (job length ${fmt(c.bgJob, c.bgJob < 10 ? 1 : 0)} ms; 6 seeds per point; band = range${clipped ? `; above ${Math.round(top)} ms clipped` : ""})</text>`;
+    const ly = 12; let lx = pl;
+    s += `<line x1="${lx}" y1="${ly}" x2="${lx + 24}" y2="${ly}" stroke="#ff7a7a" stroke-width="2.5" stroke-dasharray="7 4"/><text x="${lx + 30}" y="${ly + 4}" font-size="11">GPU-greedy (median p95)</text>`; lx += 190;
+    s += `<line x1="${lx}" y1="${ly}" x2="${lx + 24}" y2="${ly}" stroke="#49d17a" stroke-width="2.5"/><text x="${lx + 30}" y="${ly + 4}" font-size="11">balanced (median p95)</text>`; lx += 175;
+    s += `<line x1="${lx}" y1="${ly}" x2="${lx + 24}" y2="${ly}" stroke="#ffd36b" stroke-dasharray="3 3"/><text x="${lx + 30}" y="${ly + 4}" font-size="11">work floor ${floor} ms (constants)</text>`;
+    $("sweep").innerHTML = `<title id="sw_t">Median and range over seeds of the p95 latency for both placements, against GPU load</title>` + s;
+  }
+  function drawGantt(c, pol){
+    const r = MODEL.simulate_C2(c, pol, 1, 110), lanes = [];
+    for (let i = 0; i < c.cores; i++) lanes.push("CPU" + i); lanes.push("GPU0"); if (c.dla) lanes.push("DLA0");
+    const W = 720, pl = 54, pr = 10, pw = W - pl - pr, lh = Math.min(26, 168 / lanes.length), H = 24 + lanes.length * lh + 22, X = t => pl + pw * Math.min(t, 110) / 110;
+    let s = "";
+    for (let t = 0; t <= 110; t += 10) s += `<line x1="${X(t)}" y1="14" x2="${X(t)}" y2="${H - 20}" stroke="#262a33"/><text x="${X(t)}" y="${H - 6}" font-size="11" fill="#aeb6c4" text-anchor="middle">${t}</text>`;
+    const period = 1000 / c.rate;
+    for (let t = 0; t < 110; t += period) s += `<line x1="${X(t)}" y1="14" x2="${X(t)}" y2="${H - 20}" stroke="#5ec8ff" stroke-dasharray="2 3"/>`;
+    lanes.forEach((l, i) => s += `<text x="6" y="${24 + i * lh + lh / 2 + 4}" font-size="11" fill="#aeb6c4">${l.startsWith("CPU") ? "CPU " + l.slice(3) : l.slice(0, 3)}</text>`);
+    for (const j of r.trace){ const i = lanes.indexOf(j.lane); if (i < 0) continue; const x0 = X(j.start), x1 = X(j.finish);
+      s += `<rect x="${x0}" y="${24 + i * lh + 2}" width="${Math.max(1, x1 - x0 - 0.5)}" height="${lh - 4}" fill="${COL[j.name]}" ${j.name === "other" ? 'stroke="#ff7a7a" stroke-width="1"' : ""}/>`;
+      if (x1 - x0 > 26 && j.name !== "other") s += `<text x="${x0 + 3}" y="${24 + i * lh + lh / 2 + 4}" font-size="10" fill="#0f1115">${j.name.slice(0, 3)}${j.i}</text>`; }
+    s += `<text x="${W - pr}" y="11" font-size="11" fill="#aeb6c4" text-anchor="end">ms · dotted blue = a chain release · label = job + instance</text>`;
+    $("gantt").setAttribute("viewBox", `0 0 720 ${H}`);
+    $("gantt").innerHTML = `<title id="g_t">Timeline of jobs on each unit for the first 110 ms</title>` + s;
+  }
+  function renderRecords(){
+    const b = V("sched_baseline"), e = V("sched_r1_eft_placement"), h = V("sched_cal1_heldout_b");
+    $("rectab").innerHTML =
+      `<tr><td>perception p95, median (range) over 20 seeds</td><td>${b.median} (${b.min}–${b.max}) ms</td><td>${e.median} (${e.min}–${e.max}) ms</td></tr>` +
+      `<tr><td>GPU utilization</td><td>${V("sched_baseline_gpu_util")} %</td><td>${V("sched_r1_gpu_util")} %</td></tr>` +
+      `<tr><td>DLA utilization</td><td>${V("sched_baseline_dla_util")} %</td><td>${V("sched_r1_dla_util")} %</td></tr>` +
+      `<tr><td>held-out b diagnostic probe (long grasp job, first calibration)</td><td>GPU-greedy ${h.gpu_greedy} ms</td><td>CPU placement ${h.cpu_placement} ms (a different probe policy)</td></tr>`;
+  }
+  const rng = r => `${fmt(r.median, 1)} <span style="font-size:13px;color:var(--muted)">(${fmt(r.min, 1)}–${fmt(r.max, 1)})</span>`;
+
+  function update(){
+    const u = +$("u").value, len = lenOf(+$("len").value), rate = +$("rate").value, cores = +$("cores").value, jit = +$("jit").value, dla = $("dla").checked, pol = $("pol").value;
+    $("u_v").textContent = pct(u, 1) + (Math.abs(u - uDef) < 0.003 ? " (derived default)" : ""); $("len_v").textContent = fmt(len, len < 10 ? 1 : 0) + " ms";
+    $("rate_v").textContent = rate + " Hz"; $("cores_v").textContent = cores; $("jit_v").textContent = "± " + pct(jit, 0);
+    const c = cfgOf(u, len, rate, cores, jit, dla);
+    const g = MODEL.record(c, "greedy", SEEDS), e = MODEL.record(c, "eft", SEEDS), prom = MODEL.promotes_B7(e, g);
+    $("headline").innerHTML =
+      metric("GPU-greedy p95, median (range)", rng(g) + " ms", "der") +
+      metric("Balanced p95, median (range)", rng(e) + " ms", "der") +
+      metric("Balanced promotable over greedy?", prom ? `<span style="color:var(--ok)">yes, ranges disjoint</span>` : (e.median < g.median ? `<span style="color:var(--warn)">no, ranges overlap</span>` : `<span style="color:var(--bad)">no</span>`), "der") +
+      metric("GPU / DLA busy, greedy", `${pct(g.util.GPU, 0)} / ${pct(g.util.DLA, 0)}`, "der") +
+      metric("GPU / DLA busy, balanced", `${pct(e.util.GPU, 0)} / ${pct(e.util.DLA, 0)}`, "der");
+    drawSweep(c, {u, g, e}); drawGantt(c, pol);
+    $("gantt_h").textContent = pol === "eft" ? "balanced placement" : "GPU-greedy placement";
+    let w1;
+    const busyG = g.util.GPU;
+    if (u === 0 && jit === 0) w1 = `With no other load, GPU-greedy puts the detector and the segmenter on the GPU one after the other: 2 + 2.5 + 10 + 8 + 4 = 26.5 ms. Balanced placement sends the segmenter to the idle DLA, where it finishes earlier (14 ms) than waiting for the GPU (10 + 8 ms), and reaches the ${floor} ms work floor exactly.`;
+    else if (len >= 50 && u > 0 && !dla) w1 = `A ${fmt(len, 0)} ms job sits on the single non-preemptive GPU and there is no DLA. Balanced placement can move only the preprocess step to the CPU; the detector and the segmenter still queue behind the long job, so it barely helps (${fmt(e.median, 1)} vs ${fmt(g.median, 1)} ms). A placement policy is only as good as the alternatives the platform offers.`;
+    else if (len >= 50 && u > 0) w1 = `A ${fmt(len, 0)} ms job sits on the single non-preemptive GPU. Every chain instance released while it runs waits behind it under GPU-greedy, which still picks the GPU because it is the fastest <em>option</em>; the p95 is set by those blocked instances (${fmt(g.median, 1)} ms). Balanced placement sees the backlog and sends work to the ${dla ? "DLA and the CPU" : "CPU"}, which ${dla ? "are" : "is"} slower per job but free (${fmt(e.median, 1)} ms). This is the C3 finding: GPU-greedy loses when a long job blocks the GPU.`;
+    else if (busyG > 0.97) w1 = `The GPU is saturated under GPU-greedy (${pct(busyG, 0)} busy): queues grow through the run and the tail latency follows them. Balanced placement keeps ${pct(e.util.GPU, 0)} on the GPU by moving work to ${dla ? "the DLA and" : ""} the CPU.`;
+    else w1 = `Other chains take ${pct(u, 0)} of the GPU in ${fmt(len, 1)} ms jobs. Under GPU-greedy the GPU is ${pct(busyG, 0)} busy and the DLA ${pct(g.util.DLA, 0)}: the chain queues behind other work and behind itself. Balanced placement moves work to the DLA (${pct(e.util.DLA, 0)} busy) and the median p95 falls from ${fmt(g.median, 1)} to ${fmt(e.median, 1)} ms. In the demonstration simulator the same move took the GPU from ${V("sched_baseline_gpu_util")} % to ${V("sched_r1_gpu_util")} % and the DLA from ${V("sched_baseline_dla_util")} % to ${V("sched_r1_dla_util")} % (illustrative, table below).`;
+    const w2 = (!dla && !(len >= 50 && u > 0)) ? `Without a DLA the only alternative for the detector and the segmenter is the GPU, so balanced placement can move only the preprocess step to the CPU. Held-out b removes the DLA for this reason: a policy that assumes one fails there (note C2).`
+      : prom ? `Over ${SEEDS.length} seeds the balanced record's worst seed (${fmt(e.max, 1)} ms) is below GPU-greedy's best (${fmt(g.min, 1)} ms): the disjoint-range rule of explorer 01 would promote it.`
+      : `The ranges overlap (balanced ${fmt(e.min, 1)}–${fmt(e.max, 1)}, greedy ${fmt(g.min, 1)}–${fmt(g.max, 1)} ms), so the disjoint-range rule would not promote balanced placement over GPU-greedy here${e.median < g.median ? ", even though its median is better" : ""}.`;
+    $("why1").innerHTML = w1; $("why2").innerHTML = w2;
+    $("callout").innerHTML = `<strong>Dispatch order cannot fix a placement problem.</strong> In calibration, EDF and least-laxity dispatch under the baseline's placement left the metric inside the baseline's range; the open lever was load-aware placement across GPU, DLA and CPU (note C3). On non-preemptive units, a started long job cannot be interrupted, so the decision that matters is where a job goes before it starts.`;
+    $("live").textContent = `GPU-greedy ${fmt(g.median, 1)} ms, balanced ${fmt(e.median, 1)} ms median p95.`;
+  }
+
+  wire([...ids, "dla", "pol"], update);
+  renderSources(); renderRecords();
+  apply({}); mark(1);
+  const res = MODEL.selfTest(P, console.assert);
+  $("tests-sum").textContent = `${res.passed} passed, ${res.failed} failed`;
+  window.Story = {scenes: {outputs: {n: CASES.length}}, go: (id, k) => { if (id === "outputs" && CASES[k - 1]){ apply(CASES[k - 1].set); mark(k - 1); } }};
+})();
+</script>
+</body>
+</html>

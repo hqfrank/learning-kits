@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A limit set from one legitimate run rejects correct work half the time — binding-ratio explorer</title>
+<style>
+  :root{--bg:#0f1115;--panel:#1a1d24;--ink:#eef1f6;--muted:#aeb6c4;--accent:#5ec8ff;--ok:#49d17a;--bad:#ff7a7a;--warn:#ffd36b;--line:#3a3f4a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 6px}
+  .sub{color:var(--muted);max-width:80ch;margin:4px 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:2px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 14px;padding:10px 12px}
+  legend{color:var(--muted);font-size:12.5px;padding:0 4px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover,button:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:1px}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:128px;flex:1 1 128px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:0 5px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:5px;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.asm{color:#d7a6ff;border-color:#d7a6ff}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-top:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:12px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why p{margin:0 0 6px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:8px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .banner{border-left:3px solid #d7a6ff;padding:8px 12px;margin:8px 0 0;background:#1a1522;color:#e6d6f5;border-radius:0 8px 8px 0;max-width:80ch;font-size:13.5px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  td.ok{color:var(--ok)} td.bad{color:var(--bad)} td.warn{color:var(--warn)}
+  .tablewrap{overflow-x:auto}
+  #sources td:nth-child(3){white-space:nowrap}
+  #sources td:first-child{min-width:12ch}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  figure{margin:0}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>A limit calibrated from one legitimate run rejects correct work half the time; the binding ratio then says how close a pass came</h1>
+  <p class="sub">The frozen evaluator (note B2) gates each check against a <strong>limit</strong> calibrated from legitimate runs: correct
+  implementations that are not bit-identical (note B1). Its <strong>binding ratio</strong> is the largest measured ÷ limit over all checks;
+  below 1 passes, and promotion also needs it at or below the <strong>margin cap</strong>. Here one check (output distance from the trusted
+  reference) is calibrated as <em>multiple × the largest of K legitimate distances</em>, and two checks have fixed design limits. Move the
+  calibration count, the multiple and the candidate's measurements.</p>
+  <p class="banner">Model choice of this page: legitimate distances are half-normal with unit scale (one page-seeded set of ten is drawn);
+  a broken control sits a fixed offset beyond legitimate noise. The two probabilities are averages over calibration draws, computed by
+  exact integration. The soft-miss limit, the decision-time limit, the multiple and the margin caps are design parameters of the harness.
+  Nothing here is a measurement.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <fieldset>
+      <legend>Preloaded cases (illustrative)</legend>
+      <div class="cases" id="cases"></div>
+    </fieldset>
+    <fieldset>
+      <legend>Calibrating the output-distance limit</legend>
+      <div class="ctrl">
+        <label for="K">Legitimate runs used <em>K</em> <span class="val" id="K_v"></span></label>
+        <input id="K" type="range" min="1" max="10" step="1">
+        <div class="hint">Note B1: one legitimate run gives one distance, not a spread.</div>
+      </div>
+      <div class="ctrl">
+        <label for="m">Limit multiple <span class="val" id="m_v"></span></label>
+        <input id="m" type="range" min="1" max="6" step="0.1">
+        <div class="hint">Limit = multiple × largest legitimate distance. The one-page proposal used <span data-p="harness_e2e_rmse_multiple"></span>× legitimate noise (design parameter).</div>
+      </div>
+      <div class="ctrl">
+        <label for="off">Broken control's offset <span class="val" id="off_v"></span></label>
+        <input id="off" type="range" min="0" max="12" step="0.1">
+        <div class="hint">How far an output-scaling control sits beyond legitimate noise, in units of the noise scale (note B3).</div>
+      </div>
+    </fieldset>
+    <fieldset>
+      <legend>The candidate's measurements</legend>
+      <div class="ctrl">
+        <label for="dist">Output distance from the reference <span class="val" id="dist_v"></span></label>
+        <input id="dist" type="range" min="0" max="10" step="0.1">
+      </div>
+      <div class="ctrl">
+        <label for="miss">Soft-chain deadline misses <span class="val" id="miss_v"></span></label>
+        <input id="miss" type="range" min="0" max="8" step="0.1">
+        <div class="hint">Limit <span data-p="topic_soft_miss_limit"></span> % (scheduling topic, design parameter).</div>
+      </div>
+      <div class="ctrl">
+        <label for="dec">Mean scheduler decision time <span class="val" id="dec_v"></span></label>
+        <input id="dec" type="range" min="0" max="3" step="0.05">
+        <div class="hint">Limit <span data-p="topic_decision_time_limit_ms"></span> ms (scheduling topic, design parameter).</div>
+      </div>
+      <div class="ctrl">
+        <label for="cap">Margin cap <span class="val" id="cap_v"></span></label>
+        <input id="cap" type="range" min="0.5" max="1" step="0.01">
+        <div class="hint"><span data-p="harness_margin_cap_scheduling"></span> in the scheduling topic, <span data-p="harness_margin_cap_first_campaign"></span> in the first campaign (design parameters).</div>
+      </div>
+    </fieldset>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <figure class="panel st-scene" id="outputs" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <h2>Calibration: the legitimate runs set the limit</h2>
+    <svg id="cal" viewBox="0 0 720 130" role="img" aria-labelledby="cal_t"><title id="cal_t">Legitimate distances, the calibrated limit, the candidate and the control</title></svg>
+    <h2 style="margin-top:14px">Binding ratio: measured ÷ limit, per check</h2>
+    <svg id="bind" viewBox="0 0 720 150" role="img" aria-labelledby="bind_t"><title id="bind_t">Measured over limit for each check, with the pass line at 1 and the margin cap</title></svg>
+    <h2 style="margin-top:14px">How the gate fails both ways, against the calibration count</h2>
+    <svg id="kcurve" viewBox="0 0 720 220" role="img" aria-labelledby="k_t"><title id="k_t">Chance a new legitimate run is rejected and chance the control passes, against K</title></svg>
+    <div class="why"><p id="why1"></p><p id="why2"></p><div class="callout" id="callout"></div></div>
+  </figure>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Demonstration records">
+  <h2>The margin cap on the demonstration run's records (notes C2, C3)</h2>
+  <p class="hint">Binding ratios recorded by the scheduling topic's frozen evaluator; a record's binding is the largest over its input sets.
+  Outputs of a demonstration simulator, <span class="tag ill">illustrative</span>. The classification moves with the margin-cap slider.</p>
+  <div class="tablewrap"><table id="rectab"><thead><tr><th>Record</th><th>Binding (per set)</th><th>Binding</th><th>At this cap</th><th>Outcome in the source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h2>Parameters &amp; sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag ill">illustrative</span> = design parameter or demonstration-simulator output, never a measurement.
+  <span class="tag asm">assumption</span> = a choice of this page, not in <code>constants.json</code>. <span class="tag der">derived</span> = computed on this page.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  <p class="hint">Self-tests: <span id="tests-sum">not run</span>.</p>
+</section>
+
+<footer>
+  Generated 2026-11-12 · Study aid for <em>agentic-research-harness</em> (rung 3). Sources: notes B1, B2, B3, C2, C3, C4 (lesson 1) and
+  <code>constants.json</code>. The false-rejection and control-pass probabilities integrate over the distribution of the K calibration
+  runs under the half-normal model. This is a study aid; numbers are from the listed sources or labelled.
+</footer>
+
+<script type="application/json" id="params" data-keys="harness_e2e_rmse_multiple,harness_margin_cap_scheduling,harness_margin_cap_first_campaign,topic_soft_miss_limit,topic_decision_time_limit_ms,sched_baseline,sched_edf_gpu_first,sched_r1_eft_placement,sched_r1_eft_metric_first,sched_r1_metric_reserve,sched_r1_eft_reserve,e2_legit_seed,e2_control_offset_sigma">
+{
+ "harness_e2e_rmse_multiple": {
+  "value": 3,
+  "unit": "x reduced-precision noise",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "one-page proposal: end-to-end output error at most three times the legitimate reduced-precision noise"
+ },
+ "harness_margin_cap_scheduling": {
+  "value": 0.9,
+  "unit": "binding ratio",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "promotion needs binding <= this in the scheduling topic (topic.json margin.max_for_promotion)"
+ },
+ "harness_margin_cap_first_campaign": {
+  "value": 0.85,
+  "unit": "binding ratio",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "promotion needs binding <= this in the first campaign"
+ },
+ "topic_soft_miss_limit": {
+  "value": 5,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "soft chains may miss at most 5 % of deadlines"
+ },
+ "topic_decision_time_limit_ms": {
+  "value": 2,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "mean scheduler decision time limit (host wall clock)"
+ },
+ "sched_baseline": {
+  "value": {
+   "median": 34.7,
+   "min": 32.3,
+   "max": 45.4,
+   "binding_visible": 0.49,
+   "binding_a": 0.34,
+   "binding_b": 0.44
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "FIFO dispatch, shortest-execution placement; ACCEPTED"
+ },
+ "sched_edf_gpu_first": {
+  "value": {
+   "median": 34.5,
+   "min": 31.6,
+   "max": 41.6,
+   "binding_visible": 0.6,
+   "binding_a": 0.26,
+   "binding_b": 0.43
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "EDF dispatch, same placement; ACCEPTED, ranges overlap, not promotable"
+ },
+ "sched_r1_eft_placement": {
+  "value": {
+   "median": 27.8,
+   "min": 23.7,
+   "max": 34.2,
+   "binding": 0.434
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, ranges overlap the baseline, not promoted"
+ },
+ "sched_r1_eft_metric_first": {
+  "value": {
+   "median": 25.8,
+   "min": 23.7,
+   "max": 30.7,
+   "binding": 0.474
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "earliest-finish placement + metric-chain-first dispatch; promoted"
+ },
+ "sched_r1_metric_reserve": {
+  "value": {
+   "median": 30,
+   "min": 27.9,
+   "max": 31.2,
+   "binding": 0.807
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, not promoted"
+ },
+ "sched_r1_eft_reserve": {
+  "value": {
+   "median": 23.9,
+   "min": 23.7,
+   "max": 24.1,
+   "binding": 0.78
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, best seed ties the champion's best seed at the floor; not promotable"
+ },
+ "e2_legit_seed": {
+  "value": 7,
+  "unit": "seed",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): seed of the page's ten legitimate calibration runs (half-normal distances, unit scale)"
+ },
+ "e2_control_offset_sigma": {
+  "value": 8,
+  "unit": "x legitimate noise scale",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): how far a broken control sits beyond legitimate noise (an output-scaling control); chosen so the 3x, K = 3 default rejects it about 99 % of the time"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+var MODEL = (function(){
+  "use strict";
+  function erfc(x){
+    const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+    const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+      t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? r : 2 - r;
+  }
+  // Half-normal legitimate distance (unit scale): CDF and density.
+  const F = x => x <= 0 ? 0 : 1 - erfc(x / Math.SQRT2);
+  const f = x => x < 0 ? 0 : 2 * Math.exp(-0.5 * x * x) / Math.sqrt(2 * Math.PI);
+  // Density of the largest of K legitimate distances.
+  const fmax = (K, x) => K * f(x) * Math.pow(F(x), K - 1);
+  function simpson(g, a, b, m){ const h = (b - a) / m; let s = g(a) + g(b); for (let i = 1; i < m; i++) s += (i % 2 ? 4 : 2) * g(a + i * h); return s * h / 3; }
+
+  // Notes B1/B2: limit = multiple x the largest of the K legitimate distances used for calibration.
+  function calibrated_limit_B2(legit, K, mult){ return mult * Math.max(...legit.slice(0, K)); }
+
+  // Note C4 lesson 1 ("gates fail both ways"), false rejection: chance that a NEW legitimate run exceeds a limit
+  // calibrated from K others, averaged over calibration draws = integral of fmax(K,x) (1 - F(mult x)) dx.
+  // With mult = 1 it is 1/(K+1) for any continuous distribution (the new run is the largest of K+1 with that chance).
+  function p_false_reject(K, mult){ return simpson(x => fmax(K, x) * (1 - F(mult * x)), 0, 9, 3000); }
+
+  // Note B3, false acceptance: a broken control at offset d beyond legitimate noise (distance d + X) passes
+  // if d + X < limit: integral of fmax(K,x) F(mult x - d) dx.
+  function p_control_pass(K, mult, d){ return simpson(x => fmax(K, x) * F(mult * x - d), 0, 9, 3000); }
+
+  // Note B2: binding ratio = the largest measured / limit over all checks; returns the ratios too.
+  function binding_ratio_B2(checks){
+    let worst = -Infinity, name = "";
+    const ratios = checks.map(c => { const r = c.measured / c.limit; if (r > worst){ worst = r; name = c.name; } return r; });
+    return {binding: worst, binds: name, ratios};
+  }
+  // Note B2/B7: verdict and margin class.
+  function classify_B2(binding, cap){
+    if (!(binding < 1)) return "REJECTED";
+    return binding <= cap ? "ACCEPTED, margin ok" : "ACCEPTED, low margin";
+  }
+  // A record's binding is the largest over its input sets (keys starting with "binding").
+  function record_binding(v){ return Math.max(...Object.entries(v).filter(([k]) => k.startsWith("binding")).map(([, x]) => x)); }
+
+  function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  // Ten seeded legitimate distances, |N(0,1)|.
+  function legit_draws(seed){ const r = rng(seed), out = [];
+    while (out.length < 10){ let u = 0; while (u === 0) u = r(); const v = r(); out.push(Math.abs(Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v))); }
+    return out; }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const near = (a, b, t) => Math.abs(a - b) <= t;
+    ok(near(p_false_reject(1, 1), 0.5, 1e-4), "T1 K=1, multiple 1: a new legitimate run fails half the time");
+    ok(near(p_false_reject(3, 1), 0.25, 1e-4), "T2 K=3, multiple 1: 1/(K+1) = 0.25");
+    ok(near(p_false_reject(9, 1), 0.1, 1e-4), "T3 K=9, multiple 1: 0.1");
+    const m3 = P.harness_e2e_rmse_multiple.value;
+    ok(p_false_reject(3, m3) < 0.05 && p_false_reject(10, m3) < 0.001, "T4 3x multiple: K=3 rejects under 5 %, K=10 under 0.1 %");
+    ok(p_false_reject(1, m3) > 0.15, "T4b one calibration run at 3x still rejects a new legitimate run over 15 % of the time");
+    ok(p_control_pass(3, m3, 2) > p_control_pass(3, 1.5, 2), "T5 a looser multiple lets the control pass more often");
+    ok(p_control_pass(1, 1, 0) < 0.51 && p_control_pass(1, 1, 0) > 0.49, "T6 offset 0 control is legitimate: passes half the time at K=1, multiple 1");
+    const b = binding_ratio_B2([{name: "a", measured: 1, limit: 2}, {name: "b", measured: 4.5, limit: P.topic_soft_miss_limit.value}, {name: "c", measured: 1, limit: P.topic_decision_time_limit_ms.value}]);
+    ok(near(b.binding, 0.9, 1e-12) && b.binds === "b", "T7 4.5 % misses on a 5 % limit binds at 0.9");
+    ok(classify_B2(0.9, P.harness_margin_cap_scheduling.value) === "ACCEPTED, margin ok", "T8 0.9 is promotable at the 0.9 cap");
+    ok(classify_B2(0.9, P.harness_margin_cap_first_campaign.value) === "ACCEPTED, low margin", "T9 0.9 is low margin at the 0.85 cap");
+    ok(classify_B2(1, 0.9) === "REJECTED", "T10 binding 1 fails");
+    ok(near(record_binding(P.sched_baseline.value), 0.49, 1e-12), "T11 baseline binding = 0.49 (largest of visible, a, b)");
+    ok(near(record_binding(P.sched_edf_gpu_first.value), 0.6, 1e-12), "T12 EDF binding = 0.6");
+    const recs = ["sched_baseline", "sched_edf_gpu_first", "sched_r1_eft_placement", "sched_r1_eft_metric_first", "sched_r1_metric_reserve", "sched_r1_eft_reserve"];
+    ok(recs.every(k => classify_B2(record_binding(P[k].value), P.harness_margin_cap_scheduling.value) === "ACCEPTED, margin ok"), "T13 every recorded candidate clears the 0.9 cap (C3: ranges, not margin, blocked them)");
+    ok(recs.filter(k => record_binding(P[k].value) > 0.75).length === 2, "T14 at a 0.75 cap the two reservation candidates become low margin");
+    const L = legit_draws(P.e2_legit_seed.value);
+    ok(L.length === 10 && L.every(x => isFinite(x) && x >= 0), "T15 ten finite legitimate draws");
+    ok(calibrated_limit_B2(L, 10, 1) >= calibrated_limit_B2(L, 3, 1), "T16 more calibration runs never lower a max-based limit");
+    return {passed, failed};
+  }
+  return {F, p_false_reject, p_control_pass, calibrated_limit_B2, binding_ratio_B2, classify_B2, record_binding, legit_draws, selfTest};
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = MODEL;
+/*MODEL-END*/
+
+if (typeof window !== "undefined") (function(){
+  // ---- shared page helpers (identical on every explorer of this kit) ----
+  const $ = id => document.getElementById(id);
+  const P = JSON.parse($("params").textContent);
+  const V = k => P[k].value;
+  const fmt = (x, d) => Number(x).toFixed(d);
+  const pct = (x, d) => (x * 100).toFixed(d === undefined ? 1 : d) + " %";
+  const TAG = {ill: "illustrative", der: "derived", pub: "public", asm: "assumption"};
+  const metric = (k, v, t) => `<div class="metric"><div class="k">${k}<span class="tag ${t}">${TAG[t]}</span></div><div class="v">${v}</div></div>`;
+  function renderSources(){
+    const tb = $("sources").querySelector("tbody");
+    for (const [k, o] of Object.entries(P)){
+      const val = Array.isArray(o.value) ? o.value.join("–") : (o.value !== null && typeof o.value === "object" ? Object.entries(o.value).map(([a, b]) => a + " " + b).join(", ") : o.value);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>${k}</code></td><td>${val} ${o.unit || ""}</td><td>${o.class}</td><td>${o.source}${o.note ? " — " + o.note : ""}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  // Fill every <span data-p="key" [data-f="path"] [data-x="scale"]> from the params block, so prose never retypes a constant.
+  document.querySelectorAll("[data-p]").forEach(el => { let v = V(el.dataset.p);
+    if (el.dataset.f) v = v[el.dataset.f]; if (el.dataset.x) v = +(v * +el.dataset.x).toFixed(6); el.textContent = v; });
+  function makeCases(CASES, apply){
+    CASES.forEach((c, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+      if (c.note) b.title = c.note;
+      b.addEventListener("click", () => { apply(c.set); mark(i); }); $("cases").appendChild(b);
+    });
+  }
+  function mark(i){ [...$("cases").children].forEach((b, j) => b.setAttribute("aria-pressed", String(j === i))); }
+  function wire(ids, update){
+    let raf = 0;
+    ids.forEach(id => $(id).addEventListener("input", () => { mark(-1); cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }));
+  }
+  const LEG = MODEL.legit_draws(V("e2_legit_seed"));
+  const capS = V("harness_margin_cap_scheduling"), capF = V("harness_margin_cap_first_campaign");
+  const missL = V("topic_soft_miss_limit"), decL = V("topic_decision_time_limit_ms");
+  const base = {K: 3, m: V("harness_e2e_rmse_multiple"), off: V("e2_control_offset_sigma"), dist: 2, miss: 2, dec: 0.6, cap: capS};
+  const CASES = [
+    {name: "One legitimate run, limit = that run", set: {K: 1, m: 1, dist: 0.5}, note: "note C4 lesson 1: the gate rejected the real baseline"},
+    {name: "Three runs, 3× multiple", set: {}},
+    {name: "Thin pass on decision time", set: {dec: 0.95 * decL}},
+    {name: "Same candidate at the 0.85 cap", set: {miss: 0.88 * missL, cap: capF}},
+    {name: "Loose limit lets the control through", set: {K: 10, m: 5}}
+  ];
+  const ids = ["K", "m", "off", "dist", "miss", "dec", "cap"];
+  function apply(st){ const s = Object.assign({}, base, st); ids.forEach(k => $(k).value = s[k]); update(); }
+  makeCases(CASES, apply);
+  const cls = v => v === "REJECTED" ? "bad" : (v === "ACCEPTED, margin ok" ? "ok" : "warn");
+
+  function drawCal(K, lim, dist, off){
+    const W = 720, H = 130, pl = 20, pr = 20, pw = W - pl - pr, hi = Math.max(10, lim * 1.1, dist * 1.1, off + 3), X = v => pl + pw * v / hi;
+    let s = "";
+    for (let g = 0; g <= hi; g += (hi > 20 ? 5 : 1)) s += `<line x1="${X(g)}" y1="22" x2="${X(g)}" y2="98" stroke="#262a33"/><text x="${X(g)}" y="114" font-size="11" fill="#aeb6c4" text-anchor="middle">${g}</text>`;
+    s += `<rect x="${X(off)}" y="70" width="${Math.max(0, X(off + 2.5) - X(off))}" height="16" fill="#ff7a7a" opacity="0.25"/><text x="${X(off) + 4}" y="82" font-size="11" fill="#ff7a7a">broken control (offset ${fmt(off, 1)} + noise)</text>`;
+    LEG.forEach((v, i) => { const used = i < K; s += `<circle cx="${X(v)}" cy="${40 + (i % 3) * 7}" r="5" fill="${used ? "#49d17a" : "none"}" stroke="#49d17a" stroke-width="1.5"/>`; });
+    s += `<line x1="${X(lim)}" y1="16" x2="${X(lim)}" y2="98" stroke="#ffd36b" stroke-width="2.5"/><text x="${Math.min(X(lim) + 5, W - 130)}" y="18" font-size="11" fill="#ffd36b">limit ${fmt(lim, 2)}</text>`;
+    s += `<polygon points="${X(dist)},${60} ${X(dist) - 6},${48} ${X(dist) + 6},${48}" fill="#5ec8ff"/>`;
+    s += `<text x="${pl}" y="14" font-size="11" fill="#aeb6c4">● used legitimate run  ○ unused  ▼ candidate (blue) · distance in units of the legitimate noise scale</text>`;
+    $("cal").innerHTML = `<title id="cal_t">Legitimate distances, the calibrated limit, the candidate and the control</title>` + s;
+  }
+  function drawBind(b, names, cap){
+    const W = 720, H = 150, pl = 190, pr = 30, pw = W - pl - pr, hi = Math.max(1.2, Math.min(3, Math.max(...b.ratios) * 1.08)), X = v => pl + pw * Math.min(v, hi) / hi;
+    let s = "";
+    b.ratios.forEach((r, i) => { const y = 26 + i * 36, binds = names[i] === b.binds;
+      s += `<text x="8" y="${y + 13}" font-size="12">${names[i]}</text>`;
+      s += `<rect x="${pl}" y="${y}" width="${Math.max(1, X(r) - pl)}" height="18" fill="${r >= 1 ? "#ff7a7a" : (r > cap ? "#ffd36b" : "#49d17a")}" ${binds ? 'stroke="#eef1f6" stroke-width="2"' : ""}/>`;
+      s += `<text x="${Math.min(X(r) + 6, W - pr - 60)}" y="${y + 13}" font-size="11">${fmt(r, 3)}${binds ? " ← binds" : ""}</text>`; });
+    s += `<line x1="${X(cap)}" y1="16" x2="${X(cap)}" y2="${H - 22}" stroke="#ffd36b" stroke-dasharray="5 3"/><text x="${X(cap)}" y="${H - 8}" font-size="11" fill="#ffd36b" text-anchor="end">cap ${fmt(cap, 2)}</text>`;
+    s += `<line x1="${X(1)}" y1="16" x2="${X(1)}" y2="${H - 22}" stroke="#ff7a7a" stroke-width="2"/><text x="${X(1) + 4}" y="${H - 8}" font-size="11" fill="#ff7a7a">1 = limit</text>`;
+    $("bind").innerHTML = `<title id="bind_t">Measured over limit for each check, with the pass line at 1 and the margin cap</title>` + s;
+  }
+  function drawK(K, m, off){
+    const W = 720, H = 220, pl = 50, pr = 16, pt = 18, pb = 36, pw = W - pl - pr, ph = H - pt - pb, X = k => pl + pw * (k - 1) / 9, Y = p => pt + ph * (1 - p);
+    let s = "";
+    for (let g = 0; g <= 4; g++){ const y = Y(g / 4); s += `<line x1="${pl}" y1="${y}" x2="${pl + pw}" y2="${y}" stroke="#262a33"/><text x="${pl - 6}" y="${y + 4}" font-size="11" fill="#aeb6c4" text-anchor="end">${g * 25}%</text>`; }
+    const fr = [], cp = [];
+    for (let k = 1; k <= 10; k++){ fr.push([X(k), Y(MODEL.p_false_reject(k, m))]); cp.push([X(k), Y(MODEL.p_control_pass(k, m, off))]);
+      s += `<text x="${X(k)}" y="${pt + ph + 16}" font-size="11" fill="#aeb6c4" text-anchor="middle">${k}</text>`; }
+    const path = a => a.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+    s += `<path d="${path(fr)}" fill="none" stroke="#5ec8ff" stroke-width="2.5"/><path d="${path(cp)}" fill="none" stroke="#ff7a7a" stroke-width="2" stroke-dasharray="7 4"/>`;
+    fr.forEach(p => s += `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="#5ec8ff"/>`); cp.forEach(p => s += `<rect x="${p[0] - 3}" y="${p[1] - 3}" width="6" height="6" fill="#ff7a7a"/>`);
+    s += `<line x1="${X(K)}" y1="${pt}" x2="${X(K)}" y2="${pt + ph}" stroke="#eef1f6" stroke-dasharray="2 3"/>`;
+    s += `<text x="${pl + pw / 2}" y="${H - 4}" font-size="11" fill="#aeb6c4" text-anchor="middle">legitimate runs used for calibration, K (multiple ${fmt(m, 1)}, control offset ${fmt(off, 1)})</text>`;
+    const lx = pl + pw - 300, ly = pt + ph * 0.42;
+    s += `<rect x="${lx - 8}" y="${ly - 13}" width="306" height="42" fill="#12151c" stroke="#3a3f4a"/>`;
+    s += `<line x1="${lx}" y1="${ly}" x2="${lx + 24}" y2="${ly}" stroke="#5ec8ff" stroke-width="2.5"/><text x="${lx + 30}" y="${ly + 4}" font-size="11">new legitimate run rejected (too tight)</text>`;
+    s += `<line x1="${lx}" y1="${ly + 18}" x2="${lx + 24}" y2="${ly + 18}" stroke="#ff7a7a" stroke-width="2" stroke-dasharray="7 4"/><text x="${lx + 30}" y="${ly + 22}" font-size="11">broken control accepted (too loose)</text>`;
+    $("kcurve").innerHTML = `<title id="k_t">Chance a new legitimate run is rejected and chance the control passes, against K</title>` + s;
+  }
+  function renderRecords(cap){
+    const rows = [["sched_baseline", "baseline", "champion before round 1"], ["sched_edf_gpu_first", "EDF, same placement", "accepted; ranges overlap, not promotable"],
+      ["sched_r1_eft_placement", "earliest-finish placement", "accepted; ranges overlap"], ["sched_r1_eft_metric_first", "earliest-finish + perception-first", "promoted"],
+      ["sched_r1_metric_reserve", "baseline placement + GPU reservation", "accepted; not promotable"], ["sched_r1_eft_reserve", "earliest-finish + reservation", "accepted; not promotable (ranges at the floor)"]];
+    $("rectab").querySelector("tbody").innerHTML = rows.map(([k, name, out]) => { const v = V(k), b = MODEL.record_binding(v), c = MODEL.classify_B2(b, cap);
+      const per = Object.entries(v).filter(([x]) => x.startsWith("binding")).map(([x, y]) => (x === "binding" ? "" : x.replace("binding_", "") + " ") + y).join(", ");
+      return `<tr><td>${name}</td><td>${per}</td><td>${b}</td><td class="${cls(c)}">${c}</td><td>${out}</td></tr>`; }).join("");
+  }
+
+  function update(){
+    const K = +$("K").value, m = +$("m").value, off = +$("off").value, dist = +$("dist").value, miss = +$("miss").value, dec = +$("dec").value, cap = +$("cap").value;
+    $("K_v").textContent = K; $("m_v").textContent = fmt(m, 1) + "×"; $("off_v").textContent = fmt(off, 1);
+    $("dist_v").textContent = fmt(dist, 1); $("miss_v").textContent = fmt(miss, 1) + " %"; $("dec_v").textContent = fmt(dec, 2) + " ms"; $("cap_v").textContent = fmt(cap, 2);
+    const lim = MODEL.calibrated_limit_B2(LEG, K, m);
+    const names = ["output distance (calibrated)", `soft-chain misses (${missL} %)`, `decision time (${decL} ms)`];
+    const b = MODEL.binding_ratio_B2([{name: names[0], measured: dist, limit: lim}, {name: names[1], measured: miss, limit: missL}, {name: names[2], measured: dec, limit: decL}]);
+    const verdict = MODEL.classify_B2(b.binding, cap), fr = MODEL.p_false_reject(K, m), cp = MODEL.p_control_pass(K, m, off);
+    $("headline").innerHTML =
+      metric("Calibrated limit", fmt(lim, 2), "der") +
+      metric("Binding ratio", fmt(b.binding, 3), "der") +
+      metric("Verdict", `<span style="color:var(--${cls(verdict)})">${verdict}</span>`, "der") +
+      metric("New legitimate run rejected", pct(fr, fr < 0.01 ? 2 : 1), "der") +
+      metric("Broken control accepted", pct(cp, cp < 0.01 ? 2 : 1), "der");
+    drawCal(K, lim, dist, off); drawBind(b, names, cap); drawK(K, m, off); renderRecords(cap);
+    let w1;
+    if (fr > 0.2) w1 = `The limit is tight against legitimate noise: a correct implementation run again fails it ${pct(fr, 0)} of the time. With K = ${K} and a ${fmt(m, 1)}× multiple ${m === 1 ? `this is exactly 1/(K+1) = ${pct(1 / (K + 1), 0)}` : "the limit sits barely above the calibration runs"}. This is how the first campaign's gate rejected its real baseline (note C4, lesson 1).`;
+    else if (cp > 0.2) w1 = `The limit is loose: the broken control, ${fmt(off, 1)} noise-scales beyond legitimate noise, passes ${pct(cp, 0)} of the time. A gate that accepts its own controls is untested (note B3). Lower the multiple, or build a control that must fail for the reason it was made.`;
+    else w1 = `The limit sits between the two failure modes: a new legitimate run fails ${pct(fr, 1)} of the time and the control passes ${pct(cp, 1)} of the time. More calibration runs (K) put the limit on the spread of legitimate noise instead of on one lucky or unlucky run.`;
+    const w2 = verdict === "REJECTED" ? `The candidate fails: ${b.binds} is at ${fmt(b.binding, 2)} of its limit. One failing check is enough; the binding ratio is the worst check, not an average.`
+      : verdict === "ACCEPTED, low margin" ? `The candidate passes but ${b.binds} is at ${fmt(b.binding, 2)} of its limit, above the ${fmt(cap, 2)} cap. It is recorded "accepted, low margin" and never promoted: the next small change could break it, or it is exploiting the edge of the limit (note B2).`
+      : `The candidate passes with margin: the binding check (${b.binds}) is at ${fmt(b.binding, 2)} of its limit, at or below the ${fmt(cap, 2)} cap. It may be promoted — if its whole range also beats the champion's (explorer 01).`;
+    $("why1").innerHTML = w1; $("why2").innerHTML = w2;
+    $("callout").innerHTML = `<strong>Calibrate from legitimate runs, then test from both sides.</strong> The baseline must pass with a margin clearly below 1 and every control must fail, on every input set (notes B3, C5). In the records below, every round-1 candidate cleared the ${capS} cap; what blocked promotion was the range rule, not the margin.`;
+    $("live").textContent = `Limit ${fmt(lim, 2)}, binding ${fmt(b.binding, 3)}, ${verdict}.`;
+  }
+
+  wire(ids, update);
+  renderSources();
+  apply({}); mark(1);
+  const res = MODEL.selfTest(P, console.assert);
+  $("tests-sum").textContent = `${res.passed} passed, ${res.failed} failed`;
+  window.Story = {scenes: {outputs: {n: CASES.length}}, go: (id, k) => { if (id === "outputs" && CASES[k - 1]){ apply(CASES[k - 1].set); mark(k - 1); } }};
+})();
+</script>
+</body>
+</html>

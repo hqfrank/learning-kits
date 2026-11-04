@@ -1,0 +1,106 @@
+# Glossary — Running optimization research with AI agents
+
+One line per term, alphabetical, each defined once. The note where a term is introduced is linked at the end of
+the line. Where a term is already defined in a sibling kit, the line says so and the definition matches it.
+Numbers live in [`constants.json`](constants.json); this glossary carries none.
+
+- **agent** — a language model running a reason–act–observe loop with tools ([[notes/A0-why-research-needs-a-different-setup|A0]]).
+- **agents' rules (`AGENTS.md`)** — the hard rules, access recipe and facts that every agent reads before working ([[notes/C5-the-checklist|C5]]).
+- **Amdahl's law** — the overall speed-up from improving one part is limited by that part's fraction of the total time (Amdahl 1967) ([[notes/C4-lessons-about-the-method|C4]]).
+- **ask** — a request to an outside team, with evidence and a reproduction ([[notes/B8-reporting|B8]]).
+- **binding ratio** — the largest measured ÷ limit over all checks and input sets; below 1 passes. Also called: margin ([[notes/B2-the-frozen-evaluator|B2]]).
+- **blocking** — comparing conditions within a block that shares its noise ([[notes/B7-agents-and-the-loop|B7]]).
+- **calibration** — tuning the gate so the baseline passes and controls fail, and shaping the problem so a campaign has something to find ([[notes/C3-calibration|C3]]).
+- **campaign** — one run of the method on one research question ([[notes/A0-why-research-needs-a-different-setup|A0]]).
+- **candidate** — one proposed change, stored as an immutable directory with `candidate.json` ([[notes/B5-the-candidate-contract|B5]]).
+- **candidate contract** — small, parent-linked, runtime-patching, immutable ([[notes/B5-the-candidate-contract|B5]]).
+- **chain** — a periodic DAG of jobs with a deadline per instance ([[notes/C2-the-scheduling-topic|C2]]).
+- **champion** — the current best promoted candidate of a track ([[notes/B5-the-candidate-contract|B5]]).
+- **champion track** — a leaderboard with its own champion, accepting some classes ([[notes/B5-the-candidate-contract|B5]]).
+- **checklist** — the ten-step order for instantiating the method on a new topic ([[notes/C5-the-checklist|C5]]).
+- **cite or it did not happen** — the rule that a number counts only if it cites a run id ([[notes/B4-evidence-records|B4]]).
+- **claims drift** — the growth of unmeasured beliefs as agents build on one another's reports ([[notes/A0-why-research-needs-a-different-setup|A0]]).
+- **class** — the label of the kind of change a candidate makes ([[notes/B5-the-candidate-contract|B5]]).
+- **completion barrier** — a synchronization point that returns only after the device has finished the work being timed ([[notes/C4-lessons-about-the-method|C4]]).
+- **coordinating agent** — the human-facing agent that assigns questions, combines results and writes the worklog and reports ([[notes/A1-the-order-of-construction|A1]]).
+- **coordinator** — the human-facing agent that commits, reports and raises decisions ([[notes/B7-agents-and-the-loop|B7]]).
+- **cost per accepted improvement** — total spend divided by the number of promotions ([[notes/B7-agents-and-the-loop|B7]]).
+- **cross-device baseline** — the same protocol on other hardware, for context ([[notes/B1-reference-and-baseline|B1]]).
+- **dashboard** — a local, read-only web view of the campaign files ([[notes/C1-instantiating-a-topic|C1]]).
+- **decisions needed** — questions that change what counts, left to the human owner ([[notes/B8-reporting|B8]]).
+- **densifying the workload** — adding load so the obvious policy no longer reaches the floor ([[notes/C3-calibration|C3]]).
+- **development host** — a machine with only the visible set; its records are INVALID by design ([[notes/B3-negative-controls|B3]]).
+- **device lock** — a lock that keeps other work off the device during a timed run ([[notes/B3-negative-controls|B3]]).
+- **diagnostic** — a number from a tool outside the evaluator; labelled, never a speed result ([[notes/B4-evidence-records|B4]]).
+- **discrete-event simulation** — simulation that advances from event to event ([[notes/C2-the-scheduling-topic|C2]]).
+- **disjoint-range rule** — promotion only if the candidate's whole sample range beats the champion's ([[notes/B7-agents-and-the-loop|B7]]).
+- **dispatch** — choosing which ready job a free unit runs next ([[notes/C2-the-scheduling-topic|C2]]).
+- **DLA** — a deep-learning accelerator: a fixed-function inference engine next to the GPU ([[notes/C2-the-scheduling-topic|C2]]).
+- **EDF (earliest deadline first)** — dispatch the job with the nearest absolute deadline ([[notes/C2-the-scheduling-topic|C2]]).
+- **equivalent** — no further from the trusted reference than legitimate implementations are, per calibrated limit ([[notes/B1-reference-and-baseline|B1]]).
+- **evaluation host** — a machine with all input sets that runs official evaluations only ([[notes/B3-negative-controls|B3]]).
+- **evaluation queue** — the serialized list of submitted candidates awaiting official evaluation ([[notes/B7-agents-and-the-loop|B7]]).
+- **evaluation worker** — the harness component that runs official evaluations and applies the promotion policy ([[notes/B7-agents-and-the-loop|B7]]).
+- **evaluator hardening** — adding an integrity check in answer to a failure seen on a real candidate ([[notes/A1-the-order-of-construction|A1]]).
+- **evaluator plugin** — the topic's `evaluator.py`, with `verify`, `context`, `run`, `summarize` ([[notes/C1-instantiating-a-topic|C1]]).
+- **evidence record** — the directory of record, raw outputs and log written by one official evaluation ([[notes/B4-evidence-records|B4]]).
+- **falsifiable** — able to be refuted by some observation (Popper 1959) ([[notes/B3-negative-controls|B3]]).
+- **fast but wrong** — a result that improves the metric by doing less or different work ([[notes/A0-why-research-needs-a-different-setup|A0]]).
+- **fast memory (attempts log)** — the append-only log of every official evaluation ([[notes/B6-the-two-memories|B6]]).
+- **frozen evaluator** — the human-owned, hash-pinned, versioned judge of correctness and speed ([[notes/B2-the-frozen-evaluator|B2]]).
+- **frozen inputs** — a fixed input set with fixed randomness, used by every run ([[notes/B1-reference-and-baseline|B1]]).
+- **gate** — the set of pass/fail checks that decide correctness ([[notes/B2-the-frozen-evaluator|B2]]).
+- **Goodhart's law** — a measure used as a target stops being a good measure (Goodhart 1975; Strathern 1997) ([[notes/A0-why-research-needs-a-different-setup|A0]]).
+- **hand-run round** — a round where a coordinating agent, watched by a human, gives one bounded question to each researcher session ([[notes/A1-the-order-of-construction|A1]]).
+- **hard / soft chain** — a chain whose deadline misses fail the gate / are allowed up to a limit ([[notes/C2-the-scheduling-topic|C2]]).
+- **harness** — the topic-independent machinery: state, agent runner, memory, queue, promotion, loop, cost, dashboard ([[notes/C1-instantiating-a-topic|C1]]).
+- **HEFT / earliest-finish-time placement** — place each job where it is predicted to finish first ([[notes/C2-the-scheduling-topic|C2]]).
+- **held-out inputs** — input sets the agents never read, used to test generalization ([[notes/B2-the-frozen-evaluator|B2]]).
+- **ill-conditioned output** — an output that legitimate noise can flip, such as a threshold decision near its threshold ([[notes/C4-lessons-about-the-method|C4]]).
+- **independent audit** — review of an accepted candidate by an agent that did not write it ([[notes/C4-lessons-about-the-method|C4]]).
+- **integrity check** — a check that closes one known way to fake a result ([[notes/B2-the-frozen-evaluator|B2]]).
+- **job** — one node of one chain instance ([[notes/C2-the-scheduling-topic|C2]]).
+- **laxity** — deadline minus current time minus remaining work ([[notes/C2-the-scheduling-topic|C2]]).
+- **least laxity first** — dispatch the job with the least slack ([[notes/C2-the-scheduling-topic|C2]]).
+- **legitimate-noise reference** — the output of a correct but not bit-identical implementation, used to calibrate limits ([[notes/B1-reference-and-baseline|B1]]).
+- **limit** — the value a gate check compares against, calibrated from legitimate runs ([[notes/B2-the-frozen-evaluator|B2]]).
+- **load-aware placement** — choosing a job's resource from the current backlog, not a fixed rule ([[notes/C3-calibration|C3]]).
+- **loop** — plan → research in parallel → evaluate → remember, repeated per round ([[notes/B7-agents-and-the-loop|B7]]).
+- **manifest** — the list of file hashes written by the freeze script and checked before every run ([[notes/B2-the-frozen-evaluator|B2]]).
+- **margin cap** — the largest binding ratio at which a candidate can be promoted ([[notes/B2-the-frozen-evaluator|B2]]).
+- **measurement artefact** — a result caused by the measurement apparatus, not by the system under test. Also called: bench artefact (see [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md)) ([[notes/C4-lessons-about-the-method|C4]]).
+- **measurement context** — the environment id (host, boot, evaluator id) inside which comparisons are valid ([[notes/B7-agents-and-the-loop|B7]]).
+- **negative control** — a deliberately wrong candidate the evaluator must reject on every version ([[notes/B3-negative-controls|B3]]).
+- **negative result** — a recorded finding that an idea did not work, kept so it is not repeated ([[notes/B4-evidence-records|B4]]).
+- **non-preemptive** — a started job runs to completion ([[notes/C2-the-scheduling-topic|C2]]).
+- **numerics tag** — the class used for precision: `exact` or `reduced` ([[notes/B5-the-candidate-contract|B5]]).
+- **one-page proposal** — the pre-registration of a campaign: target, equivalence, metrics, roles, roadmap, risks, asks ([[notes/B8-reporting|B8]]).
+- **optimization research** — a search for a change that improves one measured quantity while the system stays correct ([[notes/A0-why-research-needs-a-different-setup|A0]]).
+- **order of construction** — the sequence reference → evaluator with controls → hand-run rounds → report → automation ([[notes/A1-the-order-of-construction|A1]]).
+- **order probe** — re-running the inputs in reverse order and requiring identical results ([[notes/B2-the-frozen-evaluator|B2]]).
+- **outcome** — the promotion result of an attempt: champion of a track, accepted, accepted with low margin, rejected, no evidence, or error ([[notes/B6-the-two-memories|B6]]).
+- **paired baseline** — a baseline record from the same measurement context as the candidate ([[notes/B7-agents-and-the-loop|B7]]).
+- **parent** — the candidate a new candidate starts from ([[notes/B5-the-candidate-contract|B5]]).
+- **placement** — choosing the resource type for a ready job ([[notes/C2-the-scheduling-topic|C2]]).
+- **planner** — the read-only agent that rewrites the lessons and assigns tasks ([[notes/B7-agents-and-the-loop|B7]]).
+- **pre-registration** — freezing hypotheses, thresholds, and run order before any data; here the proposal plays this role. Reused from [`../robot-workload-benchmarking/glossary.md`](../robot-workload-benchmarking/glossary.md) ([[notes/B8-reporting|B8]]).
+- **promotion policy** — the mechanical rule that makes a candidate champion ([[notes/B7-agents-and-the-loop|B7]]).
+- **provenance hash** — a hash of a file the evaluation read, stored in the record ([[notes/B2-the-frozen-evaluator|B2]]).
+- **researcher** — an agent that answers one task by building and submitting candidates ([[notes/B7-agents-and-the-loop|B7]]).
+- **resource type / unit** — a kind of compute (CPU, GPU, DLA) / one instance of it ([[notes/C2-the-scheduling-topic|C2]]).
+- **round** — one planner session followed by its researcher sessions ([[notes/B7-agents-and-the-loop|B7]]).
+- **run id** — the evidence directory's name; the citation key for every number ([[notes/B4-evidence-records|B4]]).
+- **runtime patching** — applying a change when the system loads or runs, instead of editing its sources ([[notes/B5-the-candidate-contract|B5]]).
+- **seed champion** — the candidate that starts as champion of a track in a fresh campaign ([[notes/C1-instantiating-a-topic|C1]]).
+- **seed lessons** — the initial slow memory, written from the hand-run rounds ([[notes/B6-the-two-memories|B6]]).
+- **slow memory (lessons file)** — the short, curated, sourced lessons, rewritten by the planner each round ([[notes/B6-the-two-memories|B6]]).
+- **stage-wise comparison** — comparing every intermediate stage's output with the reference, not only the final output ([[notes/B1-reference-and-baseline|B1]]).
+- **superseded record** — a record from an older evaluator version, kept but not compared with newer ones ([[notes/C5-the-checklist|C5]]).
+- **task** — one bounded question with parent, hypothesis, steps and success criterion ([[notes/B7-agents-and-the-loop|B7]]).
+- **topic** — one research question's directory: config, evaluator, rules, prompts, seed lessons, candidates, evidence ([[notes/C1-instantiating-a-topic|C1]]).
+- **trusted reference** — the full-precision output of the unmodified system on a different stack ([[notes/B1-reference-and-baseline|B1]]).
+- **verdict** — ACCEPTED, REJECTED or INVALID ([[notes/B2-the-frozen-evaluator|B2]]).
+- **visible set** — the input set agents may read and develop against ([[notes/B2-the-frozen-evaluator|B2]]).
+- **weekly report** — the evidence document generated from the records each week ([[notes/B8-reporting|B8]]).
+- **work floor** — the shortest possible end-to-end time given the job graph; no scheduler beats it ([[notes/C3-calibration|C3]]).
+- **worklog** — the append-only, dated narrative of the campaign: question, tried, numbers, reading, next ([[notes/B4-evidence-records|B4]]).

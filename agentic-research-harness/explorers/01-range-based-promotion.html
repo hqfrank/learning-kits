@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A median rule promotes noise half the time; a disjoint-range rule almost never — promotion explorer</title>
+<style>
+  :root{--bg:#0f1115;--panel:#1a1d24;--ink:#eef1f6;--muted:#aeb6c4;--accent:#5ec8ff;--ok:#49d17a;--bad:#ff7a7a;--warn:#ffd36b;--line:#3a3f4a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 6px}
+  .sub{color:var(--muted);max-width:80ch;margin:4px 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:2px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 14px;padding:10px 12px}
+  legend{color:var(--muted);font-size:12.5px;padding:0 4px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover,button:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:1px}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:128px;flex:1 1 128px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:0 5px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:5px;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.asm{color:#d7a6ff;border-color:#d7a6ff}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-top:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:12px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why p{margin:0 0 6px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:8px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .banner{border-left:3px solid #d7a6ff;padding:8px 12px;margin:8px 0 0;background:#1a1522;color:#e6d6f5;border-radius:0 8px 8px 0;max-width:80ch;font-size:13.5px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  td.ok{color:var(--ok)} td.bad{color:var(--bad)} td.warn{color:var(--warn)}
+  .tablewrap{overflow-x:auto}
+  #sources td:nth-child(3){white-space:nowrap}
+  #sources td:first-child{min-width:12ch}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  figure{margin:0}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>A median rule promotes a no-change candidate half the time; the disjoint-range rule almost never, and pays for it in power</h1>
+  <p class="sub">The loop's promotion policy (note B7) makes a candidate champion only if its <em>worst</em> sample beats the champion's
+  <em>best</em> sample, measured in the same context. Here a champion and a candidate each give <em>n</em> samples from a normal
+  distribution (lower is better). Move the true shift and the spread and watch both rules: how often they promote when nothing changed
+  (false promotion) and how often they promote a real gain (power). The bottom panel applies the rule to the demonstration run's own records.</p>
+  <p class="banner">Model choice of this page: samples are independent and normal, in arbitrary metric units with the champion's mean at
+  100. The no-change probabilities (0.5 and 1 / C(40, 20)) hold for <em>any</em> continuous distribution (note B7); the curves for a real
+  shift depend on the normal assumption. Nothing on this page is a measurement.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <fieldset>
+      <legend>Preloaded cases (illustrative)</legend>
+      <div class="cases" id="cases"></div>
+    </fieldset>
+    <div class="ctrl">
+      <label for="shift">True gain of the candidate <span class="val" id="shift_v"></span></label>
+      <input id="shift" type="range" min="-2" max="10" step="0.1">
+      <div class="hint">How much lower the candidate's mean is, in % of the champion's mean. 0 = no real change. Negative = the candidate is worse.</div>
+    </div>
+    <div class="ctrl">
+      <label for="sd">Spread of one sample (standard deviation) <span class="val" id="sd_v"></span></label>
+      <input id="sd" type="range" min="0.2" max="5" step="0.1">
+      <div class="hint">Run-to-run noise, in % of the mean. Same for both.</div>
+    </div>
+    <div class="ctrl">
+      <label for="n">Samples per side <em>n</em> <span class="val" id="n_v"></span></label>
+      <input id="n" type="range" min="3" max="40" step="1">
+      <div class="hint"><span data-p="harness_timed_calls"></span> timed calls in the first campaign, <span data-p="topic_visible_seeds"></span> seeds in the scheduling topic (design parameters).</div>
+    </div>
+    <div class="ctrl">
+      <label for="slow"><input id="slow" type="checkbox"> One slow first call in the candidate</label>
+      <label for="extra">Extra time of that call <span class="val" id="extra_v"></span></label>
+      <input id="extra" type="range" min="0" max="30" step="0.5">
+      <div class="hint">Note B7: one slow first call widened a candidate's range and blocked a small real gain.</div>
+    </div>
+    <div class="ctrl">
+      <button type="button" id="redraw">Draw a new pair of samples</button>
+      <span class="hint" id="seed_v"></span>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <figure class="panel st-scene" id="outputs" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <h2>One draw: <span id="draw_h"></span></h2>
+    <svg id="draw" viewBox="0 0 720 150" role="img" aria-labelledby="draw_t"><title id="draw_t">One draw of champion and candidate samples with their ranges and medians</title></svg>
+    <h2 style="margin-top:14px">Probability of promotion against the true gain</h2>
+    <svg id="curve" viewBox="0 0 720 260" role="img" aria-labelledby="curve_t"><title id="curve_t">Probability that each rule promotes, against the true gain</title></svg>
+    <div class="why"><p id="why1"></p><p id="why2"></p><div class="callout" id="callout"></div></div>
+  </figure>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Demonstration records">
+  <h2>The rule on the demonstration run's records (round 1 of the scheduling topic, note C3)</h2>
+  <p class="hint">Per-seed p95 latency of the perception chain over <span data-p="topic_visible_seeds"></span> seeds: median and range, from <code>constants.json</code>. These are
+  outputs of a demonstration simulator, <span class="tag ill">illustrative</span>, not measurements of a real platform. Lower is better.</p>
+  <svg id="rec" viewBox="0 0 1000 200" role="img" aria-labelledby="rec_t"><title id="rec_t">Ranges of the baseline and three round-1 candidates against the work floor</title></svg>
+  <div class="tablewrap"><table id="rectab"><thead><tr><th>Candidate vs champion</th><th>Candidate median (range)</th><th>Champion median (range)</th><th>Median rule</th><th>Disjoint-range rule</th><th>Outcome in the source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h2>Parameters &amp; sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = public mathematics, my arithmetic.
+  <span class="tag ill">illustrative</span> = design parameter or demonstration-simulator output, never a measurement.
+  <span class="tag asm">assumption</span> = a choice of this page, not in <code>constants.json</code>. <span class="tag der">derived</span> = computed on this page.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  <p class="hint">Self-tests: <span id="tests-sum">not run</span>.</p>
+</section>
+
+<footer>
+  Generated 2026-11-12 · Study aid for <em>agentic-research-harness</em> (rung 3). Sources: notes B7 and C3, <code>constants.json</code>.
+  The disjoint-rule probability for a real shift is an exact numerical integral under the normal model; the median-rule probability is a
+  seeded Monte Carlo estimate (4 000 pairs per point). This is a study aid; numbers are from the listed sources or labelled.
+</footer>
+
+<script type="application/json" id="params" data-keys="harness_timed_calls,topic_visible_seeds,pub_median_null_probability,pub_disjoint_null_probability_20v20,sched_baseline,sched_r1_eft_placement,sched_r1_eft_metric_first,sched_r1_eft_reserve,sched_work_floor_ms,e1_metric_mean,e1_default_gain_pct,e1_default_spread_pct,e1_default_slow_extra_pct,e1_mc_pairs">
+{
+ "harness_timed_calls": {
+  "value": 20,
+  "unit": "timed calls per run",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "first campaign: promotion needs all 20 timed calls faster than all 20 of the champion"
+ },
+ "topic_visible_seeds": {
+  "value": 20,
+  "unit": "seeds",
+  "class": "illustrative",
+  "source": "design parameter of the harness"
+ },
+ "pub_median_null_probability": {
+  "value": 0.5,
+  "unit": "probability",
+  "class": "public",
+  "source": "my arithmetic: under the same no-difference assumption, the candidate's median is below the champion's median with probability 1/2 (symmetry)"
+ },
+ "pub_disjoint_null_probability_20v20": {
+  "value": 7.25e-12,
+  "unit": "probability",
+  "class": "public",
+  "source": "my arithmetic: if candidate and champion samples are 20 i.i.d. draws each from one continuous distribution, every ordering of the 40 values is equally likely, so P(all 20 candidate values below all 20 champion values) = 1 / C(40,20) = 1 / 137 846 528 820"
+ },
+ "sched_baseline": {
+  "value": {
+   "median": 34.7,
+   "min": 32.3,
+   "max": 45.4,
+   "binding_visible": 0.49,
+   "binding_a": 0.34,
+   "binding_b": 0.44
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "FIFO dispatch, shortest-execution placement; ACCEPTED"
+ },
+ "sched_r1_eft_placement": {
+  "value": {
+   "median": 27.8,
+   "min": 23.7,
+   "max": 34.2,
+   "binding": 0.434
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, ranges overlap the baseline, not promoted"
+ },
+ "sched_r1_eft_metric_first": {
+  "value": {
+   "median": 25.8,
+   "min": 23.7,
+   "max": 30.7,
+   "binding": 0.474
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "earliest-finish placement + metric-chain-first dispatch; promoted"
+ },
+ "sched_r1_eft_reserve": {
+  "value": {
+   "median": 23.9,
+   "min": 23.7,
+   "max": 24.1,
+   "binding": 0.78
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, best seed ties the champion's best seed at the floor; not promotable"
+ },
+ "sched_work_floor_ms": {
+  "value": 22.5,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "nominal floor with segmenter on the DLA in parallel with the detector on the GPU: 2 + 2.5 + 14 + 4 (my arithmetic matches the source value)"
+ },
+ "e1_metric_mean": {
+  "value": 100,
+  "unit": "metric units",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): the champion's mean, so gains and spreads read as % of the mean"
+ },
+ "e1_default_gain_pct": {
+  "value": 1,
+  "unit": "% of the mean",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): default true gain, chosen below the default spread"
+ },
+ "e1_default_spread_pct": {
+  "value": 2,
+  "unit": "% of the mean",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): default run-to-run standard deviation"
+ },
+ "e1_default_slow_extra_pct": {
+  "value": 10,
+  "unit": "% of the mean",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): extra time of one slow first call when that case is on"
+ },
+ "e1_mc_pairs": {
+  "value": 4000,
+  "unit": "simulated pairs",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): Monte Carlo pairs for the median-rule headline (curve points use 1 500)"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+var MODEL = (function(){
+  "use strict";
+  // Numerical Recipes erfcc: fractional error < 1.2e-7 everywhere.
+  function erfc(x){
+    const z = Math.abs(x), t = 1 / (1 + 0.5 * z);
+    const r = t * Math.exp(-z * z - 1.26551223 + t * (1.00002368 + t * (0.37409196 + t * (0.09678418 + t * (-0.18628806 +
+      t * (0.27886807 + t * (-1.13520398 + t * (1.48851587 + t * (-0.82215223 + t * 0.17087277)))))))));
+    return x >= 0 ? r : 2 - r;
+  }
+  const Phi = z => 0.5 * erfc(-z / Math.SQRT2);
+  const phi = z => Math.exp(-0.5 * z * z) / Math.sqrt(2 * Math.PI);
+
+  // C(2n, n) exactly enough in floating point for n <= 40.
+  function binom(a, b){ let r = 1; for (let i = 1; i <= b; i++) r = r * (a - b + i) / i; return r; }
+
+  // Note B7: under no difference, every ordering of the 2n values is equally likely, so the candidate's
+  // n values are all below the champion's n values with probability 1 / C(2n, n).
+  function disjoint_null_B7(n){ return 1 / binom(2 * n, n); }
+
+  // Note B7, disjoint-range rule (lower is better): promote iff max(candidate) < min(champion).
+  // Champion ~ N(0,1), candidate ~ N(-d,1) in units of the spread; optional first call ~ N(-d+s,1).
+  // P = integral of n phi(y) (1-Phi(y))^(n-1) * Phi(y+d)^(n-1) * Phi(y+d-s) dy  (density of the champion's minimum
+  // times the chance that every candidate value lies below it). Simpson's rule on [-12, 12].
+  function p_promote_disjoint_B7(n, d, s){
+    const a = -12, b = 12, m = 4000, h = (b - a) / m;
+    const f = y => n * phi(y) * Math.pow(Math.max(0, 1 - Phi(y)), n - 1) * Math.pow(Phi(y + d), n - 1) * Phi(y + d - s);
+    let acc = f(a) + f(b);
+    for (let i = 1; i < m; i++) acc += (i % 2 ? 4 : 2) * f(a + i * h);
+    return Math.min(1, Math.max(0, acc * h / 3));
+  }
+
+  // Seeded generator (mulberry32) and standard normals (Box-Muller).
+  function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function normals(r){ let spare = null; return () => { if (spare !== null){ const v = spare; spare = null; return v; }
+    let u = 0, v = 0; while (u === 0) u = r(); v = r(); const k = Math.sqrt(-2 * Math.log(u)); spare = k * Math.sin(2 * Math.PI * v); return k * Math.cos(2 * Math.PI * v); }; }
+  function median(xs){ const s = xs.slice().sort((x, y) => x - y), k = s.length >> 1; return s.length % 2 ? s[k] : (s[k - 1] + s[k]) / 2; }
+
+  // One pair of samples in spread units: champion mean 0, candidate mean -d, optional slow first call +s.
+  function draw_pair(n, d, s, gen){
+    const ch = [], ca = [];
+    for (let i = 0; i < n; i++) ch.push(gen());
+    for (let i = 0; i < n; i++) ca.push(gen() - d + (i === 0 ? s : 0));
+    return {ch, ca};
+  }
+  // The two rules on one pair (lower is better).
+  function median_rule(ch, ca){ return median(ca) < median(ch); }
+  function disjoint_rule_B7(ch, ca){ return Math.max(...ca) < Math.min(...ch); }
+
+  // Monte Carlo over `pairs` draws: fraction promoted by each rule.
+  function mc_rules(n, d, s, pairs, seed){
+    const gen = normals(rng(seed)); let med = 0, dis = 0;
+    for (let t = 0; t < pairs; t++){ const {ch, ca} = draw_pair(n, d, s, gen); if (median_rule(ch, ca)) med++; if (disjoint_rule_B7(ch, ca)) dis++; }
+    return {median: med / pairs, disjoint: dis / pairs};
+  }
+
+  // A record from constants.json: {median, min, max}. Lower is better.
+  function records_rule_B7(cand, champ){
+    return {median: cand.median < champ.median, disjoint: cand.max < champ.min};
+  }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const rel = (a, b, t) => Math.abs(a - b) <= t * Math.abs(b);
+    const n = P.harness_timed_calls.value;
+    ok(n === 20 && P.topic_visible_seeds.value === 20, "T1 n = 20 timed calls = 20 seeds");
+    ok(binom(40, 20) === 137846528820, "T2 C(40,20) = 137 846 528 820");
+    ok(rel(disjoint_null_B7(n), P.pub_disjoint_null_probability_20v20.value, 1e-3), "T3 1/C(40,20) = 7.25e-12 (constants)");
+    ok(rel(p_promote_disjoint_B7(n, 0, 0), disjoint_null_B7(n), 1e-3), "T4 integral at no shift = 1/C(40,20)");
+    ok(rel(p_promote_disjoint_B7(5, 0, 0), 1 / 252, 1e-4), "T5 integral n=5 = 1/C(10,5) = 1/252");
+    const mc0 = mc_rules(n, 0, 0, 4000, 11);
+    ok(Math.abs(mc0.median - P.pub_median_null_probability.value) < 0.03, "T6 median rule promotes no-change about 1/2 (MC)");
+    const ex3 = p_promote_disjoint_B7(n, 3, 0), mc3 = mc_rules(n, 3, 0, 4000, 12);
+    ok(Math.abs(ex3 - mc3.disjoint) < 0.03, "T7 disjoint integral agrees with Monte Carlo at a 3-spread gain");
+    ok(p_promote_disjoint_B7(n, 3, 3) < ex3 / 2, "T8 one slow first call cuts the disjoint rule's power");
+    ok(p_promote_disjoint_B7(n, 6, 0) > p_promote_disjoint_B7(n, 4, 0), "T9 power rises with the gain");
+    const b = P.sched_baseline.value, mf = P.sched_r1_eft_metric_first.value, pl = P.sched_r1_eft_placement.value, rs = P.sched_r1_eft_reserve.value;
+    const r1 = records_rule_B7(mf, b), r2 = records_rule_B7(pl, b), r3 = records_rule_B7(rs, mf);
+    ok(r1.disjoint && r1.median, "T10 earliest-finish + perception-first beats the baseline's whole range (promoted in C3)");
+    ok(!r2.disjoint && r2.median, "T11 earliest-finish placement: median better, ranges overlap (not promoted in C3)");
+    ok(!r3.disjoint && r3.median, "T12 earliest-finish + reservation: median better, worst seed not below champion's best (not promotable in C3)");
+    ok(Math.abs((mf.min - P.sched_work_floor_ms.value) - 1.2) < 1e-9, "T13 champion's best seed sits 1.2 ms above the 22.5 ms floor (my arithmetic)");
+    return {passed, failed};
+  }
+  return {Phi, binom, disjoint_null_B7, p_promote_disjoint_B7, rng, normals, median, draw_pair, median_rule, disjoint_rule_B7, mc_rules, records_rule_B7, selfTest};
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = MODEL;
+/*MODEL-END*/
+
+if (typeof window !== "undefined") (function(){
+  // ---- shared page helpers (identical on every explorer of this kit) ----
+  const $ = id => document.getElementById(id);
+  const P = JSON.parse($("params").textContent);
+  const V = k => P[k].value;
+  const fmt = (x, d) => Number(x).toFixed(d);
+  const pct = (x, d) => (x * 100).toFixed(d === undefined ? 1 : d) + " %";
+  const TAG = {ill: "illustrative", der: "derived", pub: "public", asm: "assumption"};
+  const metric = (k, v, t) => `<div class="metric"><div class="k">${k}<span class="tag ${t}">${TAG[t]}</span></div><div class="v">${v}</div></div>`;
+  function renderSources(){
+    const tb = $("sources").querySelector("tbody");
+    for (const [k, o] of Object.entries(P)){
+      const val = Array.isArray(o.value) ? o.value.join("–") : (o.value !== null && typeof o.value === "object" ? Object.entries(o.value).map(([a, b]) => a + " " + b).join(", ") : o.value);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>${k}</code></td><td>${val} ${o.unit || ""}</td><td>${o.class}</td><td>${o.source}${o.note ? " — " + o.note : ""}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  // Fill every <span data-p="key" [data-f="path"] [data-x="scale"]> from the params block, so prose never retypes a constant.
+  document.querySelectorAll("[data-p]").forEach(el => { let v = V(el.dataset.p);
+    if (el.dataset.f) v = v[el.dataset.f]; if (el.dataset.x) v = +(v * +el.dataset.x).toFixed(6); el.textContent = v; });
+  function makeCases(CASES, apply){
+    CASES.forEach((c, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+      if (c.note) b.title = c.note;
+      b.addEventListener("click", () => { apply(c.set); mark(i); }); $("cases").appendChild(b);
+    });
+  }
+  function mark(i){ [...$("cases").children].forEach((b, j) => b.setAttribute("aria-pressed", String(j === i))); }
+  function wire(ids, update){
+    let raf = 0;
+    ids.forEach(id => $(id).addEventListener("input", () => { mark(-1); cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }));
+  }
+  const M = V("e1_metric_mean");
+  const base = {shift: V("e1_default_gain_pct"), sd: V("e1_default_spread_pct"), n: V("harness_timed_calls"), slow: false, extra: V("e1_default_slow_extra_pct")};
+  const CASES = [
+    {name: "No real change", set: {shift: 0}},
+    {name: "Small real gain, below the spread", set: {}},
+    {name: "Clear gain (4 spreads)", set: {shift: 4 * base.sd}},
+    {name: "Clear gain + one slow first call", set: {shift: 4 * base.sd, slow: true}},
+    {name: "Few samples (n = 5)", set: {shift: 0, n: 5}}
+  ];
+  const ids = ["shift", "sd", "n", "extra"];
+  let seed = 1;
+  function apply(st){ const s = Object.assign({}, base, st); ids.forEach(k => $(k).value = s[k]); $("slow").checked = s.slow; update(); }
+  makeCases(CASES, apply);
+  const sci = x => x === 0 ? "0" : (x >= 0.001 ? pct(x, 1) : x.toExponential(2).replace("e-", " × 10⁻").replace(/⁻(\d+)/, (m, g) => "⁻" + g.split("").map(c => "⁰¹²³⁴⁵⁶⁷⁸⁹"[+c]).join("")));
+
+  function drawPair(pair, sdU, n){
+    const W = 720, H = 150, pl = 100, pr = 20, pw = W - pl - pr;
+    const ch = pair.ch.map(z => M + z * sdU), ca = pair.ca.map(z => M + z * sdU);
+    const all = ch.concat(ca), lo = Math.min(...all), hi = Math.max(...all), pad = (hi - lo) * 0.08 + 1e-9;
+    const X = v => pl + pw * (v - lo + pad) / (hi - lo + 2 * pad);
+    let s = "";
+    const row = (vals, y, col, name) => {
+      const mn = Math.min(...vals), mx = Math.max(...vals), md = MODEL.median(vals);
+      s += `<text x="8" y="${y + 4}" font-size="12">${name}</text>`;
+      s += `<line x1="${X(mn)}" y1="${y}" x2="${X(mx)}" y2="${y}" stroke="${col}" stroke-width="10" opacity="0.25"/>`;
+      vals.forEach((v, i) => s += `<circle cx="${X(v)}" cy="${y + (i % 2 ? 4 : -4)}" r="3.6" fill="${col}"/>`);
+      s += `<line x1="${X(md)}" y1="${y - 13}" x2="${X(md)}" y2="${y + 13}" stroke="#eef1f6" stroke-width="2"/>`;
+      return {mn, mx, md};
+    };
+    const c = row(ch, 42, "#ffd36b", "champion"), d = row(ca, 92, "#5ec8ff", "candidate");
+    s += `<line x1="${X(c.mn)}" y1="28" x2="${X(c.mn)}" y2="110" stroke="#ffd36b" stroke-dasharray="4 3"/>`;
+    s += `<text x="${X(c.mn)}" y="124" font-size="11" fill="#ffd36b" text-anchor="middle">champion's best</text>`;
+    for (let g = 0; g <= 4; g++){ const v = lo - pad + (hi - lo + 2 * pad) * g / 4; s += `<text x="${X(v)}" y="${H - 6}" font-size="11" fill="#aeb6c4" text-anchor="middle">${fmt(v, 1)}</text>`; }
+    s += `<text x="${pl + pw}" y="16" font-size="11" fill="#aeb6c4" text-anchor="end">white tick = median · shaded bar = range · metric units, lower is better</text>`;
+    $("draw").innerHTML = `<title id="draw_t">One draw of champion and candidate samples with their ranges and medians</title>` + s;
+    return {c, d};
+  }
+
+  function drawCurve(n, sdP, s, cur){
+    const W = 720, H = 260, pl = 50, pr = 16, pt = 22, pb = 40, pw = W - pl - pr, ph = H - pt - pb;
+    const lo = -2, hi = 10, X = v => pl + pw * (v - lo) / (hi - lo), Y = p => pt + ph * (1 - p);
+    const pts = [];
+    for (let i = 0; i <= 24; i++){ const g = lo + (hi - lo) * i / 24, d = g / sdP;
+      pts.push({g, dis: MODEL.p_promote_disjoint_B7(n, d, s), med: MODEL.mc_rules(n, d, s, 1500, 100 + i).median}); }
+    let svg = "";
+    for (let k = 0; k <= 4; k++){ const y = Y(k / 4); svg += `<line x1="${pl}" y1="${y}" x2="${pl + pw}" y2="${y}" stroke="#262a33"/><text x="${pl - 6}" y="${y + 4}" font-size="11" fill="#aeb6c4" text-anchor="end">${k * 25}%</text>`; }
+    for (let g = lo; g <= hi; g += 2) svg += `<text x="${X(g)}" y="${pt + ph + 16}" font-size="11" fill="#aeb6c4" text-anchor="middle">${g}%</text>`;
+    svg += `<line x1="${X(0)}" y1="${pt}" x2="${X(0)}" y2="${pt + ph}" stroke="#aeb6c4" stroke-dasharray="2 3"/>`;
+    svg += `<text x="${X(0) + 4}" y="${pt + ph - 6}" font-size="11" fill="#aeb6c4">no real change</text>`;
+    const path = key => pts.map((p, i) => (i ? "L" : "M") + X(p.g).toFixed(1) + " " + Y(p[key]).toFixed(1)).join(" ");
+    svg += `<path d="${path("med")}" fill="none" stroke="#ff7a7a" stroke-width="2" stroke-dasharray="7 4"/>`;
+    svg += `<path d="${path("dis")}" fill="none" stroke="#49d17a" stroke-width="2.5"/>`;
+    const cx = X(Math.max(lo, Math.min(hi, cur.g)));
+    svg += `<line x1="${cx}" y1="${pt}" x2="${cx}" y2="${pt + ph}" stroke="#5ec8ff"/>`;
+    svg += `<circle cx="${cx}" cy="${Y(cur.dis)}" r="5" fill="#49d17a"/><rect x="${cx - 4.5}" y="${Y(cur.med) - 4.5}" width="9" height="9" fill="#ff7a7a"/>`;
+    svg += `<text x="${pl + pw / 2}" y="${H - 6}" font-size="11" fill="#aeb6c4" text-anchor="middle">true gain of the candidate (% of the champion's mean); spread ${fmt(sdP, 1)} %, n = ${n}</text>`;
+    const lx = pl + pw - 250, ly = pt + ph - 46;
+    svg += `<rect x="${lx - 8}" y="${ly - 14}" width="256" height="44" fill="#12151c" stroke="#3a3f4a"/>`;
+    svg += `<line x1="${lx}" y1="${ly}" x2="${lx + 26}" y2="${ly}" stroke="#ff7a7a" stroke-width="2" stroke-dasharray="7 4"/><text x="${lx + 32}" y="${ly + 4}" font-size="11">median rule (Monte Carlo)</text>`;
+    svg += `<line x1="${lx}" y1="${ly + 18}" x2="${lx + 26}" y2="${ly + 18}" stroke="#49d17a" stroke-width="2.5"/><text x="${lx + 32}" y="${ly + 22}" font-size="11">disjoint-range rule (exact integral)</text>`;
+    $("curve").innerHTML = `<title id="curve_t">Probability that each rule promotes, against the true gain</title>` + svg;
+  }
+
+  function renderRecords(){
+    const b = V("sched_baseline"), pl = V("sched_r1_eft_placement"), mf = V("sched_r1_eft_metric_first"), rs = V("sched_r1_eft_reserve"), fl = V("sched_work_floor_ms");
+    const rows = [
+      {name: "baseline (FIFO, shortest-execution)", r: b, col: "#ffd36b"},
+      {name: "earliest-finish placement", r: pl, col: "#aeb6c4"},
+      {name: "earliest-finish + perception-first", r: mf, col: "#49d17a"},
+      {name: "earliest-finish + reservation", r: rs, col: "#5ec8ff"}];
+    const W = 1000, pl0 = 260, pr = 20, pw = W - pl0 - pr, lo = 20, hi = 48, X = v => pl0 + pw * (v - lo) / (hi - lo);
+    let s = "";
+    for (let g = lo; g <= hi; g += 4) s += `<line x1="${X(g)}" y1="14" x2="${X(g)}" y2="158" stroke="#262a33"/><text x="${X(g)}" y="174" font-size="11" fill="#aeb6c4" text-anchor="middle">${g} ms</text>`;
+    s += `<line x1="${X(fl)}" y1="10" x2="${X(fl)}" y2="158" stroke="#ff7a7a" stroke-dasharray="5 3"/><text x="${X(fl) + 4}" y="20" font-size="11" fill="#ff7a7a">work floor ${fl} ms</text>`;
+    rows.forEach((o, i) => { const y = 40 + i * 34;
+      s += `<text x="8" y="${y + 4}" font-size="12">${o.name}</text>`;
+      s += `<line x1="${X(o.r.min)}" y1="${y}" x2="${X(o.r.max)}" y2="${y}" stroke="${o.col}" stroke-width="9" opacity="0.6"/>`;
+      s += `<line x1="${X(o.r.median)}" y1="${y - 10}" x2="${X(o.r.median)}" y2="${y + 10}" stroke="#eef1f6" stroke-width="2"/>`;
+      s += `<text x="${X(o.r.max) + 6}" y="${y + 4}" font-size="11" fill="#aeb6c4">${o.r.min}–${o.r.max}</text>`; });
+    s += `<text x="${W - pr}" y="20" font-size="11" fill="#aeb6c4" text-anchor="end">bar = range over 20 seeds · tick = median · illustrative</text>`;
+    $("rec").innerHTML = `<title id="rec_t">Ranges of the baseline and three round-1 candidates against the work floor</title>` + s;
+    const yes = (v, good) => `<td class="${v ? (good ? "ok" : "warn") : "bad"}">${v ? "promote" : "no"}</td>`;
+    const tr = (label, c, ch, out) => { const r = MODEL.records_rule_B7(c, ch);
+      return `<tr><td>${label}</td><td>${c.median} (${c.min}–${c.max})</td><td>${ch.median} (${ch.min}–${ch.max})</td>${yes(r.median, r.disjoint)}${yes(r.disjoint, true)}<td>${out}</td></tr>`; };
+    $("rectab").querySelector("tbody").innerHTML =
+      tr("earliest-finish + perception-first vs baseline", mf, b, "promoted") +
+      tr("earliest-finish placement vs baseline", pl, b, "accepted; range overlaps the baseline's") +
+      tr("earliest-finish + reservation vs the new champion", rs, mf, "accepted; not promotable — the champion's best seed is near the floor, a decision raised to the owner");
+  }
+
+  function update(){
+    const g = +$("shift").value, sdP = +$("sd").value, n = +$("n").value, slow = $("slow").checked, ex = +$("extra").value;
+    $("extra").disabled = !slow;
+    const d = g / sdP, s = slow ? ex / sdP : 0;
+    $("shift_v").textContent = fmt(g, 1) + " %"; $("sd_v").textContent = fmt(sdP, 1) + " %"; $("n_v").textContent = n;
+    $("extra_v").textContent = slow ? fmt(ex, 1) + " % of the mean" : "(off)"; $("seed_v").textContent = "draw #" + seed;
+    const pDis = MODEL.p_promote_disjoint_B7(n, d, s), pMed = MODEL.mc_rules(n, d, s, V("e1_mc_pairs"), 7).median;
+    const nullDis = slow ? MODEL.p_promote_disjoint_B7(n, 0, s) : MODEL.disjoint_null_B7(n);
+    const nullMed = slow ? MODEL.mc_rules(n, 0, s, V("e1_mc_pairs"), 9).median : V("pub_median_null_probability");
+    const nullTag = (!slow && n === 20) ? "pub" : "der";
+    $("headline").innerHTML =
+      metric("Median rule promotes (this gain)", pct(pMed), "der") +
+      metric("Disjoint rule promotes (this gain)", sci(pDis), "der") +
+      metric("False promotion, median rule", slow ? pct(nullMed) : pct(nullMed, 0), slow ? "der" : "pub") +
+      metric("False promotion, disjoint rule", sci(nullDis), nullTag);
+    const pair = MODEL.draw_pair(n, d, s, MODEL.normals(MODEL.rng(1000 + seed)));
+    const r = drawPair(pair, sdP * M / 100, n);
+    const vm = MODEL.median_rule(pair.ch, pair.ca), vd = MODEL.disjoint_rule_B7(pair.ch, pair.ca);
+    $("draw_h").textContent = `median rule ${vm ? "promotes" : "does not promote"}; disjoint-range rule ${vd ? "promotes" : "does not promote"}`;
+    drawCurve(n, sdP, s, {g, dis: pDis, med: pMed});
+    let w1;
+    if (Math.abs(g) < 1e-9) w1 = `Nothing changed, yet the median rule promotes about ${pct(nullMed, 0)} of the time: whichever side's median happens to be lower wins a coin toss. The disjoint-range rule promotes with probability ${sci(nullDis)}${!slow && n === 20 ? " (1 / C(40, 20), note B7)" : ""}. Run many rounds with a median rule and the champion becomes a record of noise.`;
+    else if (g < 0) w1 = `The candidate is worse, and the median rule still promotes it ${pct(pMed)} of the time. The disjoint-range rule promotes it with probability ${sci(pDis)}.`;
+    else if (d < 2) w1 = `The real gain (${fmt(g, 1)} %) is smaller than about two spreads (${fmt(sdP, 1)} % each). The median rule promotes it ${pct(pMed)} of the time, but it would also promote no change ${pct(nullMed, 0)} of the time, so a promotion carries little information. The disjoint-range rule almost never promotes it: this is the price of the rule — a gain smaller than the spread is not promoted.`;
+    else w1 = `The real gain is ${fmt(d, 1)} spreads. The disjoint-range rule promotes it ${sci(pDis)} of the time while keeping false promotion at ${sci(nullDis)}. The median rule promotes it ${pct(pMed)} of the time, but its false-promotion rate stays at ${pct(nullMed, 0)}.`;
+    const w2 = slow ? `The slow first call adds ${fmt(ex, 1)} % to one candidate sample. The median barely moves, but the candidate's worst sample is now that call, so the disjoint-range rule needs the whole gain to exceed it. A warm-up call before timing would remove the artefact; changing the rule is a human decision (note B7).`
+      : `More samples per side make the disjoint rule <em>stricter</em> (the ranges widen as n grows) while making the no-change probability even smaller. The rule trades power for near-zero false promotion on purpose.`;
+    $("why1").innerHTML = w1; $("why2").innerHTML = w2;
+    $("callout").innerHTML = `<strong>What the rule is for.</strong> An unattended loop runs many comparisons. A rule that promotes noise even 1 time in 20 will, over enough rounds, crown a candidate that is no better. The disjoint-range rule keeps that rate below one in a hundred billion at n = 20, and the records panel below shows the cost: a better median and a better worst seed still lost to a champion sitting near the work floor.`;
+    $("live").textContent = `Median rule ${pct(pMed)}, disjoint rule ${sci(pDis)} at a ${fmt(g, 1)} % gain.`;
+  }
+
+  wire([...ids, "slow"], update);
+  $("redraw").addEventListener("click", () => { seed++; update(); });
+  renderSources(); renderRecords();
+  apply({}); mark(1);
+  const res = MODEL.selfTest(P, console.assert);
+  $("tests-sum").textContent = `${res.passed} passed, ${res.failed} failed`;
+  window.Story = {scenes: {outputs: {n: CASES.length}}, go: (id, k) => { if (id === "outputs" && CASES[k - 1]){ apply(CASES[k - 1].set); mark(k - 1); } }};
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cost grows linearly with researchers and rounds; gain does not — campaign cost explorer</title>
+<style>
+  :root{--bg:#0f1115;--panel:#1a1d24;--ink:#eef1f6;--muted:#aeb6c4;--accent:#5ec8ff;--ok:#49d17a;--bad:#ff7a7a;--warn:#ffd36b;--line:#3a3f4a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 6px}
+  .sub{color:var(--muted);max-width:80ch;margin:4px 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+  .ctrl{margin:0 0 14px}
+  label{display:block;font-weight:600;margin-bottom:2px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  fieldset{border:1px solid var(--line);border-radius:8px;margin:0 0 14px;padding:10px 12px}
+  legend{color:var(--muted);font-size:12.5px;padding:0 4px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button:hover,button:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:1px}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:128px;flex:1 1 128px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .tag{font-size:11px;padding:0 5px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:5px;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.asm{color:#d7a6ff;border-color:#d7a6ff}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-top:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:12px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why p{margin:0 0 6px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:8px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .banner{border-left:3px solid #d7a6ff;padding:8px 12px;margin:8px 0 0;background:#1a1522;color:#e6d6f5;border-radius:0 8px 8px 0;max-width:80ch;font-size:13.5px}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  td.ok{color:var(--ok)} td.bad{color:var(--bad)} td.warn{color:var(--warn)}
+  .tablewrap{overflow-x:auto}
+  #sources td:nth-child(3){white-space:nowrap}
+  #sources td:first-child{min-width:12ch}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px}
+  a{color:var(--accent)}
+  figure{margin:0}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Cost grows linearly with researchers and rounds, the gain does not: each extra round buys less, and a broken meter hides the bill</h1>
+  <p class="sub">An automated campaign (note B7) runs rounds of one planner and <em>N</em> researchers in parallel, each with a credit cap
+  (note C1). Its cost per round is (planner credits + N × researcher credits) × dollars per credit × the share of the caps the agents
+  actually spend. Its gain follows an <strong>illustrative diminishing-returns curve</strong>: each round closes a fixed share of the gap
+  between the champion and an assumed floor, and parallel researchers overlap. A round counts only if its gain clears the minimum win
+  (<span data-p="harness_win_min_rel"></span> %, the one-page proposal's minimum timing win, note B8); a smaller one is not promoted. Move the knobs and watch the dollars per millisecond climb.</p>
+  <p class="banner">Model choice of this page: the gain curve is invented. It is anchored to the first campaign's <em>illustrative shape</em>
+  (<code>c1_*</code> keys, not the
+  campaign's values: about <span data-p="c1_after_handrun_ms_illustrative"></span> ms after the hand-run rounds, about <span data-p="c1_after_auto_ms_illustrative"></span> ms after <span data-p="c1_auto_rounds_illustrative"></span> automated rounds, for about <span data-p="c1_auto_spend_usd_illustrative"></span> USD) with <span data-p="topic_researchers_parallel"></span> researchers, and to an assumed <span data-p="e4_floor_ms"></span> ms floor. The credit caps and the dollar rate are the scheduling topic's
+  configuration. Mixing the two is a page choice for illustration. Nothing on this page is a measurement or a forecast.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <fieldset>
+      <legend>Preloaded cases (illustrative)</legend>
+      <div class="cases" id="cases"></div>
+    </fieldset>
+    <div class="ctrl">
+      <label for="R">Rounds <span class="val" id="R_v"></span></label>
+      <input id="R" type="range" min="1" max="20" step="1">
+    </div>
+    <div class="ctrl">
+      <label for="N">Researchers in parallel <em>N</em> <span class="val" id="N_v"></span></label>
+      <input id="N" type="range" min="1" max="8" step="1">
+      <div class="hint"><span data-p="topic_researchers_parallel"></span> in the scheduling topic (configuration). Researchers in one round overlap: their shares of the gap combine as 1 − (1 − h)<sup>N</sup>.</div>
+    </div>
+    <div class="ctrl">
+      <label for="rc">Researcher credit cap <span class="val" id="rc_v"></span></label>
+      <input id="rc" type="range" min="50" max="1000" step="10">
+    </div>
+    <div class="ctrl">
+      <label for="pc">Planner credit cap <span class="val" id="pc_v"></span></label>
+      <input id="pc" type="range" min="0" max="500" step="10">
+    </div>
+    <div class="ctrl">
+      <label for="frac">Share of the caps actually spent <span class="val" id="frac_v"></span></label>
+      <input id="frac" type="range" min="0.05" max="1" step="any">
+      <div class="hint">1 = every agent spends its whole cap (the upper bound). The first case sets it so <span data-p="c1_auto_rounds_illustrative"></span> rounds cost the illustrative <span data-p="c1_auto_spend_usd_illustrative"></span> USD (derived).</div>
+    </div>
+    <div class="ctrl">
+      <label for="bud">Campaign budget <span class="val" id="bud_v"></span></label>
+      <input id="bud" type="range" min="0" max="500" step="5">
+      <div class="hint">The loop pauses before a round that would take the <em>metered</em> spend past it (note B7).</div>
+    </div>
+    <div class="ctrl"><label for="met"><input id="met" type="checkbox"> Credits are metered</label>
+      <div class="hint">Note B7: in the scheduling topic's first round the agent tool emitted no usage events, so credits read 0 and the cap did nothing.</div></div>
+    <div class="ctrl">
+      <label for="fl">Assumed floor <span class="val" id="fl_v"></span></label>
+      <input id="fl" type="range" min="50" max="86" step="1">
+      <div class="hint">The best reachable latency. The curve is re-anchored so <span data-p="c1_auto_rounds_illustrative"></span> rounds of <span data-p="topic_researchers_parallel"></span> researchers still give <span data-p="c1_after_auto_ms_illustrative"></span> ms; the floor changes what happens after that.</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <figure class="panel st-scene" id="outputs" aria-label="Outputs">
+    <div class="headline" id="headline"></div>
+    <h2>Champion latency after each round</h2>
+    <svg id="curve" viewBox="0 0 720 230" role="img" aria-labelledby="c_t"><title id="c_t">Champion latency after each round, with promoted and not-promoted rounds and the floor</title></svg>
+    <h2 style="margin-top:14px">Dollars per millisecond gained, per round</h2>
+    <svg id="bars" viewBox="0 0 720 190" role="img" aria-labelledby="b_t"><title id="b_t">Cost of each round divided by the latency it removed</title></svg>
+    <div class="why"><p id="why1"></p><p id="why2"></p><div class="callout" id="callout"></div></div>
+  </figure>
+</main>
+
+<section class="panel" style="margin:0 22px 18px" aria-label="Sources">
+  <h2>Parameters &amp; sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag ill">illustrative</span> = design parameter, configuration or a value that keeps the first
+  campaign's shape, never a measurement. <span class="tag asm">assumption</span> = a choice of this page, not in <code>constants.json</code>.
+  <span class="tag der">derived</span> = computed on this page.</p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  <p class="hint">Self-tests: <span id="tests-sum">not run</span>.</p>
+</section>
+
+<footer>
+  Generated 2026-11-12 · Study aid for <em>agentic-research-harness</em> (rung 3). Sources: notes A1, B7, B8, C1, C4 (lesson 5) and
+  <code>constants.json</code>. Simplifications: every round has the same expected gain share and the same spend; a round whose gain is below
+  the minimum win promotes nothing and the champion stays; no variance between rounds; tool and machine costs are ignored (note C1 names an
+  optional resource-cost plugin). This is a study aid; numbers are from the listed sources or labelled.
+</footer>
+
+<script type="application/json" id="params" data-keys="c1_baseline_ms_illustrative,c1_after_handrun_ms_illustrative,c1_after_auto_ms_illustrative,c1_auto_rounds_illustrative,c1_auto_spend_usd_illustrative,topic_researchers_parallel,topic_planner_credits,topic_researcher_credits,topic_usd_per_credit,harness_win_min_rel,e4_floor_ms,e4_budget_usd">
+{
+ "c1_baseline_ms_illustrative": {
+  "value": 400,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "starting latency of one policy call on the accelerator"
+ },
+ "c1_after_handrun_ms_illustrative": {
+  "value": 100,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "after the hand-run rounds"
+ },
+ "c1_after_auto_ms_illustrative": {
+  "value": 88,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "after the automated rounds: a further ~12 %, my arithmetic"
+ },
+ "c1_auto_rounds_illustrative": {
+  "value": 5,
+  "unit": "rounds",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values"
+ },
+ "c1_auto_spend_usd_illustrative": {
+  "value": 50,
+  "unit": "USD",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "LLM spend of the automated rounds: a few tens of dollars"
+ },
+ "topic_researchers_parallel": {
+  "value": 2,
+  "unit": "researchers",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_planner_credits": {
+  "value": 100,
+  "unit": "credits",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_researcher_credits": {
+  "value": 300,
+  "unit": "credits",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_usd_per_credit": {
+  "value": 0.04,
+  "unit": "USD per credit",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)",
+  "note": "an illustrative conversion factor from agent credits to dollars"
+ },
+ "harness_win_min_rel": {
+  "value": 1,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "one-page proposal: a timing win must also be at least 1 %"
+ },
+ "e4_floor_ms": {
+  "value": 80,
+  "unit": "ms",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): assumed best reachable latency after the hand-run rounds; the gain curve closes the gap to it"
+ },
+ "e4_budget_usd": {
+  "value": 200,
+  "unit": "USD",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): default campaign budget that pauses the loop when the metered spend reaches it"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+var MODEL = (function(){
+  "use strict";
+  // Note C1: cost of one round = (planner credits + N x researcher credits) x USD per credit x share of caps spent.
+  function round_cost_C1(N, plannerCredits, researcherCredits, usdPerCredit, spentShare){
+    return (plannerCredits + N * researcherCredits) * usdPerCredit * spentShare;
+  }
+  // Page model (illustrative): one researcher closes a share h1 of the gap to the floor per round;
+  // N overlapping researchers close 1 - (1 - h1)^N.
+  const round_share = (h1, N) => 1 - Math.pow(1 - h1, N);
+  // Anchor: from m0 to mR in R rounds with N0 researchers and floor F => solve for h1.
+  function anchor_h1(m0, mR, R, N0, F){
+    const q = (mR - F) / (m0 - F), hN0 = 1 - Math.pow(q, 1 / R);
+    return 1 - Math.pow(1 - hN0, 1 / N0);
+  }
+  // The campaign loop (note B7): pause before a round that would push the METERED spend past the budget;
+  // promote only if the round's gain is at least minWinPct % of the current champion.
+  function campaign_B7(o){
+    let m = o.m0, actual = 0, metered = 0, paused = false;
+    const rounds = [], h = round_share(o.h1, o.N);
+    const cost = round_cost_C1(o.N, o.plannerCredits, o.researcherCredits, o.usdPerCredit, o.spentShare);
+    for (let r = 1; r <= o.R; r++){
+      if (o.metered && metered + cost > o.budget + 1e-9){ paused = true; break; }
+      actual += cost; if (o.metered) metered += cost;
+      const gain = h * (m - o.floor), promoted = gain / m * 100 >= o.minWinPct - 1e-12;
+      if (promoted) m -= gain;
+      rounds.push({r, m, gain: promoted ? gain : 0, offered: gain, cost, cum: actual, promoted});
+    }
+    const prom = rounds.filter(x => x.promoted).length;
+    return {rounds, final: m, actual, metered, paused, promotions: prom, costPerPromotion: prom ? actual / prom : Infinity, costPerRound: cost, share: h};
+  }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const near = (a, b, t) => Math.abs(a - b) <= t;
+    const m0 = P.c1_after_handrun_ms_illustrative.value, mR = P.c1_after_auto_ms_illustrative.value, R = P.c1_auto_rounds_illustrative.value;
+    const N0 = P.topic_researchers_parallel.value, F = P.e4_floor_ms.value;
+    const pc = P.topic_planner_credits.value, rc = P.topic_researcher_credits.value, usd = P.topic_usd_per_credit.value;
+    const capCost = R * round_cost_C1(N0, pc, rc, usd, 1);
+    ok(near(capCost, 140, 1e-9), "T1 five rounds at the caps: 5 x (100 + 2 x 300) x 0.04 = 140 USD (my arithmetic)");
+    const share = P.c1_auto_spend_usd_illustrative.value / capCost;
+    ok(near(share * capCost, 50, 1e-9), "T2 derived spent share reproduces the illustrative 50 USD");
+    const h1 = anchor_h1(m0, mR, R, N0, F);
+    const base = {m0, floor: F, h1, N: N0, R, plannerCredits: pc, researcherCredits: rc, usdPerCredit: usd, spentShare: share, budget: 1e9, metered: true, minWinPct: P.harness_win_min_rel.value};
+    const a = campaign_B7(base);
+    ok(near(a.final, mR, 1e-9) && a.promotions === R, "T3 the anchor: five promoted rounds of two researchers end at 88 ms");
+    ok(near((m0 - mR) / m0, 0.12, 1e-9), "T4 a further 12 % over the hand-run result (constants note)");
+    ok(a.rounds.every((x, i) => i === 0 || x.gain < a.rounds[i - 1].gain), "T5 each round gains less than the one before");
+    const six = campaign_B7(Object.assign({}, base, {N: 6}));
+    ok(six.final < a.final && six.actual / (m0 - six.final) > a.actual / (m0 - a.final), "T6 six researchers: lower latency, more dollars per ms");
+    const long = campaign_B7(Object.assign({}, base, {R: 20}));
+    ok(long.rounds.some(x => !x.promoted), "T7 a 20-round campaign reaches rounds whose gain is below the 1 % minimum win");
+    const capped = campaign_B7(Object.assign({}, base, {R: 15, spentShare: 1, budget: P.e4_budget_usd.value}));
+    ok(capped.paused && capped.rounds.length === 7, "T8 metered, at the caps, 200 USD budget: pauses after 7 rounds (7 x 28 = 196)");
+    const blind = campaign_B7(Object.assign({}, base, {R: 15, spentShare: 1, budget: P.e4_budget_usd.value, metered: false}));
+    ok(!blind.paused && blind.metered === 0 && near(blind.actual, 420, 1e-9), "T9 unmetered: never pauses, records 0, really spends 420 USD");
+    ok(campaign_B7(Object.assign({}, base, {budget: 0})).rounds.length === 0, "T10 zero budget runs no round");
+    return {passed, failed};
+  }
+  return {round_cost_C1, round_share, anchor_h1, campaign_B7, selfTest};
+})();
+if (typeof module !== "undefined" && module.exports) module.exports = MODEL;
+/*MODEL-END*/
+
+if (typeof window !== "undefined") (function(){
+  // ---- shared page helpers (identical on every explorer of this kit) ----
+  const $ = id => document.getElementById(id);
+  const P = JSON.parse($("params").textContent);
+  const V = k => P[k].value;
+  const fmt = (x, d) => Number(x).toFixed(d);
+  const pct = (x, d) => (x * 100).toFixed(d === undefined ? 1 : d) + " %";
+  const TAG = {ill: "illustrative", der: "derived", pub: "public", asm: "assumption"};
+  const metric = (k, v, t) => `<div class="metric"><div class="k">${k}<span class="tag ${t}">${TAG[t]}</span></div><div class="v">${v}</div></div>`;
+  function renderSources(){
+    const tb = $("sources").querySelector("tbody");
+    for (const [k, o] of Object.entries(P)){
+      const val = Array.isArray(o.value) ? o.value.join("–") : (o.value !== null && typeof o.value === "object" ? Object.entries(o.value).map(([a, b]) => a + " " + b).join(", ") : o.value);
+      const tr = document.createElement("tr");
+      tr.innerHTML = `<td><code>${k}</code></td><td>${val} ${o.unit || ""}</td><td>${o.class}</td><td>${o.source}${o.note ? " — " + o.note : ""}</td>`;
+      tb.appendChild(tr);
+    }
+  }
+  // Fill every <span data-p="key" [data-f="path"] [data-x="scale"]> from the params block, so prose never retypes a constant.
+  document.querySelectorAll("[data-p]").forEach(el => { let v = V(el.dataset.p);
+    if (el.dataset.f) v = v[el.dataset.f]; if (el.dataset.x) v = +(v * +el.dataset.x).toFixed(6); el.textContent = v; });
+  function makeCases(CASES, apply){
+    CASES.forEach((c, i) => {
+      const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+      if (c.note) b.title = c.note;
+      b.addEventListener("click", () => { apply(c.set); mark(i); }); $("cases").appendChild(b);
+    });
+  }
+  function mark(i){ [...$("cases").children].forEach((b, j) => b.setAttribute("aria-pressed", String(j === i))); }
+  function wire(ids, update){
+    let raf = 0;
+    ids.forEach(id => $(id).addEventListener("input", () => { mark(-1); cancelAnimationFrame(raf); raf = requestAnimationFrame(update); }));
+  }
+  const m0 = V("c1_after_handrun_ms_illustrative"), mR = V("c1_after_auto_ms_illustrative"), R0 = V("c1_auto_rounds_illustrative"), N0 = V("topic_researchers_parallel");
+  const usd = V("topic_usd_per_credit"), minWin = V("harness_win_min_rel");
+  const capCost0 = R0 * MODEL.round_cost_C1(N0, V("topic_planner_credits"), V("topic_researcher_credits"), usd, 1);
+  const share0 = V("c1_auto_spend_usd_illustrative") / capCost0;
+  const base = {R: R0, N: N0, rc: V("topic_researcher_credits"), pc: V("topic_planner_credits"), frac: share0, bud: V("e4_budget_usd"), met: true, fl: V("e4_floor_ms")};
+  const CASES = [
+    {name: "First-campaign shape: 5 rounds, 2 researchers", set: {}},
+    {name: "Keep going: 15 rounds", set: {R: 15}},
+    {name: "Six researchers", set: {N: 6}},
+    {name: "Agents spend their full caps, 15 rounds", set: {R: 15, frac: 1}},
+    {name: "Credit meter reads zero", set: {R: 15, frac: 1, met: false}}
+  ];
+  const ids = ["R", "N", "rc", "pc", "frac", "bud", "fl"];
+  function apply(st){ const s = Object.assign({}, base, st); ids.forEach(k => $(k).value = s[k]); $("met").checked = s.met; update(); }
+  makeCases(CASES, apply);
+  const $$ = x => "$" + (x >= 100 ? x.toFixed(0) : x.toFixed(2));
+
+  function drawCurve(c, R, floor, budgetRound){
+    const W = 720, H = 230, pl = 50, pr = 16, pt = 18, pb = 36, pw = W - pl - pr, ph = H - pt - pb;
+    const lo = Math.floor(floor - 2), hi = m0 + 2, X = r => pl + pw * r / Math.max(R, 1), Y = v => pt + ph * (hi - v) / (hi - lo);
+    let s = "";
+    const step = (hi - lo) > 30 ? 10 : 5;
+    for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) s += `<line x1="${pl}" y1="${Y(v)}" x2="${pl + pw}" y2="${Y(v)}" stroke="#262a33"/><text x="${pl - 6}" y="${Y(v) + 4}" font-size="11" fill="#aeb6c4" text-anchor="end">${v} ms</text>`;
+    for (let r = 0; r <= R; r += (R > 10 ? 2 : 1)) s += `<text x="${X(r)}" y="${pt + ph + 16}" font-size="11" fill="#aeb6c4" text-anchor="middle">${r}</text>`;
+    s += `<line x1="${pl}" y1="${Y(floor)}" x2="${pl + pw}" y2="${Y(floor)}" stroke="#ff7a7a" stroke-dasharray="5 3"/><text x="${pl + pw - 4}" y="${Y(floor) - 5}" font-size="11" fill="#ff7a7a" text-anchor="end">assumed floor ${floor} ms</text>`;
+    s += `<rect x="${X(R0) - 5}" y="${Y(mR) - 5}" width="10" height="10" fill="none" stroke="#ffd36b" stroke-width="2" transform="rotate(45 ${X(R0)} ${Y(mR)})"/>`;
+    s += `<text x="${X(R0) > pl + pw - 280 ? X(R0) - 9 : X(R0) + 9}" y="${Y(mR) - 9}" font-size="11" fill="#ffd36b" text-anchor="${X(R0) > pl + pw - 280 ? "end" : "start"}">anchor: ${mR} ms after ${R0} rounds (illustrative shape)</text>`;
+    const pts = [[0, m0]].concat(c.rounds.map(x => [x.r, x.m]));
+    s += `<path d="${pts.map((p, i) => (i ? "L" : "M") + X(p[0]).toFixed(1) + " " + Y(p[1]).toFixed(1)).join(" ")}" fill="none" stroke="#5ec8ff" stroke-width="2.5"/>`;
+    s += `<circle cx="${X(0)}" cy="${Y(m0)}" r="4" fill="#aeb6c4"/>`;
+    c.rounds.forEach(x => s += x.promoted ? `<circle cx="${X(x.r)}" cy="${Y(x.m)}" r="4.5" fill="#49d17a"/>` : `<circle cx="${X(x.r)}" cy="${Y(x.m)}" r="4.5" fill="none" stroke="#ff7a7a" stroke-width="2"/>`);
+    if (budgetRound !== null) s += `<line x1="${X(budgetRound)}" y1="${pt}" x2="${X(budgetRound)}" y2="${pt + ph}" stroke="#ffd36b" stroke-width="2"/><text x="${X(budgetRound) + 4}" y="${pt + ph - 8}" font-size="11" fill="#ffd36b">budget pause</text>`;
+    s += `<text x="${pl + 6}" y="${pt + 12}" font-size="11" fill="#aeb6c4">● promoted round  ○ gain below the ${minWin} % minimum win, not promoted</text>`;
+    s += `<text x="${pl + pw / 2}" y="${H - 4}" font-size="11" fill="#aeb6c4" text-anchor="middle">round (0 = after the hand-run rounds)</text>`;
+    $("curve").innerHTML = `<title id="c_t">Champion latency after each round, with promoted and not-promoted rounds and the floor</title>` + s;
+  }
+  function drawBars(c, R){
+    const W = 720, H = 190, pl = 56, pr = 16, pt = 16, pb = 32, pw = W - pl - pr, ph = H - pt - pb;
+    const vals = c.rounds.map(x => x.gain > 0 ? x.cost / x.gain : Infinity), fin = vals.filter(isFinite);
+    const top = Math.max(1, ...fin) * 1.15, bw = pw / Math.max(R, 1), Y = v => pt + ph * (1 - Math.min(v, top) / top);
+    let s = `<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#3a1f22"/><line x1="0" y1="0" x2="0" y2="6" stroke="#ff7a7a" stroke-width="3"/></pattern></defs>`;
+    for (let g = 0; g <= 4; g++){ const v = top * g / 4; s += `<line x1="${pl}" y1="${Y(v)}" x2="${pl + pw}" y2="${Y(v)}" stroke="#262a33"/><text x="${pl - 6}" y="${Y(v) + 4}" font-size="11" fill="#aeb6c4" text-anchor="end">${$$(v)}</text>`; }
+    c.rounds.forEach((x, i) => { const v = vals[i], x0 = pl + (x.r - 1) * bw + bw * 0.15, w = bw * 0.7;
+      if (isFinite(v)) s += `<rect x="${x0}" y="${Y(v)}" width="${w}" height="${pt + ph - Y(v)}" fill="#5ec8ff"/>`;
+      else s += `<rect x="${x0}" y="${pt}" width="${w}" height="${ph}" fill="url(#hatch)"/><text x="${x0 + w / 2}" y="${pt + 14}" font-size="11" fill="#ff7a7a" text-anchor="middle">no gain</text>`;
+      if (R <= 10 || x.r % 2 === 0 || x.r === 1) s += `<text x="${x0 + w / 2}" y="${pt + ph + 14}" font-size="11" fill="#aeb6c4" text-anchor="middle">${x.r}</text>`; });
+    s += `<text x="${pl + pw / 2}" y="${H - 4}" font-size="11" fill="#aeb6c4" text-anchor="middle">round · bar = round cost ÷ ms removed (hatched = spent, nothing promoted)</text>`;
+    $("bars").innerHTML = `<title id="b_t">Cost of each round divided by the latency it removed</title>` + s;
+  }
+
+  function update(){
+    const R = +$("R").value, N = +$("N").value, rc = +$("rc").value, pc = +$("pc").value, frac = +$("frac").value, bud = +$("bud").value, met = $("met").checked, fl = +$("fl").value;
+    $("R_v").textContent = R; $("N_v").textContent = N; $("rc_v").textContent = rc + " credits"; $("pc_v").textContent = pc + " credits";
+    $("frac_v").textContent = pct(frac, 0) + (Math.abs(frac - share0) < 0.002 ? ` (derived: ${V("c1_auto_spend_usd_illustrative")} USD over ${R0} rounds)` : "");
+    $("bud_v").textContent = $$(bud); $("fl_v").textContent = fl + " ms";
+    const h1 = MODEL.anchor_h1(m0, mR, R0, N0, fl);
+    const c = MODEL.campaign_B7({m0, floor: fl, h1, N, R, plannerCredits: pc, researcherCredits: rc, usdPerCredit: usd, spentShare: frac, budget: bud, metered: met, minWinPct: minWin});
+    const ran = c.rounds.length, lastP = [...c.rounds].reverse().find(x => x.promoted);
+    $("headline").innerHTML =
+      metric("Champion after the campaign", fmt(c.final, 1) + " ms", "der") +
+      metric("Gain over the hand-run result", pct((m0 - c.final) / m0, 1), "der") +
+      metric("Real spend", $$(c.actual), "der") +
+      metric("Metered spend", met ? $$(c.metered) : `<span style="color:var(--bad)">$0 (not metered)</span>`, "der") +
+      metric("Promotions / rounds run", `${c.promotions} / ${ran}${c.paused ? " (paused)" : ""}`, "der") +
+      metric("Cost per accepted improvement", isFinite(c.costPerPromotion) ? $$(c.costPerPromotion) : "none", "der");
+    drawCurve(c, R, fl, c.paused ? ran : null); drawBars(c, R);
+    const first = c.rounds[0], firstRate = first && first.gain > 0 ? first.cost / first.gain : NaN, lastRate = lastP ? lastP.cost / lastP.gain : NaN;
+    let w1;
+    if (!ran) w1 = `The budget (${$$(bud)}) is below the cost of one round (${$$(c.costPerRound)}), so the loop pauses before round 1.`;
+    else if (c.promotions < ran) w1 = `After round ${lastP ? lastP.r : 0} the expected gain per round (${fmt(c.rounds[ran - 1].offered, 2)} ms) is below the ${minWin} % minimum win, so later rounds cost ${$$(c.costPerRound)} each and promote nothing. Diminishing returns plus a promotion threshold give a natural stopping point; the campaign should stop or change direction there, which is a human decision (note B8).`;
+    else w1 = `Every round promoted, but each bought less: the first removed ${fmt(first.gain, 2)} ms for ${$$(first.cost)} (${$$(firstRate)}/ms), the last ${fmt(lastP.gain, 2)} ms for the same money (${$$(lastRate)}/ms). Cost is linear in rounds; the gain shrinks with the gap that is left.`;
+    const w2 = !met ? `The meter reads zero, so the ${$$(bud)} budget never trips: the dashboard shows $0 while the campaign really spends ${$$(c.actual)}. This happened in the scheduling topic's first round; check the meter in round one (notes B7, C4).`
+      : `${N} researcher${N > 1 ? "s" : ""} close${N > 1 ? "" : "s"} ${pct(c.share, 1)} of the remaining gap per round (one alone: ${pct(h1, 1)}), at ${$$(c.costPerRound)} per round. Researchers overlap, so the share grows more slowly than N while the cost grows with N.` + (c.paused ? ` The metered spend reached the ${$$(bud)} budget, so the loop paused after round ${ran}.` : "");
+    $("why1").innerHTML = w1; $("why2").innerHTML = w2;
+    $("callout").innerHTML = `<strong>Automate last, and meter from round one.</strong> In the first campaign's illustrative shape, people steering agents took the latency from about ${V("c1_baseline_ms_illustrative")} to ${m0} ms; automation then found the smaller, harder ${pct((m0 - mR) / m0, 0)} for about ${V("c1_auto_spend_usd_illustrative")} USD (note A1; illustrative shape). Report cost per accepted improvement next to the gain (note B7), so the week a round stops paying for itself is visible.`;
+    $("live").textContent = `${fmt(c.final, 1)} ms after ${ran} rounds, ${$$(c.actual)} spent, ${c.promotions} promotions.`;
+  }
+
+  wire([...ids, "met"], update);
+  renderSources();
+  apply({}); mark(0);
+  const res = MODEL.selfTest(P, console.assert);
+  $("tests-sum").textContent = `${res.passed} passed, ${res.failed} failed`;
+  window.Story = {scenes: {outputs: {n: CASES.length}}, go: (id, k) => { if (id === "outputs" && CASES[k - 1]){ apply(CASES[k - 1].set); mark(k - 1); } }};
+})();
+</script>
+</body>
+</html>

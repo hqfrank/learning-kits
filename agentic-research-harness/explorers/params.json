@@ -1,0 +1,362 @@
+{
+ "harness_timed_calls": {
+  "value": 20,
+  "unit": "timed calls per run",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "first campaign: promotion needs all 20 timed calls faster than all 20 of the champion"
+ },
+ "topic_visible_seeds": {
+  "value": 20,
+  "unit": "seeds",
+  "class": "illustrative",
+  "source": "design parameter of the harness"
+ },
+ "pub_median_null_probability": {
+  "value": 0.5,
+  "unit": "probability",
+  "class": "public",
+  "source": "my arithmetic: under the same no-difference assumption, the candidate's median is below the champion's median with probability 1/2 (symmetry)"
+ },
+ "pub_disjoint_null_probability_20v20": {
+  "value": 7.25e-12,
+  "unit": "probability",
+  "class": "public",
+  "source": "my arithmetic: if candidate and champion samples are 20 i.i.d. draws each from one continuous distribution, every ordering of the 40 values is equally likely, so P(all 20 candidate values below all 20 champion values) = 1 / C(40,20) = 1 / 137 846 528 820"
+ },
+ "sched_baseline": {
+  "value": {
+   "median": 34.7,
+   "min": 32.3,
+   "max": 45.4,
+   "binding_visible": 0.49,
+   "binding_a": 0.34,
+   "binding_b": 0.44
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "FIFO dispatch, shortest-execution placement; ACCEPTED"
+ },
+ "sched_r1_eft_placement": {
+  "value": {
+   "median": 27.8,
+   "min": 23.7,
+   "max": 34.2,
+   "binding": 0.434
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, ranges overlap the baseline, not promoted"
+ },
+ "sched_r1_eft_metric_first": {
+  "value": {
+   "median": 25.8,
+   "min": 23.7,
+   "max": 30.7,
+   "binding": 0.474
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "earliest-finish placement + metric-chain-first dispatch; promoted"
+ },
+ "sched_r1_eft_reserve": {
+  "value": {
+   "median": 23.9,
+   "min": 23.7,
+   "max": 24.1,
+   "binding": 0.78
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, best seed ties the champion's best seed at the floor; not promotable"
+ },
+ "sched_work_floor_ms": {
+  "value": 22.5,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "nominal floor with segmenter on the DLA in parallel with the detector on the GPU: 2 + 2.5 + 14 + 4 (my arithmetic matches the source value)"
+ },
+ "e1_metric_mean": {
+  "value": 100,
+  "unit": "metric units",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): the champion's mean, so gains and spreads read as % of the mean"
+ },
+ "e1_default_gain_pct": {
+  "value": 1,
+  "unit": "% of the mean",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): default true gain, chosen below the default spread"
+ },
+ "e1_default_spread_pct": {
+  "value": 2,
+  "unit": "% of the mean",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): default run-to-run standard deviation"
+ },
+ "e1_default_slow_extra_pct": {
+  "value": 10,
+  "unit": "% of the mean",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): extra time of one slow first call when that case is on"
+ },
+ "e1_mc_pairs": {
+  "value": 4000,
+  "unit": "simulated pairs",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): Monte Carlo pairs for the median-rule headline (curve points use 1 500)"
+ },
+ "harness_e2e_rmse_multiple": {
+  "value": 3,
+  "unit": "x reduced-precision noise",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "one-page proposal: end-to-end output error at most three times the legitimate reduced-precision noise"
+ },
+ "harness_margin_cap_scheduling": {
+  "value": 0.9,
+  "unit": "binding ratio",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "promotion needs binding <= this in the scheduling topic (topic.json margin.max_for_promotion)"
+ },
+ "harness_margin_cap_first_campaign": {
+  "value": 0.85,
+  "unit": "binding ratio",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "promotion needs binding <= this in the first campaign"
+ },
+ "topic_soft_miss_limit": {
+  "value": 5,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "soft chains may miss at most 5 % of deadlines"
+ },
+ "topic_decision_time_limit_ms": {
+  "value": 2,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "mean scheduler decision time limit (host wall clock)"
+ },
+ "sched_edf_gpu_first": {
+  "value": {
+   "median": 34.5,
+   "min": 31.6,
+   "max": 41.6,
+   "binding_visible": 0.6,
+   "binding_a": 0.26,
+   "binding_b": 0.43
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "EDF dispatch, same placement; ACCEPTED, ranges overlap, not promotable"
+ },
+ "sched_r1_metric_reserve": {
+  "value": {
+   "median": 30,
+   "min": 27.9,
+   "max": 31.2,
+   "binding": 0.807
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, not promoted"
+ },
+ "e2_legit_seed": {
+  "value": 7,
+  "unit": "seed",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): seed of the page's ten legitimate calibration runs (half-normal distances, unit scale)"
+ },
+ "e2_control_offset_sigma": {
+  "value": 8,
+  "unit": "x legitimate noise scale",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): how far a broken control sits beyond legitimate noise (an output-scaling control); chosen so the 3x, K = 3 default rejects it about 99 % of the time"
+ },
+ "sched_node_ms": {
+  "value": {
+   "capture_cpu": 2,
+   "preprocess_cpu": 9,
+   "preprocess_gpu": 2.5,
+   "detector_gpu": 10,
+   "detector_dla": 18,
+   "segmenter_gpu": 8,
+   "segmenter_dla": 14,
+   "tracker_cpu": 4
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "perception chain: capture -> preprocess -> (detector || segmenter) -> tracker"
+ },
+ "sched_perception_rate_hz": {
+  "value": 30,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_cpu_cores": {
+  "value": 4,
+  "unit": "cores",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "visible workload: 4 CPU cores, 1 GPU, 1 DLA"
+ },
+ "topic_horizon_s": {
+  "value": 5,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter of the harness"
+ },
+ "sched_baseline_gpu_util": {
+  "value": 91,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "baseline (shortest-execution placement)"
+ },
+ "sched_baseline_dla_util": {
+  "value": 0,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_r1_gpu_util": {
+  "value": 65,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "after earliest-finish placement (from 91 %)"
+ },
+ "sched_r1_dla_util": {
+  "value": 42,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "after earliest-finish placement (from 0 %)"
+ },
+ "sched_heldout_b_grasp_ms": {
+  "value": 200,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "held-out b: a different robot with a two-camera fan-in chain, a long GPU grasp planner, no DLA"
+ },
+ "sched_cal1_heldout_b": {
+  "value": {
+   "gpu_greedy": 37,
+   "cpu_placement": 29
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "diagnostic probe: GPU-greedy placement loses because a long grasp-planner job blocks the GPU"
+ },
+ "e3_jitter_frac": {
+  "value": 0.05,
+  "unit": "fraction",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): each job's run time varies uniformly by up to this fraction of its listed time"
+ },
+ "e3_short_bg_job_ms": {
+  "value": 5,
+  "unit": "ms",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): length of one other-chain GPU job in the 'many short jobs' cases"
+ },
+ "e3_long_bg_period_ms": {
+  "value": 1000,
+  "unit": "ms",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): release period of the long GPU job in the 'long job blocks the GPU' case"
+ },
+ "c1_baseline_ms_illustrative": {
+  "value": 400,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "starting latency of one policy call on the accelerator"
+ },
+ "c1_after_handrun_ms_illustrative": {
+  "value": 100,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "after the hand-run rounds"
+ },
+ "c1_after_auto_ms_illustrative": {
+  "value": 88,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "after the automated rounds: a further ~12 %, my arithmetic"
+ },
+ "c1_auto_rounds_illustrative": {
+  "value": 5,
+  "unit": "rounds",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values"
+ },
+ "c1_auto_spend_usd_illustrative": {
+  "value": 50,
+  "unit": "USD",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "LLM spend of the automated rounds: a few tens of dollars"
+ },
+ "topic_researchers_parallel": {
+  "value": 2,
+  "unit": "researchers",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_planner_credits": {
+  "value": 100,
+  "unit": "credits",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_researcher_credits": {
+  "value": 300,
+  "unit": "credits",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_usd_per_credit": {
+  "value": 0.04,
+  "unit": "USD per credit",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)",
+  "note": "an illustrative conversion factor from agent credits to dollars"
+ },
+ "harness_win_min_rel": {
+  "value": 1,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "one-page proposal: a timing win must also be at least 1 %"
+ },
+ "e4_floor_ms": {
+  "value": 80,
+  "unit": "ms",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): assumed best reachable latency after the hand-run rounds; the gain curve closes the gap to it"
+ },
+ "e4_budget_usd": {
+  "value": 200,
+  "unit": "USD",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): default campaign budget that pauses the loop when the metered spend reaches it"
+ }
+}

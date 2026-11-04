@@ -254,3 +254,39 @@ notes ("model version", baseline / moved arms and X_base / X_moved, B3's "suppos
 users", C1's desktop-session advice), wave count as a ceiling, shared memory as the fourth residency
 limit, units in numeric prompts; added two A0 correction questions and one B4 numeric (Thor ridge at
 the read peak). All ids and KPs kept. Validated with `node quiz/check-banks.js` (0 errors); `tools/public-scan.sh` is clean.
+
+## agentic-research-harness — Running optimization research with AI agents
+
+| Topic | Section | KPs | Questions | Date |
+|---|---|---|---|---|
+| agentic-research-harness | A0-why-research-needs-a-different-setup | 7 | 21 | 2026-11-04 |
+| agentic-research-harness | A1-the-order-of-construction | 6 | 20 | 2026-11-04 |
+| agentic-research-harness | B1-reference-and-baseline | 6 | 22 | 2026-11-04 |
+| agentic-research-harness | B2-the-frozen-evaluator | 6 | 22 | 2026-11-04 |
+| agentic-research-harness | B3-negative-controls | 7 | 23 | 2026-11-04 |
+| agentic-research-harness | B4-evidence-records | 6 | 19 | 2026-11-04 |
+| agentic-research-harness | B5-the-candidate-contract | 6 | 19 | 2026-11-04 |
+| agentic-research-harness | B6-the-two-memories | 6 | 19 | 2026-11-04 |
+| agentic-research-harness | B7-agents-and-the-loop | 7 | 26 | 2026-11-04 |
+| agentic-research-harness | B8-reporting | 6 | 20 | 2026-11-04 |
+| agentic-research-harness | C1-instantiating-a-topic | 6 | 20 | 2026-11-04 |
+| agentic-research-harness | C2-the-scheduling-topic | 7 | 26 | 2026-11-04 |
+| agentic-research-harness | C3-calibration | 8 | 27 | 2026-11-04 |
+| agentic-research-harness | C4-lessons-about-the-method | 6 | 22 | 2026-11-04 |
+| agentic-research-harness | C5-the-checklist | 6 | 20 | 2026-11-04 |
+
+**Totals:** 15 banks (one per note), 96 knowledge points, 326 questions
+(mcq 148, tf 92, multi 41, numeric 45). Every knowledge point has 3–5 questions.
+
+Notes: sources are the kit's notes, glossary and `constants.json` only. Every number was loaded from
+`constants.json` by key at generation time. First-campaign values (`c1_*`) and the scheduling simulator's
+values (`sched_*`, `topic_*`, `harness_*`) are called illustrative (design parameter or demonstration run)
+in the prompt or explanation; public values (Goodhart, Strathern, Popper, ReAct, Liu & Layland, HEFT,
+Amdahl, the 0.5 and 1/C(40,20) null probabilities) keep their real values. Derived values (4× and 12 %
+for the illustrative campaign shape, 1.1 ms headroom above the first floor, 6.9 ms from placement, 16×
+launch understatement, overall binding = max of the per-set values) are asked with their inputs in the
+prompt and labelled "my arithmetic". B5 has no numeric questions because the note has no numbers. tf is
+about 28 % because each "Common confusions" entry gets a tf on the confusion itself. An mcq length-cue
+lint (answer not clearly the longest choice) was applied to every bank. Validated with
+`node quiz/check-banks.js` (0 errors); `tools/public-scan.sh learning/agentic-research-harness` and a scan
+of the new banks, `manifest.js` and this file are clean.

@@ -1,0 +1,1266 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The time trial — trusting a faster number when AI agents do the research</title>
+<meta name="description" content="A visual story: optimization research with AI agents as a time trial. Builders modify cars, a sealed timing hut judges every lap, decoy cars must lose, every claim cites its timing slip, and a new champion must beat the old one on every lap.">
+<link rel="stylesheet" href="../../stories/story.css">
+<style>
+  /* palette meaning (whole page): sun = the clock and lap times (the metric) · leaf = honest / accepted / champion
+     · coral = a shortcut, a decoy, rejected · plum = sealed (rulebook seal, secret course) · sky = the course and its inputs
+     · stone = people (builders, coach, starter, owner) */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--ink-2);margin:10px 4px 0}
+  .legend i{display:inline-block;width:16px;height:12px;border-radius:4px;border:1.5px solid var(--navy);margin-right:6px;vertical-align:-1px}
+  header.hero.wrap{padding-left:20px;padding-right:20px}
+  .hero-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+  .hero h1{max-width:46ch;font-size:clamp(24px,2.6vw,32px);line-height:1.12}
+  .hero .lede{font-size:clamp(15px,1.4vw,17px);margin-bottom:.5rem;max-width:90ch}
+  header.hero{padding-top:24px}
+  .kicker{line-height:1.6}
+  .cast .c svg{max-width:100%}
+  .stages{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+  .stages li{background:var(--card);border:2px solid var(--ink);border-radius:14px;padding:8px 12px;box-shadow:0 3px 0 var(--ink);font:700 15px/1.35 var(--body)}
+  .stages li b.n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font:800 13px var(--display);margin-right:6px}
+  .stages li .read-note{font-size:13px;margin-left:4px}
+  /* ambient loops: cars lap the course (the decoy laps faster because its route is shorter); the slip prints */
+  @keyframes lap{0%{offset-distance:0%}100%{offset-distance:100%}}
+  .lap{animation:lap var(--T,6s) linear infinite;offset-rotate:0deg;animation-delay:var(--dl,0s)}
+  @keyframes wave{0%,100%{transform:rotate(-10deg)}50%{transform:rotate(10deg)}}
+  .wave{animation:wave .9s ease-in-out infinite;transform-box:fill-box;transform-origin:left bottom}
+  /* still mode (reduced motion, motion off, screenshots): a representative frame, not frame 0 */
+  .st-still .lap{animation:none;offset-distance:var(--od,30%)}
+  .st-still .wave{animation:none;transform:rotate(-6deg)}
+  .grow{transform-box:fill-box;transform-origin:left center}
+  .js .st-scene .grow[data-s]:not(.is-on){transform:scaleX(0);opacity:1}
+  .growy{transform-box:fill-box;transform-origin:center bottom}
+  .js .st-scene .growy[data-s]:not(.is-on){transform:scaleY(0);opacity:1}
+  .st-scene .lit.is-lit,.st-scene .is-lit .lit{stroke:var(--coral)!important;stroke-width:4!important}
+  .readout{font:700 16px/1.5 var(--body);margin:10px 0 0}
+  .readout b{font-family:var(--mono);color:var(--coral-d)}
+  .readout .ok{color:var(--leaf-d)} .readout .no{color:var(--coral-d)} .readout .mid{color:var(--sun-d)}
+  details{margin-top:10px;font-size:15px;color:var(--ink-2)} summary{cursor:pointer;font-weight:700;color:var(--ink)}
+  code{font:600 .92em var(--mono);background:var(--card-2);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+  .grid2>*{min-width:0} .ctl label{flex-wrap:wrap;gap:4px 10px}
+  .breaks li{margin:4px 0}
+  .st-foot td{overflow-wrap:anywhere}
+  .rule{background:#FFF4DE;border:2px solid var(--ink);border-radius:16px;padding:12px 14px;margin:14px 0 0}
+  .rule b{color:var(--leaf-d)}
+  .st-card .face svg{max-height:120px}
+  .st-card .in{min-height:320px}
+  .btnrow{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}
+  #src code{overflow-wrap:normal;word-break:break-word} #src td:first-child{min-width:11ch}
+  @media (max-width:600px){
+   .st-foot table#src{min-width:0} #src thead{display:none}
+   #src, #src tbody, #src tr, #src td{display:block;width:auto}
+   #src tr{border-bottom:1.5px solid var(--line);padding:8px 0}
+   #src td{border:0;padding:2px 0}
+   #src td:first-child{min-width:0;font-weight:800}
+   #src td:nth-child(n+2)::before{font:700 12px var(--body);color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;margin-right:6px}
+   #src td:nth-child(2)::before{content:"Value"} #src td:nth-child(3)::before{content:"Class"} #src td:nth-child(4)::before{content:"Source"}
+   #src code{overflow-wrap:anywhere}
+  }
+  @media (max-width:600px){.st-motion{left:auto;right:10px;bottom:10px;padding:4px 10px;font-size:13px} body{padding-bottom:56px}}
+</style>
+</head>
+<body>
+<a class="skip" href="#s1">Skip to the first scene</a>
+<noscript><p class="wrap" style="background:#FFF4DE;padding:10px;border-radius:10px">This story draws its pictures with JavaScript. The written version is in <a href="../notes/A0-why-research-needs-a-different-setup.md">the notes</a>.</p></noscript>
+
+<!-- the cast: drawn once, reused with <use>. Outlines are presentation attributes inside each symbol. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <marker id="ah-ink" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1D2A44"/></marker>
+  <marker id="ah-leaf" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1D7660"/></marker>
+  <marker id="ah-coral" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="15" markerHeight="15" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#B33F1D"/></marker>
+  <pattern id="chk" width="8" height="8" patternUnits="userSpaceOnUse"><rect width="8" height="8" fill="#FFFDF8"/><rect width="4" height="4" fill="#1D2A44"/><rect x="4" y="4" width="4" height="4" fill="#1D2A44"/></pattern>
+  <symbol id="i-car" viewBox="0 0 120 56">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M16 28 L8 15 H2 V28 Z" fill="#1D2A44"/>
+    <path d="M6 42 V32 Q6 28 14 28 L34 27 Q40 16 52 16 H66 Q76 16 80 26 L104 30 Q116 32 116 38 V42 Z" style="fill:var(--c,#3AA88D)"/>
+    <path d="M48 27 Q52 20 58 20 H68 Q73 20 75 27 Z" fill="#A7C8D6"/>
+    <circle cx="28" cy="43" r="10" fill="#2E3646"/><circle cx="94" cy="43" r="10" fill="#2E3646"/>
+   </g>
+   <circle cx="28" cy="43" r="4" fill="#C9C1AE"/><circle cx="94" cy="43" r="4" fill="#C9C1AE"/>
+   <circle cx="90" cy="34" r="5.5" fill="#FFFDF8" stroke="#141C2E" stroke-width="1.8"/>
+  </symbol>
+  <symbol id="i-person" viewBox="0 0 66 100">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="12" y="54" width="40" height="43" rx="14" style="fill:var(--c,#8C8670)"/>
+    <circle cx="32" cy="38" r="14" style="fill:var(--skin,#D49A6A)"/>
+    <path d="M17 33 Q18 19 32 19 Q46 19 47 33 Z" style="fill:var(--hair,#3A4660)"/>
+   </g>
+   <circle cx="27" cy="40" r="1.9" fill="#141C2E"/><circle cx="37" cy="40" r="1.9" fill="#141C2E"/>
+   <ellipse cx="22.5" cy="45" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/><ellipse cx="41.5" cy="45" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/>
+   <path d="M28 46 Q32 49 36 46" fill="none" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="p-wrench" viewBox="0 0 66 100">
+   <path d="M50 70 L59 54" stroke="#141C2E" stroke-width="4" stroke-linecap="round"/>
+   <path d="M55 52 a6 6 0 1 1 8 4 l-3 -4 z" fill="#C9C1AE" stroke="#141C2E" stroke-width="2" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="p-board" viewBox="0 0 66 100">
+   <g stroke="#141C2E" stroke-width="2" stroke-linejoin="round"><rect x="38" y="58" width="24" height="30" rx="3" fill="#A07850"/><rect x="41" y="62" width="18" height="23" fill="#FFFDF8"/><rect x="45" y="55" width="10" height="6" rx="2" fill="#C9C1AE"/></g>
+   <path d="M44 68 H56 M44 73 H54 M44 78 H56" stroke="#55607A" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="p-flag" viewBox="0 0 66 100">
+   <path d="M52 84 V30" stroke="#141C2E" stroke-width="3" stroke-linecap="round"/>
+   <rect x="52" y="30" width="13" height="12" fill="url(#chk)" stroke="#141C2E" stroke-width="1.8"/>
+  </symbol>
+  <symbol id="p-hat" viewBox="0 0 66 100">
+   <g stroke="#141C2E" stroke-width="2.2" stroke-linejoin="round"><rect x="21" y="4" width="22" height="17" rx="2" fill="#1D2A44"/><rect x="14" y="19" width="36" height="5" rx="2" fill="#1D2A44"/></g>
+   <rect x="21" y="14" width="22" height="3" fill="#B4669D"/>
+  </symbol>
+  <symbol id="i-hut" viewBox="0 0 100 100">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="14" y="40" width="72" height="56" rx="4" fill="#FFFAF2"/>
+    <path d="M6 42 L50 8 L94 42 Z" fill="#55607A"/>
+    <circle cx="50" cy="64" r="17" fill="#F2C64A"/>
+    <rect x="22" y="86" width="56" height="10" fill="#EFE5D4"/>
+   </g>
+   <path d="M50 64 V53 M50 64 L58 68" stroke="#141C2E" stroke-width="3" stroke-linecap="round"/>
+   <circle cx="50" cy="64" r="2.4" fill="#141C2E"/>
+  </symbol>
+  <symbol id="i-seal" viewBox="0 0 40 40">
+   <path d="M20 3 L24 7 L30 6 L31 12 L36 15 L34 21 L37 26 L32 29 L31 35 L25 34 L20 38 L15 34 L9 35 L8 29 L3 26 L6 21 L4 15 L9 12 L10 6 L16 7 Z" fill="#B4669D" stroke="#141C2E" stroke-width="2" stroke-linejoin="round"/>
+   <circle cx="20" cy="20" r="9" fill="#7E3A6C" stroke="#141C2E" stroke-width="1.6"/>
+   <path d="M17 14 L15.5 26 M24.5 14 L23 26 M13.5 18 H26.5 M13 22.5 H26" stroke="#F3DCEB" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-rules" viewBox="0 0 60 72">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="6" y="4" width="48" height="64" rx="5" fill="#55607A"/><rect x="12" y="10" width="36" height="52" rx="2" fill="#FFFDF8"/></g>
+   <path d="M17 20 H43 M17 28 H38 M17 36 H43" stroke="#55607A" stroke-width="2.4" stroke-linecap="round"/>
+   <path d="M30 4 V68 M6 46 H54" stroke="#B4669D" stroke-width="4"/>
+   <use href="#i-seal" x="16" y="32" width="28" height="28"/>
+  </symbol>
+  <symbol id="i-env" viewBox="0 0 76 54">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="3" y="6" width="70" height="44" rx="5" fill="#E9CFE0"/><path d="M3 9 L38 34 L73 9" fill="none"/></g>
+   <path d="M14 42 Q14 22 28 22 H48 Q60 22 60 32 Q60 42 48 42 Z" fill="none" stroke="#7E3A6C" stroke-width="2" stroke-dasharray="4 3"/>
+   <use href="#i-seal" x="27" y="22" width="22" height="22"/>
+  </symbol>
+  <symbol id="i-slip" viewBox="0 0 50 72">
+   <path d="M4 4 H46 V62 L41 68 L36 62 L31 68 L25 62 L19 68 L14 62 L9 68 L4 62 Z" fill="#FFFDF8" stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"/>
+   <rect x="9" y="9" width="32" height="9" rx="2" fill="#F2C64A" stroke="#141C2E" stroke-width="1.6"/>
+   <path d="M10 27 H40 M10 35 H34 M10 43 H40 M10 51 H30" stroke="#5E9FB8" stroke-width="2.6" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-gate" viewBox="0 0 60 60">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="6" y="10" width="6" height="48" rx="2" fill="#55607A"/><rect x="48" y="10" width="6" height="48" rx="2" fill="#55607A"/><rect x="4" y="4" width="52" height="12" rx="3" fill="url(#chk)"/></g>
+  </symbol>
+  <symbol id="i-log" viewBox="0 0 60 76">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="4" y="8" width="52" height="64" rx="6" fill="#5E9FB8"/><rect x="12" y="16" width="38" height="50" rx="3" fill="#FFFDF8"/></g>
+   <g fill="#EFE5D4" stroke="#141C2E" stroke-width="1.8"><circle cx="16" cy="8" r="3.5"/><circle cx="26" cy="8" r="3.5"/><circle cx="36" cy="8" r="3.5"/><circle cx="46" cy="8" r="3.5"/></g>
+   <path d="M17 25 H45 M17 32 H45 M17 39 H45 M17 46 H45 M17 53 H45 M17 60 H38" stroke="#5E9FB8" stroke-width="2.4" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-notes" viewBox="0 0 52 68">
+   <rect x="4" y="6" width="44" height="58" rx="4" fill="#FFF4DE" stroke="#141C2E" stroke-width="2.5"/>
+   <circle cx="26" cy="7" r="4" fill="#EE6A45" stroke="#141C2E" stroke-width="1.8"/>
+   <path d="M11 20 H41 M11 28 H36 M11 44 H41 M11 52 H32" stroke="#1D7660" stroke-width="2.6" stroke-linecap="round"/>
+   <path d="M11 36 H41" stroke="#EE6A45" stroke-width="2.6" stroke-linecap="round"/><path d="M9 36 H43" stroke="#141C2E" stroke-width="1.4"/>
+  </symbol>
+  <symbol id="i-trophy" viewBox="0 0 44 52">
+   <g stroke="#141C2E" stroke-width="2.4" stroke-linejoin="round"><path d="M10 6 H34 V18 Q34 32 22 32 Q10 32 10 18 Z" fill="#F2C64A"/><path d="M10 10 H4 Q4 22 12 24 M34 10 H40 Q40 22 32 24" fill="none"/><rect x="18" y="32" width="8" height="8" fill="#F2C64A"/><rect x="11" y="40" width="22" height="8" rx="2" fill="#3AA88D"/></g>
+  </symbol>
+  <symbol id="i-cloud" viewBox="0 0 64 48">
+   <path d="M14 30 Q4 30 4 22 Q4 14 14 14 Q16 4 28 4 Q40 4 42 13 Q52 11 56 19 Q62 21 60 28 Q58 32 52 32 Z" fill="#E3EFF4" stroke="#141C2E" stroke-width="2.4" stroke-linejoin="round"/>
+   <path d="M18 37 L15 45 M30 37 L27 45 M42 37 L39 45" stroke="#2C6A82" stroke-width="2.6" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-card" viewBox="0 0 50 62">
+   <rect x="3" y="3" width="44" height="56" rx="5" fill="#FFFDF8" stroke="#141C2E" stroke-width="2.4"/>
+   <rect x="3" y="3" width="44" height="12" rx="5" fill="#8C8670" stroke="#141C2E" stroke-width="2.4"/>
+   <path d="M10 24 H40 M10 32 H36 M10 40 H40 M10 48 H30" stroke="#55607A" stroke-width="2.2" stroke-linecap="round"/>
+  </symbol>
+ </defs>
+</svg>
+
+<!-- ================================ HERO: the answer as a picture ================================ -->
+<header class="hero wrap">
+ <div class="hero-top">
+  <div>
+   <div class="kicker">Agentic research harness · story 1</div>
+   <h1><span class="lbl-k">A faster lap counts only if a sealed judge times it, the decoy cars get caught, every claim cites its slip, and the new car beats the champion on every lap.</span><span class="lbl-e">A faster result counts only if a frozen evaluator measures it, its negative controls fail, every number cites an evidence record, and the whole range beats the champion's.</span></h1>
+  </div>
+  <div class="st-switch" data-view-switch role="group" aria-label="Label style">
+   <button data-view="kitchen" aria-pressed="true">Race view</button><button data-view="eng" aria-pressed="false">Engineer view</button>
+  </div>
+ </div>
+ <p class="lede">Picture optimization research as a <b>time trial</b>. AI agents are <b>builders</b> who modify cars all day, and the quickest way to a faster lap is to <b>cut the course</b>. So the race supplies a <b>judge they cannot touch</b>, a <b>slip for every claim</b> and a <b>coach's notes that keep the failed plays</b>. Flip to <b>Engineer view</b> for the real names.</p>
+ <figure class="panel" style="padding:10px 10px 4px">
+  <svg id="hero" data-wide viewBox="0 0 1000 440" role="img" aria-labelledby="hero-t"><title id="hero-t">A workshop where two builders modify a car and a coach holds one-page notes. A course loops past a checkpoint gate on a chicane. An honest green car laps the whole course; a coral decoy car cuts straight across the chicane and a marshal's flag catches it. In the middle, a sealed envelope holds the secret course. At the finish line, a timing hut with a wax-sealed rulebook prints a numbered timing slip. On the right, a champion board shows the challenger's lap-time range entirely faster than the champion's.</title></svg>
+  <figcaption class="legend"><span><i style="background:var(--sun)"></i><span class="lbl-k">the clock, lap times</span><span class="lbl-e">the metric</span></span><span><i style="background:var(--leaf)"></i><span class="lbl-k">honest, champion</span><span class="lbl-e">accepted, champion</span></span><span><i style="background:var(--coral)"></i><span class="lbl-k">shortcut, decoy</span><span class="lbl-e">fast but wrong, control, rejected</span></span><span><i style="background:var(--plum)"></i><span class="lbl-k">sealed</span><span class="lbl-e">frozen, held out</span></span><span><i style="background:var(--sky)"></i><span class="lbl-k">the course</span><span class="lbl-e">inputs, records</span></span><span><i style="background:var(--stone)"></i><span class="lbl-k">people</span><span class="lbl-e">agents and the owner</span></span><span>Picture, not data: the shape of the method in <a href="../notes/A0-why-research-needs-a-different-setup.md">A0</a>.</span></figcaption>
+ </figure>
+ <ol class="stages" aria-label="The four safeguards">
+  <li><b class="n">1</b><span class="lbl-k">A sealed judge</span><span class="lbl-e">A frozen evaluator</span> <a class="read-note" href="../notes/B2-the-frozen-evaluator.md">B2</a></li>
+  <li><b class="n">2</b><span class="lbl-k">Decoy cars must lose</span><span class="lbl-e">Negative controls must fail</span> <a class="read-note" href="../notes/B3-negative-controls.md">B3</a></li>
+  <li><b class="n">3</b><span class="lbl-k">No slip, no claim</span><span class="lbl-e">Cite or it did not happen</span> <a class="read-note" href="../notes/B4-evidence-records.md">B4</a></li>
+  <li><b class="n">4</b><span class="lbl-k">Beat the champion on every lap</span><span class="lbl-e">Promote by disjoint ranges</span> <a class="read-note" href="../notes/B7-agents-and-the-loop.md">B7</a></li>
+ </ol>
+ <div class="cast" aria-label="The cast">
+  <div class="c" data-ref="builder"><svg viewBox="0 0 66 100" role="img" aria-label="builder"><use href="#i-person" style="--c:#5E9FB8;--skin:#8E5B3B"/><use href="#p-wrench"/></svg><b>Builders</b><span>researcher agents, working in parallel</span></div>
+  <div class="c" data-ref="car"><svg viewBox="0 0 120 56" role="img" aria-label="car"><use href="#i-car"/></svg><b>A car, "built from #n"</b><span>a candidate: one change, linked to its parent, never edited after</span></div>
+  <div class="c" data-ref="coach"><svg viewBox="0 0 66 100" role="img" aria-label="coach"><use href="#i-person" style="--c:#8C8670;--skin:#F4CDA7;--hair:#7E3A6C"/><use href="#p-board"/></svg><b>The coach</b><span>the planner: read-only, hands out drills</span></div>
+  <div class="c" data-ref="notes"><svg viewBox="0 0 52 68" role="img" aria-label="one-page notes"><use href="#i-notes"/></svg><b>One-page notes</b><span>slow memory: the lessons file, failures kept</span></div>
+  <div class="c" data-ref="log"><svg viewBox="0 0 60 76" role="img" aria-label="logbook"><use href="#i-log"/></svg><b>The logbook</b><span>fast memory: one line per timed run</span></div>
+  <div class="c" data-ref="hut"><svg viewBox="0 0 100 100" role="img" aria-label="timing hut"><use href="#i-hut"/></svg><b>Sealed timing hut</b><span>the frozen evaluator: human-owned, hash-pinned</span></div>
+  <div class="c" data-ref="gate"><svg viewBox="0 0 60 60" role="img" aria-label="checkpoint gate"><use href="#i-gate"/></svg><b>Checkpoint gates</b><span>the correctness gate, limits set from honest runs</span></div>
+  <div class="c" data-ref="env"><svg viewBox="0 0 76 54" role="img" aria-label="sealed envelope"><use href="#i-env"/></svg><b>The secret course</b><span>held-out inputs the agents never read</span></div>
+  <div class="c" data-ref="decoy"><svg viewBox="0 0 120 56" role="img" aria-label="decoy car"><use href="#i-car" style="--c:#EE6A45"/></svg><b>Decoy cars</b><span>negative controls: built to cheat, must lose</span></div>
+  <div class="c" data-ref="slip"><svg viewBox="0 0 50 72" role="img" aria-label="timing slip"><use href="#i-slip"/></svg><b>Timing slip #</b><span>an evidence record and its run id</span></div>
+  <div class="c" data-ref="starter"><svg viewBox="0 0 66 100" role="img" aria-label="starter"><use href="#i-person" style="--c:#55607A;--skin:#E8B98F"/><use href="#p-flag"/></svg><b>The starter</b><span>the evaluation worker: one car at a time, the rule applied</span></div>
+  <div class="c" data-ref="owner"><svg viewBox="0 0 66 100" role="img" aria-label="team owner"><use href="#i-person" style="--c:#B4669D;--skin:#D49A6A"/><use href="#p-hat"/></svg><b>The team owner</b><span>the human who decides what counts</span></div>
+ </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================================ 1. cut the course ================================ -->
+<section class="scene" id="s1" data-title="1 · Cut the course">
+ <h2><span class="num">1</span>The quickest way to a faster lap is to cut the course</h2>
+ <p class="sub">A test suite tells a coding agent when it is wrong. A lap time does not. Watch two cars and a stopwatch. Step through.</p>
+ <figure class="st-scene panel" id="s-cut" data-dwell="3200" aria-label="Scene: fast but wrong">
+  <svg data-wide viewBox="0 0 1000 320" role="img" aria-label="A course with a chicane and a checkpoint gate at its top. An honest car drives the whole chicane; a second car cuts straight across. A stopwatch board shows the cut car's time as shorter; then the gate catches it."></svg>
+  <ol class="st-cap">
+   <li><b>An honest lap.</b> The car drives the whole course, chicane included. The stopwatch records its time. <a class="read-note" href="../notes/A0-why-research-needs-a-different-setup.md">A0</a></li>
+   <li><b>A builder's new car is faster.</b> It drives straight across the chicane. In research this is a model that does less work: fewer steps, a cached answer, a skipped chain.</li>
+   <li><b>The stopwatch alone cheers.</b> When the lap time is the target, cars learn to cut. Goodhart ({{pub_goodhart_year}}), as Strathern ({{pub_strathern_year}}) put it: a measure that becomes a target stops being a good measure.</li>
+   <li><b>A checkpoint catches it.</b> The cut car missed the gate, so it is out, however fast. The fix is not a better builder. It is a judge that checks the work was done.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 2. the sealed hut ================================ -->
+<section class="scene" id="s2" data-title="2 · The sealed judge">
+ <h2><span class="num">2</span>The judge is sealed, and it reports the closest call</h2>
+ <p class="sub">Shortcuts look like wins, <b>therefore</b> one judge decides every lap, and nobody who builds cars can change it.</p>
+ <figure class="st-scene panel" id="s-seal" data-dwell="3600" aria-label="Scene: the frozen evaluator">
+  <svg data-wide viewBox="0 0 1000 360" role="img" aria-label="The timing hut and its sealed rulebook; a builder's edit breaks the seal and the hut refuses to time; honest laps set the width of a gate; a sealed envelope holds two secret courses; gauges show the closest call on each course and the largest one."></svg>
+  <ol class="st-cap">
+   <li><b>Human-owned and sealed.</b> Builders may read the rulebook and argue in their reports that it is wrong. They may never edit it. <a class="read-note" href="../notes/B2-the-frozen-evaluator.md">B2</a></li>
+   <li><b>A broken seal stops the clock.</b> Before every run the hut checks the rulebook against its seal (a <span class="lbl-k">manifest</span><span class="lbl-e">manifest of file hashes</span>). One change, and it refuses to time.</li>
+   <li><b>Honest laps set the gate.</b> Several correct but different cars set how far off the line a lap may be. A gate set by guessing is too tight or too loose. <a class="read-note" href="../notes/B1-reference-and-baseline.md">B1</a></li>
+   <li><b>The secret course.</b> Two more courses stay sealed in the hut. A car tuned to the practice course must still pass them, like a private leaderboard that decides while the public one only guides.</li>
+   <li><b>The closest call decides the margin.</b> For every gate on every course: measured ÷ limit. The largest is the <span class="lbl-k">closest call</span><span class="lbl-e">binding ratio</span>. The stock car: {{sched_baseline/binding_visible}}, {{sched_baseline/binding_a}}, {{sched_baseline/binding_b}} → {{@baseBind}} <span class="tag ill">illustrative</span>.</li>
+  </ol>
+ </figure>
+ <div class="st-predict" id="p-bind">
+  <p class="q">A car misses {{story_binding_predict/miss_pct}} % of soft deadlines (limit {{topic_soft_miss_limit}} %) and takes {{story_binding_predict/decision_ms}} ms per decision (limit {{topic_decision_time_limit_ms}} ms). A car can be crowned only if its closest call is at most {{harness_margin_cap_scheduling}}. Can it be crowned?</p>
+  <div class="opts">
+   <button class="btn" data-choice="avg" data-why="The average of the two ratios is {{@predAvg}}, but the margin is the largest ratio, not the mean. One gate at {{@predDec}} is one small change from failing.">Yes: on average it is well inside ({{@predAvg}})</button>
+   <button class="btn" data-choice="low" data-right data-why="Decision time is {{@predDec}} of its limit. That passes (below 1) but is above the {{harness_margin_cap_scheduling}} cap, so it is recorded as &quot;accepted, low margin&quot; and never crowned.">No: it passes, with too little margin</button>
+   <button class="btn" data-choice="fail" data-why="It does not fail: both ratios are below 1. It passes, but the decision-time gate is at {{@predDec}}, above the {{harness_margin_cap_scheduling}} cap.">No: it fails a gate</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <div class="grid2 st-gated" data-gate="p-bind" id="bind-live">
+  <figure class="panel">
+   <svg id="bind" data-wide viewBox="0 0 620 300" role="img" aria-label="Two gauges, one per gate, each showing measured divided by limit, and a verdict scale from crowned through low margin to rejected."></svg>
+   <figcaption><span class="tag ill">illustrative</span> Limits and the cap are design parameters of the harness (scheduling topic, <a href="../notes/C2-the-scheduling-topic.md">C2</a>). Hard chains must miss nothing; that gate is not drawn.</figcaption>
+  </figure>
+  <div>
+   <div class="ctl"><label for="bMiss">Soft deadlines missed <output id="bMiss-v"></output></label><input id="bMiss" data-k="miss" type="range" min="0" max="6" step="0.1" aria-describedby="bind-read"></div>
+   <div class="ctl"><label for="bDec">Time per decision <output id="bDec-v"></output></label><input id="bDec" data-k="dec" type="range" min="0" max="2.5" step="0.05" aria-describedby="bind-read"></div>
+   <p class="readout" id="bind-read" aria-live="polite"></p>
+   <details><summary>The rule</summary>For each gate: ratio = measured ÷ limit. Binding ratio = the largest ratio over all gates and all input sets (visible and held out). Below 1 passes. Crowning also needs binding ≤ the margin cap. The explorer adds calibration from legitimate runs (<a href="../explorers/02-binding-ratio-and-limits.html">explorer 02</a>).</details>
+  </div>
+ </div>
+</section>
+
+<!-- ================================ 3. decoys must lose ================================ -->
+<section class="scene" id="s3" data-title="3 · Decoys must lose">
+ <h2><span class="num">3</span>Test the gate from both sides</h2>
+ <p class="sub">The honest car passing proves the gate is not too tight. <b>But</b> only a caught decoy proves it is not too loose.</p>
+ <figure class="st-scene panel" id="s-both" data-dwell="3600" aria-label="Scene: negative controls">
+  <svg data-wide viewBox="0 0 1000 330" role="img" aria-label="Cars arrive at a gate one at a time. The stock car passes. A decoy that skips laps is caught. A coin-toss decoy slips through because its coin always lands the same way. Fixed, it is caught by running the course in reverse order."></svg>
+  <ol class="st-cap">
+   <li><b>The honest car passes, with room.</b> The stock car is accepted with a closest call of {{sched_baseline/binding_visible}} <span class="tag ill">illustrative</span>. The gate is not too tight. <a class="read-note" href="../notes/B3-negative-controls.md">B3</a></li>
+   <li><b>A decoy that skips laps is caught.</b> It never runs the slow, soft chains. The completion gate sees logging and telemetry never finish: rejected.</li>
+   <li><b>But a decoy can be broken too.</b> The coin-toss decoy should break ties at random. Its "coin" was the parity of a clock that ticked only in microseconds, so it always landed even. It was accidentally fair, and it passed.</li>
+   <li><b>Fixed, and caught.</b> With a real coin, the <span class="lbl-k">reverse-order rerun</span><span class="lbl-e">order probe</span> runs the laps backwards and needs identical results. They differ: rejected at {{sched_control_wallclock_ms}} ms <span class="tag ill">illustrative</span>. Run each decoy and check it fails for its own reason. <a class="read-note" href="../notes/C4-lessons-about-the-method.md">C4</a></li>
+  </ol>
+ </figure>
+ <h3 style="margin-top:22px">Decoys from the first campaign <span style="font-weight:500;color:var(--ink-2);font-size:15px">(tap a card)</span></h3>
+ <div class="st-cards">
+  <button class="st-card"><div class="in"><div class="face"><svg id="cd1" viewBox="0 0 200 110" role="img" aria-label="A car cutting a corner"></svg><h3><span class="lbl-k">The corner-cutter</span><span class="lbl-e">Fewer denoising steps</span></h3><span class="hint">Tap to flip</span></div>
+   <div class="face back"><dl><dt>Looks like</dt><dd>Fast, and the output looks plausible.</dd><dt>Really</dt><dd>The model does less work than it should.</dd><dt>Caught by</dt><dd>The correctness gate against the trusted reference.</dd></dl></div></div></button>
+  <button class="st-card"><div class="in"><div class="face"><svg id="cd2" viewBox="0 0 200 110" role="img" aria-label="A car drawn slightly too small"></svg><h3><span class="lbl-k">The slightly-off car</span><span class="lbl-e">Output scaled by {{c1_control_scale_illustrative}} %</span></h3><span class="hint">Tap to flip</span></div>
+   <div class="face back"><dl><dt>Looks like</dt><dd>A tiny drift, inside a loose limit (illustrative size).</dd><dt>Really</dt><dd>A wrong output that a guessed limit accepts.</dd><dt>Caught by</dt><dd>Limits calibrated per output dimension from legitimate runs.</dd></dl></div></div></button>
+  <button class="st-card"><div class="in"><div class="face"><svg id="cd3" viewBox="0 0 200 110" role="img" aria-label="Yesterday's timing slip handed in again"></svg><h3><span class="lbl-k">Yesterday's slip</span><span class="lbl-e">Cached output</span></h3><span class="hint">Tap to flip</span></div>
+   <div class="face back"><dl><dt>Looks like</dt><dd>Very fast.</dd><dt>Really</dt><dd>It replays an old answer instead of computing one.</dd><dt>Caught by</dt><dd>Inputs that change per call, and the "model ran exactly once" check.</dd></dl></div></div></button>
+  <button class="st-card"><div class="in"><div class="face"><svg id="cd4" viewBox="0 0 200 110" role="img" aria-label="Two cars, one pretending to be the other"></svg><h3><span class="lbl-k">The second-engine trick</span><span class="lbl-e">Perturbation on a second core</span></h3><span class="hint">Tap to flip</span></div>
+   <div class="face back"><dl><dt>Looks like</dt><dd>A two-core plan that runs.</dd><dt>Really</dt><dd>A wrong result from the second core (my reading; the source names the control only).</dd><dt>Caught by</dt><dd>The correctness gate.</dd></dl></div></div></button>
+ </div>
+ <p class="rule"><b>A gate that never rejected a plausible cheat is untested.</b> Popper ({{pub_popper_year}}): a claim is scientific only if some observation could refute it. Decoys are those observations, re-run on every rulebook version.</p>
+</section>
+
+<!-- ================================ 4. slips and notes ================================ -->
+<section class="scene" id="s4" data-title="4 · No slip, no claim">
+ <h2><span class="num">4</span>No slip, no claim, and the coach keeps the failed plays</h2>
+ <p class="sub">The judge is honest, <b>but</b> builders write fluent reports, and the next builder reads them. Fluency is not evidence.</p>
+ <figure class="st-scene panel" id="s-slip" data-dwell="3600" aria-label="Scene: evidence records and the two memories">
+  <svg data-wide viewBox="0 0 1000 340" role="img" aria-label="The hut prints one numbered slip per timed run into a drawer. A claim without a slip is stamped did not happen. A builder's own stopwatch is labelled diagnostic. Each run adds a line to the logbook. The coach rewrites one page of notes and keeps a failed play."></svg>
+  <ol class="st-cap">
+   <li><b>One slip per timed run.</b> Verdict, lap times and their range, closest call, today's conditions, rulebook version, all in one numbered folder. The number is the citation. <a class="read-note" href="../notes/B4-evidence-records.md">B4</a></li>
+   <li><b>Cite or it did not happen.</b> "The engine is bandwidth-bound" with no slip does not count, however plausible. In the first campaign three such premises died within a session once someone looked.</li>
+   <li><b>A builder's own stopwatch is a diagnostic.</b> Useful, always labelled, never a result. A quick practice run ({{topic_quick_seeds}} seeds, practice course only) is stamped INVALID by design.</li>
+   <li><b>The logbook: one line per run, rejects too.</b> Car, parent, verdict, time, closest call. Lines are only added. This is the <span class="lbl-k">fast memory</span><span class="lbl-e">attempts log</span>. <a class="read-note" href="../notes/B6-the-two-memories.md">B6</a></li>
+   <li><b>The coach rewrites one page every round.</b> About {{harness_lessons_max_lines}} lines, each citing a slip, and the failed plays stay: "who goes first, alone, did not help". Agents remember nothing; the notes do.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 5. one round ================================ -->
+<section class="scene" id="s5" data-title="5 · One round">
+ <h2><span class="num">5</span>One round: plan, build in parallel, time one car at a time</h2>
+ <p class="sub">Judge, slips and notes are in place, <b>therefore</b> the round can run without a person watching every lap.</p>
+ <figure class="st-scene panel" id="s-round" data-dwell="3600" aria-label="Scene: one round of the loop">
+  <svg data-wide viewBox="0 0 1000 400" role="img" aria-label="The coach hands out two drill cards; two builders build cars in parallel; cars wait in a queue and the starter lets one onto the course at a time; under today's clouds the champion is timed again; each builder has a time cap and a fuel card, and the fuel meter reads zero."></svg>
+  <ol class="st-cap">
+   <li><b>The coach hands out drills.</b> {{topic_tasks_per_round}} independent tasks, each with a parent car, a hypothesis, {{harness_plan_steps}} steps and a success test. The coach reads, never builds or times. <a class="read-note" href="../notes/B7-agents-and-the-loop.md">B7</a></li>
+   <li><b>Builders work in parallel.</b> {{topic_researchers_parallel}} builders, up to {{topic_submissions_per_researcher}} cars each. A change is a new car with a "built from" plate; a timed car is never touched again. <a class="read-note" href="../notes/B5-the-candidate-contract.md">B5</a></li>
+   <li><b>One car on the course at a time.</b> Cars wait in a queue. The starter runs every official lap in turn, so two timed runs never share the course.</li>
+   <li><b>Same day, same weather.</b> Before comparing, the starter times the stock car and the champion again today. Lap times can shift by about {{c1_host_shift_illustrative}} % between two courses of the same type <span class="tag ill">illustrative</span>: compare within a day, never across days.</li>
+   <li><b>But check the fuel meter.</b> Each builder has a time cap ({{topic_researcher_wall_min}} min) and a fuel card ({{topic_researcher_credits}} credits). In round 1 the meter read zero: the fuel cap did nothing, only the time cap held. {{sched_r1_submissions}} cars in {{sched_r1_wall_min}} min <span class="tag ill">illustrative</span>. <a class="read-note" href="../notes/C4-lessons-about-the-method.md">C4</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 6. every lap ================================ -->
+<section class="scene" id="s6" data-title="6 · Every lap">
+ <h2><span class="num">6</span>A new champion must beat the old one on every lap</h2>
+ <p class="sub">The starter times each car {{harness_timed_calls}} times. Laps vary, <b>therefore</b> the crowning rule must not be fooled by luck.</p>
+ <div class="st-predict" id="p-median">
+  <p class="q">A challenger is really no faster than the champion. Each drives {{harness_timed_calls}} laps. If the lower median lap wins, how often is the challenger crowned?</p>
+  <div class="opts">
+   <button class="btn" data-choice="never" data-why="Two equal cars: which median comes out lower is a coin toss. A median rule crowns noise about half the time.">Almost never</button>
+   <button class="btn" data-choice="half" data-right data-why="Probability {{pub_median_null_probability}}. The every-lap rule (the slowest challenger lap beats the fastest champion lap) crowns an equal car with probability {{@nullDisjoint}}.">About half the time</button>
+   <button class="btn" data-choice="always" data-why="Not always: a lower median is a coin toss between equal cars, so about half the time.">Every time</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <div class="st-gated" data-gate="p-median">
+  <figure class="panel">
+   <svg id="laps" data-wide viewBox="0 0 1000 300" role="img" aria-label="Twenty lap times for the champion and twenty for the challenger as dots on a lap-time axis, with each car's range bar and median tick, and two verdicts: the median rule and the every-lap rule."></svg>
+   <figcaption><span class="tag ill">assumption</span> A page model from <a href="../explorers/01-range-based-promotion.html">explorer 01</a>: laps are normal around a mean of {{e1_metric_mean}}; gain and spread are % of that mean. Lower is faster.</figcaption>
+  </figure>
+  <div class="grid2" style="margin-top:14px">
+   <div>
+    <div class="ctl"><label for="lGain">True gain of the challenger <output id="lGain-v"></output></label><input id="lGain" data-k="gain" type="range" min="-2" max="10" step="0.25" aria-describedby="laps-read"></div>
+    <div class="ctl"><label for="lSpread">Lap-to-lap spread <output id="lSpread-v"></output></label><input id="lSpread" data-k="spread" type="range" min="0.2" max="5" step="0.1" aria-describedby="laps-read"></div>
+    <input id="lSeed" data-k="seed" type="hidden" value="1">
+    <div class="btnrow"><button class="btn" id="lRedraw">Drive 20 more laps each</button></div>
+   </div>
+   <div>
+    <p class="readout" id="laps-read" aria-live="polite"></p>
+    <details><summary>The rule and its price</summary>Crown only if the challenger's worst lap beats the champion's best lap, both timed today. Under no real change that happens with probability 1 / C(40, 20) for 20 laps each. The price is power: a real gain smaller than the spread is rarely crowned. Changing the rule is the owner's decision (<a href="../notes/B7-agents-and-the-loop.md">B7</a>).</details>
+   </div>
+  </div>
+ </div>
+</section>
+
+<!-- ================================ 7. the floor ================================ -->
+<section class="scene" id="s7" data-title="7 · The track's limit">
+ <h2><span class="num">7</span>Near the track's limit, the rule cannot fire</h2>
+ <p class="sub">The every-lap rule is safe, <b>but</b> what happens when the champion already laps close to the fastest a car can go? Round 1 of the scheduling topic <span class="tag ill">illustrative</span>.</p>
+ <div class="st-predict" id="p-floor">
+  <p class="q">A challenger laps at median {{sched_r1_eft_reserve/median}} ms, worst {{sched_r1_eft_reserve/max}} ms. The champion: median {{sched_r1_eft_metric_first/median}} ms, best {{sched_r1_eft_metric_first/min}} ms, worst {{sched_r1_eft_metric_first/max}} ms. Is the challenger crowned?</p>
+  <div class="opts">
+   <button class="btn" data-choice="yes" data-why="Its median and worst lap are both better, but the rule asks for its worst lap ({{sched_r1_eft_reserve/max}}) to beat the champion's best ({{sched_r1_eft_metric_first/min}}). It does not.">Yes: better median and far better worst lap</button>
+   <button class="btn" data-choice="no" data-right data-why="Its worst lap, {{sched_r1_eft_reserve/max}} ms, is not faster than the champion's best, {{sched_r1_eft_metric_first/min}} ms. And no car can get much lower: the track's limit is {{sched_work_floor_ms}} ms.">No: its worst lap does not beat the champion's best</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel st-gated" data-gate="p-floor" id="s-floor" data-dwell="3800" aria-label="Scene: the rule meets the work floor">
+  <svg data-wide viewBox="0 0 1000 330" role="img" aria-label="Lap-time range bars for round 1. The car with a smarter lane choice and perception first is crowned over the stock car. Then its own range becomes the bar to beat; two later cars overlap it, one pressed against the track's limit."></svg>
+  <ol class="st-cap">
+   <li><b>Against the stock car.</b> Smarter lane choice alone overlaps the stock car's laps. Add "perception goes first" and every lap beats the stock car's best: crowned. <a class="read-note" href="../notes/C3-calibration.md">C3</a></li>
+   <li><b>The new champion is the bar.</b> Its fastest lap, {{sched_r1_eft_metric_first/min}} ms, is the line to beat. A reserved lane for perception laps inside the champion's range: accepted, not crowned.</li>
+   <li><b>The rule meets the floor.</b> Smarter lane + reserved lane: better median and worst lap, still not crowned. The champion's best lap already sits near the {{sched_work_floor_ms}} ms limit plus jitter, so no car can lap below it. The builder raised it; the rule stayed. <a class="read-note" href="../notes/B8-reporting.md">B8</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 8. automate last ================================ -->
+<section class="scene" id="s8" data-title="8 · Automate last">
+ <h2><span class="num">8</span>Build the judge first, run by hand, automate last</h2>
+ <p class="sub">An automated loop amplifies whatever it is given, <b>therefore</b> the order of building matters as much as the parts.</p>
+ <figure class="st-scene panel" id="s-order" data-dwell="3400" aria-label="Scene: the order of construction">
+  <svg data-wide viewBox="0 0 1000 330" role="img" aria-label="Five signposts in order: reference and baseline, sealed judge and decoys, hand-run rounds, a report from the slips, automation. Below, the lap time drops a lot during the hand-run rounds and a little during the automated rounds."></svg>
+  <ol class="st-cap">
+   <li><b>A reference and a stock car first.</b> Fixed inputs, a trusted answer from a different, simpler stack, and the stock car's time. Without them the first shortcut wins. <a class="read-note" href="../notes/A1-the-order-of-construction.md">A1</a></li>
+   <li><b>Then the sealed judge, with its decoys.</b> The stock car must pass and every decoy must fail before any real car is timed.</li>
+   <li><b>Then rounds run by hand.</b> People steer the builders and watch every lap. Most of the gain came here: about {{c1_baseline_ms_illustrative}} → {{c1_after_handrun_ms_illustrative}} ms in {{c1_handrun_days_illustrative}} days, {{c1_handrun_sessions_illustrative}} sessions <span class="tag ill">illustrative</span>.</li>
+   <li><b>A report rebuilt from the slips.</b> Headline, decoys and their verdicts, failed plays, spend, and the decisions only the owner can take.</li>
+   <li><b>Automation last.</b> The loop found the smaller, harder gains cheaply: {{c1_after_handrun_ms_illustrative}} → {{c1_after_auto_ms_illustrative}} ms in {{c1_auto_rounds_illustrative}} rounds for about {{c1_auto_spend_usd_illustrative}} USD <span class="tag ill">illustrative</span>. Automating earlier would have automated the wrong prompts. <a class="read-note" href="../notes/C4-lessons-about-the-method.md">C4</a></li>
+  </ol>
+ </figure>
+</section>
+
+<section class="scene" id="s9" data-title="Your turn">
+ <h2>Your turn</h2>
+ <p class="sub">Move the real knobs, then check what stuck. A question to take with you: which shortcut could your own metric reward that no gate of yours would catch?</p>
+ <div class="next">
+  <a href="../explorers/01-range-based-promotion.html"><b>Every lap, or the median?</b><span>Range-based promotion: gain, spread, laps, one slow first lap (explorer 01).</span></a>
+  <a href="../explorers/02-binding-ratio-and-limits.html"><b>How wide a gate?</b><span>Binding ratio and limits calibrated from legitimate runs (explorer 02).</span></a>
+  <a href="../explorers/03-placement-under-contention.html"><b>Which lane?</b><span>Placement under contention: when the fastest unit is the wrong choice (explorer 03).</span></a>
+  <a href="../explorers/04-cost-of-a-campaign.html"><b>What does a season cost?</b><span>Researchers × credits × rounds against diminishing returns (explorer 04).</span></a>
+  <a href="../../quiz/"><b>Quiz yourself</b><span>Spaced-repetition questions for every note.</span></a>
+  <a href="../README.md"><b>Read the notes</b><span>15 notes: the problem, the eight parts, a worked example.</span></a>
+ </div>
+</section>
+
+<footer class="st-foot">
+ <h3>Where the race breaks</h3>
+ <ul class="breaks">
+  <li>Nobody drives. A "lap" is one timed call, or one seed of a deterministic simulation; in the scheduling topic laps differ by workload seed, not by a driver.</li>
+  <li>Builders are not cheats. Most fast-but-wrong results are accidents, a bug that skips work, and decoys catch both.</li>
+  <li>A real race crowns the fastest lap. Here one fast lap never counts; the whole range does.</li>
+  <li>"Weather" is the measurement context: the host, its boot and the evaluator version, not the sky.</li>
+  <li>Gates are numeric limits (distance from the reference output, deadline misses, decision time), not posts beside a road.</li>
+ </ul>
+ <h3>Numbers on this page</h3>
+ <div class="tbl"><table id="src"><thead><tr><th>What</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+ <p>No number on this page is a measurement of a real platform. Kit entries are copied verbatim from <a href="../constants.json">constants.json</a> and <a href="../explorers/params.json">explorers/params.json</a>; <code>story_*</code> entries are picture values for this page. Kit: <a href="../README.md">agentic research harness</a> · <a href="../SOURCES.md">sources</a> · <a href="../glossary.md">glossary</a>.</p>
+</footer>
+</main>
+
+<script type="application/json" id="params">
+{
+ "c1_after_auto_ms_illustrative": {
+  "value": 88,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "after the automated rounds: a further ~12 %, my arithmetic"
+ },
+ "c1_after_handrun_ms_illustrative": {
+  "value": 100,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "after the hand-run rounds"
+ },
+ "c1_auto_rounds_illustrative": {
+  "value": 5,
+  "unit": "rounds",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values"
+ },
+ "c1_auto_spend_usd_illustrative": {
+  "value": 50,
+  "unit": "USD",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "LLM spend of the automated rounds: a few tens of dollars"
+ },
+ "c1_baseline_ms_illustrative": {
+  "value": 400,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "starting latency of one policy call on the accelerator"
+ },
+ "c1_control_scale_illustrative": {
+  "value": 3,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "output-scaling negative control"
+ },
+ "c1_handrun_days_illustrative": {
+  "value": 3,
+  "unit": "days",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values"
+ },
+ "c1_handrun_sessions_illustrative": {
+  "value": 12,
+  "unit": "researcher sessions",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values"
+ },
+ "c1_host_shift_illustrative": {
+  "value": 10,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "illustrative; keeps the shape of the first campaign (internal methodology notes, 2026), not its values",
+  "note": "shift of absolute latency between two hosts of the same type"
+ },
+ "e1_default_gain_pct": {
+  "value": 1,
+  "unit": "% of the mean",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): default true gain, chosen below the default spread"
+ },
+ "e1_default_spread_pct": {
+  "value": 2,
+  "unit": "% of the mean",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): default run-to-run standard deviation"
+ },
+ "e1_metric_mean": {
+  "value": 100,
+  "unit": "metric units",
+  "class": "assumption",
+  "source": "page model choice (not in constants.json): the champion's mean, so gains and spreads read as % of the mean"
+ },
+ "harness_lessons_max_lines": {
+  "value": 70,
+  "unit": "lines",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "slow-memory size limit (about 70 lines)"
+ },
+ "harness_margin_cap_scheduling": {
+  "value": 0.9,
+  "unit": "binding ratio",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "promotion needs binding <= this in the scheduling topic (topic.json margin.max_for_promotion)"
+ },
+ "harness_plan_steps": {
+  "value": [
+   3,
+   6
+  ],
+  "unit": "steps per task",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "planner tasks have 3-6 concrete steps"
+ },
+ "harness_timed_calls": {
+  "value": 20,
+  "unit": "timed calls per run",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "first campaign: promotion needs all 20 timed calls faster than all 20 of the champion"
+ },
+ "pub_disjoint_null_probability_20v20": {
+  "value": 7.25e-12,
+  "unit": "probability",
+  "class": "public",
+  "source": "my arithmetic: if candidate and champion samples are 20 i.i.d. draws each from one continuous distribution, every ordering of the 40 values is equally likely, so P(all 20 candidate values below all 20 champion values) = 1 / C(40,20) = 1 / 137 846 528 820"
+ },
+ "pub_goodhart_year": {
+  "value": 1975,
+  "unit": "year",
+  "class": "public",
+  "source": "Goodhart, 'Problems of monetary management: the U.K. experience', Papers in Monetary Economics, Reserve Bank of Australia, 1975"
+ },
+ "pub_median_null_probability": {
+  "value": 0.5,
+  "unit": "probability",
+  "class": "public",
+  "source": "my arithmetic: under the same no-difference assumption, the candidate's median is below the champion's median with probability 1/2 (symmetry)"
+ },
+ "pub_popper_year": {
+  "value": 1959,
+  "unit": "year",
+  "class": "public",
+  "source": "Popper, The Logic of Scientific Discovery, English edition, Hutchinson, 1959"
+ },
+ "pub_strathern_year": {
+  "value": 1997,
+  "unit": "year",
+  "class": "public",
+  "source": "Strathern, 'Improving ratings: audit in the British University system', European Review 5(3):305-321, 1997"
+ },
+ "sched_baseline": {
+  "value": {
+   "median": 34.7,
+   "min": 32.3,
+   "max": 45.4,
+   "binding_visible": 0.49,
+   "binding_a": 0.34,
+   "binding_b": 0.44
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "FIFO dispatch, shortest-execution placement; ACCEPTED"
+ },
+ "sched_control_wallclock_ms": {
+  "value": 53.5,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "negative control with a wall-clock tie-break; REJECTED by the order probe"
+ },
+ "sched_r1_eft_metric_first": {
+  "value": {
+   "median": 25.8,
+   "min": 23.7,
+   "max": 30.7,
+   "binding": 0.474
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "earliest-finish placement + metric-chain-first dispatch; promoted"
+ },
+ "sched_r1_eft_placement": {
+  "value": {
+   "median": 27.8,
+   "min": 23.7,
+   "max": 34.2,
+   "binding": 0.434
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, ranges overlap the baseline, not promoted"
+ },
+ "sched_r1_eft_reserve": {
+  "value": {
+   "median": 23.9,
+   "min": 23.7,
+   "max": 24.1,
+   "binding": 0.78
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, best seed ties the champion's best seed at the floor; not promotable"
+ },
+ "sched_r1_metric_reserve": {
+  "value": {
+   "median": 30,
+   "min": 27.9,
+   "max": 31.2,
+   "binding": 0.807
+  },
+  "unit": "ms / binding",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "accepted, not promoted"
+ },
+ "sched_r1_submissions": {
+  "value": 4,
+  "unit": "submissions",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator"
+ },
+ "sched_r1_wall_min": {
+  "value": 13,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "round 1 wall time from start to campaign end"
+ },
+ "sched_work_floor_ms": {
+  "value": 22.5,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "demonstration run of the local scheduling simulator",
+  "note": "nominal floor with segmenter on the DLA in parallel with the detector on the GPU: 2 + 2.5 + 14 + 4 (my arithmetic matches the source value)"
+ },
+ "topic_decision_time_limit_ms": {
+  "value": 2,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "mean scheduler decision time limit (host wall clock)"
+ },
+ "topic_planner_credits": {
+  "value": 100,
+  "unit": "credits",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_planner_wall_min": {
+  "value": 30,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_quick_seeds": {
+  "value": 4,
+  "unit": "seeds",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "development (quick) run, visible set only, record INVALID by design"
+ },
+ "topic_researcher_credits": {
+  "value": 300,
+  "unit": "credits",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_researcher_wall_min": {
+  "value": 60,
+  "unit": "min",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_researchers_parallel": {
+  "value": 2,
+  "unit": "researchers",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_soft_miss_limit": {
+  "value": 5,
+  "unit": "%",
+  "class": "illustrative",
+  "source": "design parameter of the harness",
+  "note": "soft chains may miss at most 5 % of deadlines"
+ },
+ "topic_submissions_per_researcher": {
+  "value": 4,
+  "unit": "submissions",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ },
+ "topic_tasks_per_round": {
+  "value": 2,
+  "unit": "tasks",
+  "class": "illustrative",
+  "source": "configuration of the demonstration topic (design parameter of the harness)"
+ }
+}
+</script>
+<script type="application/json" id="params-story">
+{
+ "story_binding_predict": {"value": {"miss_pct": 2, "decision_ms": 1.9}, "unit": "% of soft deadlines / ms per decision", "class": "illustrative", "source": "story 1 scene 2: picture values for the predict and the slider defaults; limits are topic_soft_miss_limit and topic_decision_time_limit_ms"},
+ "story_legit_noise": {"value": {"impl_a": 0.7, "impl_b": 1.0, "guessed": 0.5}, "unit": "x the legitimate noise scale", "class": "illustrative", "source": "story 1 scene 2: picture distances of two legitimate implementations and a guessed limit (B1, B2)"},
+ "story_lap_draws": {"value": {"redraws": 1000, "seed": 1}, "unit": "redraws / seed", "class": "illustrative", "source": "story 1 scene 6: seeded Monte Carlo redraws behind the readout"}
+}
+</script>
+
+<script>
+/* ===================== drawing: builds every SVG, fills {{placeholders}}; story.js then runs the scenes ===================== */
+const NS = "http://www.w3.org/2000/svg", NAVY = "#141C2E";
+const P = Object.assign(JSON.parse(document.getElementById("params").textContent), JSON.parse(document.getElementById("params-story").textContent));
+const V = key => { const [k, sub] = key.split("/"); const o = P[k]; if (!o) { console.error("missing param " + k); return NaN; }
+  const v = sub === undefined ? o.value : o.value[sub]; if (v === undefined) console.error("missing param " + key); return v; };
+const COMP = {};  // values computed by the page (shown as {{@name}})
+const C = {coral:"#EE6A45", coralD:"#B33F1D", sun:"#F2C64A", sunD:"#8A6800", sky:"#5E9FB8", skyD:"#2C6A82", leaf:"#3AA88D", leafD:"#1D7660",
+  plum:"#B4669D", plumD:"#7E3A6C", stone:"#8C8670", ink:"#1D2A44", ink2:"#55607A", card:"#FFFAF2", card2:"#EFE5D4", line:"#DCCDB4",
+  skyT:"#E3EFF4", leafT:"#D7EFE7", coralT:"#FBE0D6", sunT:"#FBEFC6", plumT:"#F1DDEA", road:"#E6DAC4", grass:"#E4EBCF"};
+const SKIN = ["#F4CDA7", "#D49A6A", "#8E5B3B", "#E8B98F"];
+function el(t, a = {}, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+function tx(p, x, y, s, a = {}) { const t = el("text", Object.assign({x, y}, a), p); t.textContent = s; return t; }
+function dual(p, x, y, k, e, a = {}) { const g = el("g", {}, p); const c = a.class || ""; tx(g, x, y, k, Object.assign({}, a, {class: ("lbl-k " + c).trim()})); tx(g, x, y, e, Object.assign({}, a, {class: ("lbl-e " + c).trim()})); return g; }
+function use(p, id, x, y, w, h, style = "", a = {}) { return el("use", Object.assign({href: "#" + id, x, y, width: w, height: h, style}, a), p); }
+function person(p, x, y, w, shirt, skin, prop, hair) { const g = el("g", {}, p), h = w * 100 / 66;
+  use(g, "i-person", x, y, w, h, `--c:${shirt};--skin:${skin}` + (hair ? `;--hair:${hair}` : "")); if (prop) use(g, prop, x, y, w, h); return g; }
+const OL = {stroke: NAVY, "stroke-width": 2.5, "stroke-linejoin": "round"};
+const MID = {"text-anchor": "middle"}, END = {"text-anchor": "end"};
+const B = (sz, col, extra) => Object.assign({"font-size": sz, "font-weight": 800}, col ? {fill: col} : {}, extra || {});
+const R = (sz, col, extra) => Object.assign({"font-size": sz, "font-weight": 600}, col ? {fill: col} : {}, extra || {});
+const svgOf = id => document.querySelector(`#${id} svg`) || document.getElementById(id);  // runs before story.js wraps wide svgs
+const fmt = v => typeof v === "number" ? (Math.abs(v) >= 10000 ? v.toLocaleString("en-US").replace(/,/g, "\u202F") : String(v)) : Array.isArray(v) ? v.join("–") : String(v);
+function seeded(seed) { let s = seed % 2147483647; if (s <= 0) s += 2147483646; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  return {r, g: () => { const u = r() || 1e-9, v = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v); }}; }
+const pathLen = d => { const p = el("path", {d}); const tmp = el("svg", {width: 0, height: 0, style: "position:absolute"}); tmp.appendChild(p); document.body.appendChild(tmp); const L = p.getTotalLength(); tmp.remove(); return L; };
+const sup = e => String(e).replace(/-/g, "⁻").replace(/\d/g, d => "⁰¹²³⁴⁵⁶⁷⁸⁹"[d]);
+const sci = (v, dp = 1) => { const e = Math.floor(Math.log10(v)), m = v / 10 ** e; return `${m.toFixed(dp)} × 10${sup(e)}`; };
+// a car riding on an offset-path: the group origin sits on the path, the car above it
+function carOn(p, d, col, a = {}, w = 52) { const g = el("g", Object.assign({}, a, {style: `offset-path:path('${d}');` + (a.style || "")}), p);
+  use(g, "i-car", -w / 2, -w * 0.5, w, w * 56 / 120, `--c:${col}`); return g; }
+function road(p, d, w = 26, a = {}) { el("path", Object.assign({d, fill: "none", stroke: NAVY, "stroke-width": w + 5, "stroke-linejoin": "round", "stroke-linecap": "round"}, a), p);
+  el("path", Object.assign({d, fill: "none", stroke: C.road, "stroke-width": w, "stroke-linejoin": "round", "stroke-linecap": "round"}, a), p);
+  el("path", Object.assign({d, fill: "none", stroke: "#FFFDF8", "stroke-width": 2, "stroke-dasharray": "10 9"}, a), p); }
+function bubble(p, x, y, w, h, fill = "#FFFDF8", stroke = NAVY) { return el("rect", {x, y, width: w, height: h, rx: 12, fill, stroke, "stroke-width": 2.5}, p); }
+function stamp(p, x, y, s, col, rot = -6, size = 15) { const g = el("g", {transform: `rotate(${rot} ${x} ${y})`}, p);
+  const t = tx(g, x, y, s, B(size, col, MID)); const w = Math.max(60, s.length * size * 0.62);
+  el("rect", {x: x - w / 2 - 8, y: y - size - 2, width: w + 16, height: size + 12, rx: 6, fill: "none", stroke: col, "stroke-width": 2.5}, g); g.appendChild(t); return g; }
+
+/* ---------------- HERO ---------------- */
+(() => {
+ const s = document.getElementById("hero");
+ el("rect", {x: 0, y: 0, width: 1000, height: 440, fill: "#F3E6D0"}, s);
+ // the workshop
+ dual(s, 120, 36, "The workshop", "Researcher agents", B(17, null, MID));
+ el("path", Object.assign({d: "M12 110 L120 56 L228 110 Z", fill: C.ink2}, OL), s);
+ el("rect", Object.assign({x: 22, y: 108, width: 196, height: 196, fill: C.card2}, OL), s);
+ el("line", {x1: 30, y1: 290, x2: 210, y2: 290, stroke: NAVY, "stroke-width": 2}, s);
+ const bg = el("g", {"data-ref": "builder"}, s);
+ person(bg, 28, 150, 50, C.sky, SKIN[2], "p-wrench"); person(bg, 162, 150, 50, C.sky, SKIN[0], "p-wrench");
+ const cg = el("g", {"data-ref": "car"}, s);
+ use(cg, "i-car", 66, 238, 108, 50, `--c:${C.leaf}`);
+ tx(cg, 120, 230, "#8, built from #7", R(12, C.ink2, MID));
+ const co = el("g", {"data-ref": "coach"}, s);
+ person(co, 24, 318, 46, C.stone, SKIN[0], "p-board", C.plumD);
+ use(el("g", {"data-ref": "notes"}, s), "i-notes", 76, 338, 36, 47);
+ dual(s, 120, 404, "coach + one-page notes", "planner + lessons file", R(12, C.ink2));
+ el("path", {d: "M214 296 Q290 396 404 392", fill: "none", stroke: NAVY, "stroke-width": 2.5, "stroke-dasharray": "6 5", "marker-end": "url(#ah-ink)"}, s);
+ dual(s, 300, 426, "hand in a car", "submit a candidate", R(12, C.ink2, MID));
+ // the course
+ const HON = "M460 320 H600 Q680 320 680 225 Q680 130 600 130 H520 C500 130 495 82 460 82 C425 82 420 130 400 130 H320 Q240 130 240 225 Q240 320 320 320 Z";
+ const CUT = "M460 320 H600 Q680 320 680 225 Q680 130 600 130 H320 Q240 130 240 225 Q240 320 320 320 Z";
+ el("path", {d: "M262 150 H658 V300 H262 Z", fill: C.grass, opacity: .7}, s);
+ road(s, HON);
+ dual(s, 320, 110, "practice course", "visible input set", R(12, C.skyD, MID));
+ el("rect", {x: 454, y: 306, width: 12, height: 28, fill: "url(#chk)", stroke: NAVY, "stroke-width": 1.5}, s);
+ const gg = el("g", {"data-ref": "gate"}, s);
+ use(gg, "i-gate", 430, 48, 60, 60);
+ dual(gg, 460, 40, "checkpoint", "correctness gate", B(12, C.ink, MID));
+ el("path", {d: "M520 130 H400", fill: "none", stroke: C.coral, "stroke-width": 3, "stroke-dasharray": "6 5"}, s);
+ // the marshal's flag where the decoy cuts
+ const mf = el("g", {"data-ref": "decoy"}, s);
+ el("path", {d: "M452 186 V146", stroke: NAVY, "stroke-width": 3, "stroke-linecap": "round"}, mf);
+ el("path", {d: "M452 146 h22 l-5 7 l5 7 h-22 z", fill: C.coral, stroke: NAVY, "stroke-width": 2, class: "wave st-loop"}, mf);
+ tx(mf, 482, 166, "decoy cuts across:", B(13, C.coralD));
+ tx(mf, 482, 182, "missed the checkpoint, out", B(13, C.coralD));
+ tx(s, 600, 70, "honest car: the whole course", B(13, C.leafD, MID));
+ // the secret course in its envelope
+ const eg = el("g", {"data-ref": "env"}, s);
+ use(eg, "i-env", 284, 196, 84, 60);
+ dual(eg, 326, 274, "secret course", "held-out inputs", B(13, C.plumD, MID));
+ dual(eg, 326, 290, "sealed, never seen", "agents never read them", R(12, C.ink2, MID));
+ // lap time bars (picture, not data)
+ const lb = el("g", {}, s);
+ tx(lb, 486, 222, "lap time", B(13, C.sunD));
+ tx(lb, 486, 242, "honest", R(12, C.ink2)); el("rect", {x: 540, y: 232, width: 108, height: 12, rx: 4, fill: C.sun, stroke: NAVY, "stroke-width": 1.5}, lb);
+ tx(lb, 486, 266, "decoy", R(12, C.ink2)); el("rect", {x: 540, y: 256, width: 72, height: 12, rx: 4, fill: C.sun, stroke: NAVY, "stroke-width": 1.5}, lb);
+ tx(lb, 620, 267, "✗", B(16, C.coralD));
+ // two cars lapping; the decoy's route is shorter, so it laps faster at the same speed
+ const Lh = pathLen(HON), Lc = pathLen(CUT), Lpre = pathLen("M460 320 H600 Q680 320 680 225 Q680 130 600 130 H460"), T = 7;
+ carOn(el("g", {"data-ref": "car"}, s), HON, C.leaf, {class: "lap st-loop", style: `--T:${T}s;--od:7%`});
+ carOn(el("g", {"data-ref": "decoy"}, s), CUT, C.coral, {class: "lap st-loop", style: `--T:${(T * Lc / Lh).toFixed(2)}s;--dl:-1.6s;--od:${(100 * Lpre / Lc).toFixed(1)}%`});
+ // the sealed timing hut at the finish line
+ const hg = el("g", {"data-ref": "hut"}, s);
+ use(hg, "i-hut", 414, 340, 92, 92);
+ use(hg, "i-rules", 512, 372, 46, 55);
+ dual(hg, 634, 392, "the sealed timing hut", "the frozen evaluator", B(13, C.ink, MID));
+ el("path", {d: "M564 404 H702", fill: "none", stroke: NAVY, "stroke-width": 2.5, "marker-end": "url(#ah-ink)"}, s);
+ const sg = el("g", {"data-ref": "slip"}, s);
+ use(sg, "i-slip", 710, 356, 44, 64);
+ dual(sg, 764, 384, "timing slip #17", "evidence record, run id", B(14));
+ dual(sg, 764, 402, "every claim cites one", "cite or it did not happen", R(12, C.ink2));
+ // the champion board
+ const cb = el("g", {"data-ref": "starter"}, s);
+ el("rect", Object.assign({x: 708, y: 52, width: 282, height: 270, rx: 14, fill: C.card}, OL), cb);
+ dual(cb, 836, 84, "Champion board", "Promotion policy", B(16, null, MID));
+ use(cb, "i-trophy", 944, 60, 30, 36);
+ const rr = seeded(4), X0 = 730;
+ const row = (lo, hi, y, col, lbl, lc) => { el("rect", {x: lo - 4, y: y - 9, width: hi - lo + 8, height: 18, rx: 9, fill: col === C.leaf ? C.leafT : C.sunT, stroke: NAVY, "stroke-width": 1.5}, cb);
+  for (let i = 0; i < 20; i++) el("circle", {cx: lo + rr.r() * (hi - lo), cy: y + (rr.r() - .5) * 8, r: 3.4, fill: col, stroke: NAVY, "stroke-width": 1}, cb);
+  tx(cb, (lo + hi) / 2, y - 16, lbl, B(12, lc, MID)); };
+ row(856, 958, 146, C.leaf, "champion's 20 laps", C.leafD);
+ row(748, 830, 204, C.sun, "challenger's 20 laps", C.sunD);
+ el("line", {x1: 852, y1: 156, x2: 852, y2: 236, stroke: NAVY, "stroke-width": 2, "stroke-dasharray": "5 4"}, cb);
+ el("line", {x1: X0, y1: 242, x2: 970, y2: 242, stroke: NAVY, "stroke-width": 2}, cb);
+ tx(cb, X0, 258, "← faster", R(11, C.ink2)); tx(cb, 850, 258, "lap time", R(11, C.ink2, MID)); tx(cb, 970, 258, "slower →", R(11, C.ink2, END));
+ dual(cb, 849, 284, "every lap beats the champion's best", "the whole range beats the champion's", B(13, null, MID));
+ tx(cb, 849, 304, "→ new champion", B(13, C.leafD, MID));
+})();
+</script>
+<script>
+/* ---------------- SCENE 1: cut the course (fast but wrong) ---------------- */
+(() => {
+ const s = svgOf("s-cut");
+ const base = el("g", {"data-s": "0"}, s);
+ el("rect", {x: 40, y: 150, width: 720, height: 120, fill: C.grass, opacity: .6}, base);
+ const FULL = "M90 250 H300 C330 250 330 110 380 110 C430 110 430 250 460 250 H700";
+ const SHORT = "M90 250 H700";  // the cut: straight across the foot of the chicane
+ road(base, FULL, 22);
+ el("rect", {x: 694, y: 236, width: 12, height: 28, fill: "url(#chk)", stroke: NAVY, "stroke-width": 1.5}, base);
+ tx(base, 700, 228, "finish", R(11, C.ink2, MID));
+ use(base, "i-gate", 350, 44, 56, 56);
+ dual(base, 378, 36, "checkpoint", "correctness gate", B(13, C.ink, MID));
+ // the stopwatch board
+ bubble(base, 760, 40, 220, 250, C.card); dual(base, 870, 66, "Stopwatch", "The metric (lap time)", B(15, null, MID));
+ el("circle", {cx: 870, cy: 124, r: 30, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2.5}, base);
+ el("path", {d: "M870 124 V102 M870 124 L886 131", stroke: NAVY, "stroke-width": 3, "stroke-linecap": "round"}, base);
+ el("rect", {x: 862, y: 84, width: 16, height: 8, rx: 2, fill: C.sun, stroke: NAVY, "stroke-width": 2}, base);
+ // honest car (steps 1+), decoy car (2+)
+ const honG = el("g", {"data-s": "1"}, s); const hon = carOn(honG, FULL, C.leaf, {}, 56); hon.classList.add("st-tok"); hon.setAttribute("data-s", "1");
+ hon.setAttribute("style", hon.getAttribute("style") + "--dur:1600ms");
+ tx(el("g", {class: "st-at", "data-s": "1"}, s), 90, 285, "honest lap: the whole course", B(14, C.leafD));
+ const decG = el("g", {"data-s": "2"}, s); const dec = carOn(decG, SHORT, C.coral, {}, 56); dec.classList.add("st-tok"); dec.setAttribute("data-s", "2 3");
+ dec.setAttribute("style", dec.getAttribute("style") + "--dur:1100ms");
+ tx(el("g", {class: "st-at", "data-s": "2"}, s), 90, 285, "a new car cuts across the chicane", B(14, C.coralD));
+ el("path", {d: "M300 250 H460", fill: "none", stroke: C.coral, "stroke-width": 4, "stroke-dasharray": "7 5", "data-s": "2"}, s);
+ // parked after their lap
+ use(el("g", {"data-s": "1"}, s), "i-car", 560, 262, 50, 23, `--c:${C.leaf}`);
+ use(el("g", {"data-s": "2"}, s), "i-car", 616, 262, 50, 23, `--c:${C.coral}`);
+ // step 2+3: the two time bars
+ const barG = (k) => el("g", {class: "st-at", "data-s": k}, s);
+ const b2 = barG("2 3 4"); tx(b2, 776, 188, "honest", R(12, C.ink2)); el("rect", {x: 776, y: 196, width: 150, height: 12, rx: 4, fill: C.sun, stroke: NAVY, "stroke-width": 1.5}, b2);
+ tx(b2, 776, 232, "cut", R(12, C.ink2)); el("rect", {x: 776, y: 240, width: 92, height: 12, rx: 4, fill: C.sun, stroke: NAVY, "stroke-width": 1.5}, b2);
+ const g3 = el("g", {class: "st-at", "data-s": "3"}, s); el("path", {d: "M876 246 l10 -6 v12 z", fill: C.coral}, g3); tx(g3, 892, 251, "faster!", B(13, C.coralD));
+ const g3b = el("g", {class: "st-at", "data-s": "4"}, s); el("line", {x1: 770, y1: 246, x2: 874, y2: 246, stroke: C.coralD, "stroke-width": 3}, g3b); tx(g3b, 884, 251, "✗ out", B(13, C.coralD));
+ // step 4: caught
+ const g4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ use(g4, "i-gate", 350, 44, 56, 56); el("circle", {cx: 378, cy: 72, r: 20, fill: C.coral, stroke: NAVY, "stroke-width": 2.5}, g4); tx(g4, 378, 80, "✗", B(22, "#fff", MID));
+ dual(g4, 378, 300, "missed the checkpoint → out, however fast", "correctness gate rejects it", B(15, C.coralD, MID));
+})();
+
+/* ---------------- SCENE 2: the sealed judge + binding (live) ---------------- */
+const SOFT = V("topic_soft_miss_limit"), DECL = V("topic_decision_time_limit_ms"), CAP = V("harness_margin_cap_scheduling");
+COMP.baseBind = Math.max(V("sched_baseline/binding_visible"), V("sched_baseline/binding_a"), V("sched_baseline/binding_b")).toFixed(2);
+const bindModel = st => { const r1 = st.miss / SOFT, r2 = st.dec / DECL, b = Math.max(r1, r2);
+ const verdict = b >= 1 ? "reject" : b > CAP ? "low" : "crown"; return {r1, r2, b, verdict}; };
+{ const pm = V("story_binding_predict/miss_pct"), pd = V("story_binding_predict/decision_ms"), o = bindModel({miss: pm, dec: pd});
+  COMP.predAvg = ((o.r1 + o.r2) / 2).toFixed(2); COMP.predDec = o.r2.toFixed(2); }
+(() => {
+ const s = svgOf("s-seal");
+ // step 1: hut + sealed rulebook
+ const g1 = el("g", {"data-s": "1"}, s);
+ use(g1, "i-hut", 40, 150, 120, 120); use(g1, "i-rules", 70, 60, 70, 84);
+ dual(g1, 105, 288, "human-owned, sealed", "frozen, human-owned", B(13, null, MID));
+ person(g1, 170, 170, 54, C.sky, SKIN[1], "p-wrench");
+ bubble(g1, 230, 150, 200, 48); tx(g1, 240, 172, "\u201CI think the rule is wrong\u201D", R(13, C.ink)); tx(g1, 240, 190, "\u2014 allowed, in the report", R(12, C.ink2));
+ // step 2: broken seal -> refuses
+ const g2 = el("g", {class: "st-at", "data-s": "2"}, s);
+ use(g2, "i-rules", 70, 60, 70, 84, "", {transform: "rotate(-4 105 102)"});
+ el("path", {d: "M92 96 L150 128", stroke: C.coral, "stroke-width": 4, "stroke-linecap": "round"}, g2); el("path", {d: "M150 96 L92 128", stroke: C.coral, "stroke-width": 4, "stroke-linecap": "round"}, g2);
+ tx(g2, 105, 52, "seal broken", B(13, C.coralD, MID));
+ bubble(g2, 232, 212, 226, 44, C.coralT, C.coralD); dual(g2, 242, 239, "edited → the hut won't time", "manifest mismatch → refuses", B(13, C.coralD));
+ // step 3: honest laps set a gate width
+ const g3 = el("g", {class: "st-at", "data-s": "3 4"}, s), GX0 = 470, GX1 = 960, mid = 520, LN = V("story_legit_noise");
+ dual(g3, GX0, 54, "How far off the line may a lap be?", "Gate width from legitimate runs", B(14, null));
+ el("line", {x1: GX0, y1: 120, x2: GX1, y2: 120, stroke: NAVY, "stroke-width": 2}, g3);
+ el("line", {x1: mid, y1: 100, x2: mid, y2: 150, stroke: C.leafD, "stroke-width": 3}, g3); tx(g3, mid, 92, "the line", B(12, C.leafD, MID));
+ const legX = d => mid + d * 300;
+ [["honest car A", "legit impl A", LN.impl_a], ["honest car B", "legit impl B", LN.impl_b]].forEach(([n, e, d], i) => { el("circle", {cx: legX(d), cy: 120, r: 7, fill: C.leaf, stroke: NAVY, "stroke-width": 2}, g3); dual(g3, legX(d), i ? 94 : 108, n, e, R(11, C.leafD, MID)); });
+ el("rect", {x: mid, y: 134, width: legX(LN.impl_b) - mid, height: 14, rx: 7, fill: C.leaf, opacity: .45, stroke: NAVY, "stroke-width": 1.5}, g3);
+ tx(g3, legX(LN.impl_b) + 12, 146, "gate set from honest laps", B(12, C.leafD));
+ el("line", {x1: legX(LN.guessed), y1: 108, x2: legX(LN.guessed), y2: 148, stroke: C.coralD, "stroke-width": 2.5, "stroke-dasharray": "5 4"}, g3);
+ tx(g3, legX(LN.guessed) + 6, 200, "a guessed gate: too tight, rejects both", B(12, C.coralD));
+ // step 4: the secret course in its envelope
+ const g4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ use(g4, "i-env", 470, 210, 84, 60); dual(g4, 512, 288, "two secret courses", "two held-out input sets", B(13, C.plumD, MID));
+ bubble(g4, 572, 214, 368, 56, C.plumT, C.plumD); dual(g4, 584, 238, "tuned to practice? Must still pass the secret ones.", "the private leaderboard decides; the public one guides", R(13, C.ink));
+ tx(g4, 584, 258, "a lighter load, and a different robot", R(12, C.ink2));
+ // step 5: the gauges = closest call
+ const g5 = el("g", {class: "st-at", "data-s": "5"}, s);
+ const courses = [["practice", V("sched_baseline/binding_visible")], ["secret A", V("sched_baseline/binding_a")], ["secret B", V("sched_baseline/binding_b")]];
+ courses.forEach(([n, v], i) => { const x = 500 + i * 150, y = 150; el("circle", {cx: x, cy: y, r: 40, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2.5}, g5);
+  for (let t = 0; t <= 1.0001; t += 0.25) { const a = Math.PI * (1 - t); el("line", {x1: x + 33 * Math.cos(a), y1: y - 33 * Math.sin(a), x2: x + 40 * Math.cos(a), y2: y - 40 * Math.sin(a), stroke: NAVY, "stroke-width": 1.5}, g5); }
+  const a = Math.PI * (1 - v); el("line", {x1: x, y1: y, x2: x + 32 * Math.cos(a), y2: y - 32 * Math.sin(a), stroke: C.coral, "stroke-width": 3, "stroke-linecap": "round"}, g5);
+  el("circle", {cx: x, cy: y, r: 4, fill: NAVY}, g5); tx(g5, x, y + 60, n, R(12, C.ink2, MID)); tx(g5, x, y - 52, v.toFixed(2), B(14, C.coralD, MID)); });
+ el("path", {d: "M790 150 H830", fill: "none", stroke: NAVY, "stroke-width": 3, "marker-end": "url(#ah-ink)"}, g5);
+ bubble(g5, 840, 118, 148, 64, C.coralT, C.coralD); tx(g5, 914, 142, "closest call", B(14, C.coralD, MID)); tx(g5, 914, 166, COMP.baseBind, B(22, C.coralD, MID));
+ console.assert(Math.abs(+COMP.baseBind - V("sched_baseline/binding_visible")) < 1e-9, "scene 2: binding is the max ratio");
+})();
+
+/* ---------------- SCENE 2b: binding gauges (live) ---------------- */
+(() => {
+ const s = document.getElementById("bind");
+ el("rect", {x: 0, y: 0, width: 620, height: 300, rx: 16, fill: "#F3E6D0"}, s);
+ const gauge = (x, title, unit, limit) => { const y = 150; el("circle", {cx: x, cy: y, r: 60, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2.5}, s);
+  // colour arc: leaf below cap, sun cap..1, coral above 1
+  for (let t = 0; t <= 1.5001; t += 0.03) { const a = Math.PI * (1 - t / 1.5), col = t <= CAP ? C.leaf : t < 1 ? C.sun : C.coral;
+   el("line", {x1: x + 50 * Math.cos(a), y1: y - 50 * Math.sin(a), x2: x + 60 * Math.cos(a), y2: y - 60 * Math.sin(a), stroke: col, "stroke-width": 4}, s); }
+  tx(s, x, y + 86, title, B(13, null, MID)); tx(s, x, y + 104, `limit ${limit} ${unit}`, R(11, C.ink2, MID));
+  const nd = el("line", {id: "nd-" + x, x1: x, y1: y, x2: x, y2: y - 46, stroke: NAVY, "stroke-width": 3.5, "stroke-linecap": "round"}, s); el("circle", {cx: x, cy: y, r: 5, fill: NAVY}, s);
+  const rt = tx(s, x, y + 34, "", B(18, null, MID)); return {x, y, nd, rt}; };
+ const gm = gauge(165, "soft misses ÷ limit", "%", SOFT), gd = gauge(455, "decision time ÷ limit", "ms", DECL);
+ // the cap tick on both
+ [165, 455].forEach(x => { const a = Math.PI * (1 - CAP / 1.5); el("line", {x1: x + 44 * Math.cos(a), y1: 150 - 44 * Math.sin(a), x2: x + 64 * Math.cos(a), y2: 150 - 64 * Math.sin(a), stroke: NAVY, "stroke-width": 2, "stroke-dasharray": "3 3"}, s);
+  tx(s, x + 72 * Math.cos(a), 150 - 72 * Math.sin(a), "cap " + CAP, B(10, C.ink, MID)); });
+ const vt = tx(s, 310, 34, "", B(17, null, MID)), vb = tx(s, 310, 56, "", R(13, C.ink2, MID));
+ window.drawBind = o => {
+  const V3 = {crown: ["Can be crowned (if it is also faster)", C.leafD], low: ["Accepted, low margin: never crowned", C.sunD], reject: ["Rejected: a gate failed", C.coralD]}[o.verdict];
+  vt.textContent = V3[0]; vt.setAttribute("fill", V3[1]); vb.textContent = `closest call = the larger dial = ${o.b.toFixed(2)}`;
+  [[gm, o.r1], [gd, o.r2]].forEach(([g, r]) => { const a = Math.PI * (1 - Math.min(1.5, r) / 1.5);
+   g.nd.setAttribute("x2", g.x + 46 * Math.cos(a)); g.nd.setAttribute("y2", g.y - 46 * Math.sin(a));
+   g.rt.textContent = r.toFixed(2); g.rt.setAttribute("fill", r >= 1 ? C.coralD : r > CAP ? C.sunD : C.leafD); }); };
+})();
+</script>
+<script>
+/* ---------------- SCENE 3: the gate tested from both sides (negative controls) ---------------- */
+(() => {
+ const s = svgOf("s-both"), Y = 200, LANE = "M60 200 H940", STOP = "M60 200 H380";
+ const base = el("g", {"data-s": "0"}, s);
+ road(base, LANE, 26); use(base, "i-gate", 440, 120, 120, 120);
+ dual(base, 500, 112, "the gate", "the frozen evaluator's gate", B(13, null, MID));
+ const head = (k, t1, t2, col) => dual(el("g", {class: "st-at", "data-s": k}, s), 500, 34, t1, t2, B(16, col, MID));
+ head("1", "Too tight? The honest car must pass.", "Not too tight: the baseline must be ACCEPTED", C.leafD);
+ head("2 3 4", "Too loose? Every decoy must lose.", "Not too loose: every control must be REJECTED", C.coralD);
+ const tok = (k, d, col, dur) => { const g = carOn(s, d, col, {}, 60); g.classList.add("st-tok"); g.setAttribute("data-s", k); g.setAttribute("style", g.getAttribute("style") + `--dur:${dur}ms`); };
+ const parked = (k, x, col) => use(el("g", {class: "st-at", "data-s": k}, s), "i-car", x, Y - 30, 60, 28, `--c:${col}`);
+ const verdict = (k, word, col, l1, l2) => { const g = el("g", {class: "st-at", "data-s": k}, s); stamp(g, 830, 92, word, col, -5, 17);
+  tx(g, 830, 136, l1, B(13, col, MID)); if (l2) tx(g, 830, 154, l2, R(12, C.ink2, MID)); return g; };
+ // step 1: the stock car passes
+ tok("1", LANE, C.leaf, 1500); parked("1", 700, C.leaf);
+ dual(el("g", {class: "st-at", "data-s": "1"}, s), 200, 160, "the stock car", "baseline", B(13, C.leafD, MID));
+ verdict("1", "ACCEPTED", C.leafD, `closest call ${V("sched_baseline/binding_visible")}`, "room below 1: not too tight");
+ // step 2: the skip-lap decoy is stopped
+ tok("2", STOP, C.coral, 900); parked("2", 352, C.coral);
+ dual(el("g", {class: "st-at", "data-s": "2"}, s), 200, 160, "skip-the-slow-laps decoy", "control starve_soft", B(13, C.coralD, MID));
+ verdict("2", "REJECTED", C.coralD, "the slow laps never finish", "completion gate");
+ // step 3: the coin-toss decoy slips through
+ tok("3", LANE, C.coral, 1500); parked("3", 700, C.coral);
+ const g3 = el("g", {class: "st-at", "data-s": "3"}, s);
+ dual(g3, 200, 160, "coin-toss decoy", "control wallclock", B(13, C.coralD, MID));
+ el("circle", {cx: 200, cy: 268, r: 22, fill: C.sun, stroke: NAVY, "stroke-width": 2.5}, g3); tx(g3, 200, 273, "even", B(11, C.ink, MID));
+ dual(g3, 232, 262, "its coin always landed the same way", "tie-break salt = parity of a ns clock", B(12, C.coralD));
+ dual(g3, 232, 280, "(the clock ticked only in microseconds)", "with µs resolution: always even", R(12, C.ink2));
+ verdict("3", "ACCEPTED ?!", C.coralD, "a broken decoy passes", "it was accidentally fair");
+ // step 4: fixed, and caught by running the laps in reverse order
+ tok("4", STOP, C.coral, 900); parked("4", 352, C.coral);
+ const g4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ dual(g4, 200, 160, "coin-toss decoy, real coin", "wallclock, unseeded random", B(13, C.coralD, MID));
+ const fw = ["A", "B", "C", "D", "E"], bw = ["A", "B", "D", "C", "E"];
+ dual(g4, 60, 262, "forward", "seeds in order", R(12, C.ink2)); dual(g4, 60, 298, "backward", "seeds reversed", R(12, C.ink2));
+ fw.forEach((r, i) => { const x = 150 + i * 44, diff = r !== bw[i];
+  el("rect", {x, y: 246, width: 36, height: 24, rx: 5, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2}, g4); tx(g4, x + 18, 263, r, B(13, null, MID));
+  el("rect", {x, y: 282, width: 36, height: 24, rx: 5, fill: diff ? C.coralT : "#FFFDF8", stroke: diff ? C.coralD : NAVY, "stroke-width": diff ? 3 : 2}, g4); tx(g4, x + 18, 299, bw[i], B(13, diff ? C.coralD : null, MID)); });
+ tx(g4, 380, 290, "≠ results differ", B(13, C.coralD));
+ verdict("4", "REJECTED", C.coralD, `order probe · ${V("sched_control_wallclock_ms")} ms`, "results changed with the order");
+})();
+
+/* ---------------- flip-card pictures ---------------- */
+(() => {
+ const bgc = s => el("rect", {x: 0, y: 0, width: 200, height: 110, rx: 12, fill: "#F3E6D0"}, s);
+ { const s = document.getElementById("cd1"); bgc(s); road(s, "M20 90 H70 C90 90 90 30 120 30 C150 30 150 90 180 90", 16);
+   el("path", {d: "M70 90 H180", stroke: C.coral, "stroke-width": 3, "stroke-dasharray": "6 4", fill: "none"}, s); use(s, "i-car", 100, 70, 50, 23, `--c:${C.coral}`); use(s, "i-gate", 104, 6, 32, 32); }
+ { const s = document.getElementById("cd2"); bgc(s); use(s, "i-car", 30, 22, 140, 65, "--c:none", {opacity: .35});
+   use(s, "i-car", 36, 28, 128, 60, `--c:${C.coral}`); tx(s, 186, 20, `−${V("c1_control_scale_illustrative")} %`, B(14, C.coralD, END)); }
+ { const s = document.getElementById("cd3"); bgc(s); use(s, "i-slip", 40, 18, 46, 66); use(s, "i-slip", 110, 22, 46, 66);
+   el("path", {d: "M88 90 Q100 104 112 90", fill: "none", stroke: NAVY, "stroke-width": 2.5, "marker-end": "url(#ah-ink)"}, s); stamp(s, 133, 60, "COPY", C.coralD, -10, 13); tx(s, 63, 104, "yesterday", R(11, C.ink2, MID)); }
+ { const s = document.getElementById("cd4"); bgc(s); use(s, "i-car", 20, 30, 80, 37, `--c:${C.leaf}`); use(s, "i-car", 104, 30, 80, 37, `--c:${C.coral}`);
+   tx(s, 60, 90, "core 1", R(11, C.ink2, MID)); tx(s, 144, 90, "core 2: off", B(11, C.coralD, MID)); }
+})();
+
+/* ---------------- SCENE 4: slips, claims, diagnostics, the two memories ---------------- */
+(() => {
+ const s = svgOf("s-slip");
+ const base = el("g", {"data-s": "0"}, s); use(base, "i-hut", 20, 180, 100, 100);
+ // step 1: one slip per run, into its own folder
+ const g1 = el("g", {"data-s": "1"}, s);
+ el("path", {d: "M4 6 H216 V160 L206 170 L196 160 L186 170 L176 160 L166 170 L156 160 L146 170 L136 160 L126 170 L116 160 L106 170 L96 160 L86 170 L76 160 L66 170 L56 160 L46 170 L36 160 L26 170 L16 160 L4 170 Z", fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2.5, "stroke-linejoin": "round", transform: "translate(142 18)"}, g1);
+ el("rect", {x: 150, y: 26, width: 200, height: 24, rx: 4, fill: C.sun, stroke: NAVY, "stroke-width": 2}, g1);
+ dual(g1, 160, 43, "timing slip #17", "evidence/<time>-<candidate>/", B(13));
+ [["car #9, built from #7", "candidate + parent"], ["verdict: ACCEPTED", "verdict + reasons"], ["20 laps: median, range", "metric + its range"],
+  ["closest call", "binding ratio"], ["today's conditions", "measurement context"], ["rulebook version", "evaluator id"]].forEach(([k, e], i) =>
+  dual(g1, 160, 72 + i * 19, "• " + k, "• " + e, R(12, C.ink)));
+ const dr = el("g", {"data-s": "1"}, s);
+ el("rect", {x: 150, y: 224, width: 210, height: 84, rx: 8, fill: C.card2, stroke: NAVY, "stroke-width": 2.5}, dr);
+ ["#15", "#16", "#17"].forEach((t, i) => { el("rect", {x: 162 + i * 66, y: 236, width: 56, height: 58, rx: 4, fill: i === 2 ? C.sunT : "#FFFDF8", stroke: NAVY, "stroke-width": 2}, dr); tx(dr, 190 + i * 66, 258, t, B(12, null, MID)); });
+ dual(dr, 255, 326, "one folder per timed run", "one evidence directory per run", R(12, C.ink2, MID));
+ use(s, "i-slip", -14, -20, 28, 40, "", {class: "st-tok", "data-s": "1", style: "offset-path:path('M70 200 Q110 150 190 252');--dur:900ms"});
+ // step 2: cite or it did not happen
+ const g2 = el("g", {"data-s": "2"}, s);
+ bubble(g2, 392, 30, 262, 46); tx(g2, 404, 59, "\u201CThe engine is bandwidth-bound.\u201D", R(14));
+ stamp(g2, 524, 108, "NO SLIP · DID NOT HAPPEN", C.coralD, -4, 13);
+ bubble(g2, 392, 136, 262, 46, C.leafT, C.leafD); tx(g2, 404, 165, "\u201CCar #9 beat the champion: slip #17\u201D", R(13)); tx(g2, 640, 166, "✓", B(16, C.leafD, END));
+ // step 3: the builder's own stopwatch is a diagnostic; quick runs are INVALID
+ const g3 = el("g", {"data-s": "3"}, s);
+ person(g3, 392, 210, 48, C.sky, SKIN[3], null);
+ el("circle", {cx: 466, cy: 232, r: 15, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2.5}, g3); el("path", {d: "M466 232 V222 M466 232 L474 236", stroke: NAVY, "stroke-width": 2.5, "stroke-linecap": "round"}, g3);
+ el("rect", {x: 452, y: 260, width: 96, height: 22, rx: 11, fill: C.skyT, stroke: C.skyD, "stroke-width": 2}, g3); tx(g3, 500, 276, "DIAGNOSTIC", B(12, C.skyD, MID));
+ tx(g3, 452, 302, "labelled, not a result", R(12, C.ink2));
+ use(g3, "i-slip", 610, 218, 40, 58); stamp(g3, 630, 306, "INVALID", C.ink2, -8, 12); tx(g3, 630, 210, "quick run", R(11, C.ink2, MID));
+ // step 4: the logbook (fast memory)
+ const g4 = el("g", {"data-s": "4"}, s);
+ use(g4, "i-log", 680, 24, 50, 63); dual(g4, 705, 104, "logbook", "attempts log", B(12, C.skyD, MID));
+ tx(g4, 746, 36, "car · from · verdict · slip", R(11, C.ink2));
+ [["#15", "#7", "rejected", C.coralD], ["#16", "#7", "accepted", C.ink], ["#17", "#9", "champion", C.leafD], ["#18", "#9", "low margin", C.sunD]].forEach(([c, p, v, col], i) => {
+  const r = el("g", {"data-s": "4", class: "grow", style: `transition-delay:${i * 180}ms`}, s);
+  el("rect", {x: 744, y: 44 + i * 28, width: 240, height: 22, rx: 5, fill: "#FFFDF8", stroke: C.skyD, "stroke-width": 1.5}, r);
+  tx(r, 752, 60 + i * 28, `${c} · ${p} · `, R(12)); tx(r, 812, 60 + i * 28, v, B(12, col)); tx(r, 976, 60 + i * 28, c, R(12, C.ink2, END)); });
+ // step 5: the coach's one page (slow memory)
+ const g5 = el("g", {"data-s": "5"}, s);
+ use(g5, "i-notes", 688, 190, 96, 126);
+ dual(g5, 798, 212, "one page, rewritten each round", "lessons file, rewritten per round", B(12));
+ tx(g5, 798, 232, `about ${V("harness_lessons_max_lines")} lines, each cites a slip`, R(12, C.ink2));
+ dual(g5, 798, 262, "kept: who goes first, alone,", "kept: dispatch order alone", B(12, C.coralD)); dual(g5, 798, 279, "did not help (slip #12)", "did not move the metric", B(12, C.coralD));
+ el("path", {d: "M794 268 H776", stroke: C.coralD, "stroke-width": 2.5, "marker-end": "url(#ah-coral)"}, g5);
+ tx(g5, 798, 306, "failures: cheapest to keep", R(12, C.ink2));
+})();
+
+/* ---------------- SCENE 5: one round of the loop ---------------- */
+(() => {
+ const s = svgOf("s-round");
+ const base = el("g", {"data-s": "0"}, s);
+ person(base, 20, 140, 60, C.stone, SKIN[0], "p-board", C.plumD);
+ dual(base, 50, 252, "coach", "planner", B(13, null, MID)); dual(base, 50, 268, "reads only", "read-only", R(11, C.ink2, MID));
+ // step 1: two drills
+ const g1 = el("g", {"data-s": "1"}, s);
+ [[60, "drill 1"], [200, "drill 2"]].forEach(([y, n]) => { use(g1, "i-card", 96, y, 50, 62);
+  tx(g1, 154, y + 16, n, B(12)); tx(g1, 154, y + 32, "from car #7", R(11, C.ink2)); tx(g1, 154, y + 47, `idea + ${fmt(V("harness_plan_steps"))} steps`, R(11, C.ink2)); tx(g1, 154, y + 62, "success test", R(11, C.ink2)); });
+ [[91], [231]].forEach(([y], i) => use(s, "i-card", -12, -15, 24, 30, "", {class: "st-tok", "data-s": "1", style: `offset-path:path('M60 160 Q80 ${y - 40} 121 ${y}');--dur:800ms;--d:${i * 160}ms`}));
+ // step 2: builders in parallel, each car a new id with a parent
+ const g2 = el("g", {"data-s": "2"}, s);
+ [[40, "#9", "#10"], [190, "#11", "#12"]].forEach(([y, a, b], i) => { person(g2, 300, y, 50, C.sky, SKIN[i ? 0 : 2], "p-wrench");
+  use(g2, "i-car", 358, y + 8, 56, 26, `--c:${C.sun}`); tx(g2, 420, y + 28, `${a} ← #7`, R(11, C.ink2));
+  use(g2, "i-car", 358, y + 42, 56, 26, `--c:${C.sun}`); tx(g2, 420, y + 62, `${b} ← #7`, R(11, C.ink2)); });
+ // step 3: the queue and one car on the course
+ const OV = "M790 330 H920 Q985 330 985 260 Q985 190 920 190 H790 Q730 190 730 260 Q730 330 790 330 Z";
+ const g3 = el("g", {"data-s": "3"}, s);
+ road(g3, OV, 20);
+ [482, 540, 598].forEach(x => use(g3, "i-car", x, 342, 52, 24, `--c:${C.sun}`));
+ dual(g3, 566, 390, "queue: one car at a time", "evaluation queue, serialized", B(12, null, MID));
+ el("path", {d: "M470 118 Q570 220 570 334", fill: "none", stroke: NAVY, "stroke-width": 2, "stroke-dasharray": "5 4", "marker-end": "url(#ah-ink)"}, g3);
+ el("path", {d: "M470 270 Q540 280 548 334", fill: "none", stroke: NAVY, "stroke-width": 2, "stroke-dasharray": "5 4", "marker-end": "url(#ah-ink)"}, g3);
+ person(g3, 668, 262, 46, C.ink2, SKIN[3], "p-flag"); dual(g3, 691, 254, "starter", "eval worker", B(12, null, MID));
+ const lap3 = carOn(s, OV, C.sun, {}, 48); lap3.classList.add("st-tok"); lap3.setAttribute("data-s", "3"); lap3.setAttribute("style", lap3.getAttribute("style") + "--dur:1800ms");
+ // step 4: today's weather; the champion is timed again first
+ const g4 = el("g", {"data-s": "4"}, s);
+ use(g4, "i-cloud", 812, 34, 80, 60);
+ dual(g4, 852, 122, "today's weather", "today's measurement context", B(12, C.skyD, MID));
+ dual(g4, 852, 140, "champion re-timed first", "paired baseline + champion re-run", R(12, C.ink2, MID));
+ const lap4 = carOn(s, OV, C.leaf, {}, 48); lap4.classList.add("st-tok"); lap4.setAttribute("data-s", "4"); lap4.setAttribute("style", lap4.getAttribute("style") + "--dur:1800ms");
+ use(g4, "i-trophy", 840, 236, 26, 30);
+ // step 5: caps, and the fuel meter that read zero
+ const g5 = el("g", {"data-s": "5"}, s);
+ [130, 280].forEach(y => { tx(g5, 300, y + 14, `⏱ ${V("topic_researcher_wall_min")} min`, B(12));
+  tx(g5, 300, y + 32, `fuel ${V("topic_researcher_credits")} credits`, B(12));
+  const cx = 452, cy = y + 30; el("path", {d: `M${cx - 16} ${cy} A16 16 0 0 1 ${cx + 16} ${cy}`, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 2}, g5);
+  el("line", {x1: cx, y1: cy, x2: cx - 14, y2: cy, stroke: C.coral, "stroke-width": 3, "stroke-linecap": "round"}, g5); tx(g5, 474, cy, "reads 0", B(12, C.coralD)); });
+ dual(g5, 50, 300, `coach: ${V("topic_planner_wall_min")} min,`, `planner: ${V("topic_planner_wall_min")} min,`, R(11, C.ink2, MID));
+ tx(g5, 50, 314, `${V("topic_planner_credits")} credits`, R(11, C.ink2, MID));
+})();
+</script>
+<script>
+/* ---------------- SCENE 6: every lap vs the median (live) ---------------- */
+const NLAPS = V("harness_timed_calls"), MEAN = V("e1_metric_mean"), LD = V("story_lap_draws");
+function drawLaps(rnd, gain, spread) { const cp = [], ch = [];
+ for (let i = 0; i < NLAPS; i++) cp.push(MEAN + spread * rnd.g());
+ for (let i = 0; i < NLAPS; i++) ch.push(MEAN - gain + spread * rnd.g()); return {cp, ch}; }
+const median = a => { const b = [...a].sort((x, y) => x - y), m = b.length >> 1; return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+const verdicts = ({cp, ch}) => ({med: median(ch) < median(cp), every: Math.max(...ch) < Math.min(...cp)});
+const lapModel = st => { const d = drawLaps(seeded(1000 + 7919 * st.seed), st.gain, st.spread), v = verdicts(d);
+ const rr = seeded(LD.seed); let m = 0, e = 0; for (let i = 0; i < LD.redraws; i++) { const w = verdicts(drawLaps(rr, st.gain, st.spread)); m += w.med; e += w.every; }
+ return Object.assign({}, d, v, {rateMed: m / LD.redraws, rateEvery: e / LD.redraws, gain: st.gain, spread: st.spread}); };
+// 1 / C(40, 20): the exact chance that 20 equal-car laps all beat 20 others
+const nullDisjoint = (() => { let c = 1; for (let k = 1; k <= NLAPS; k++) c = c * (NLAPS + k) / k; return 1 / c; })();
+COMP.nullDisjoint = sci(V("pub_disjoint_null_probability_20v20"));
+console.assert(Math.abs(nullDisjoint / V("pub_disjoint_null_probability_20v20") - 1) < 0.005, "B7: 1/C(40,20) = 7.25e-12");
+(() => {
+ const s = document.getElementById("laps");
+ el("rect", {x: 0, y: 0, width: 1000, height: 300, rx: 16, fill: "#F3E6D0"}, s);
+ const vm = tx(s, 180, 36, "", B(16)), ve = tx(s, 590, 36, "", B(16));
+ dual(s, 160, 116, "champion", "champion", B(14, C.leafD, END)); dual(s, 160, 196, "challenger", "candidate", B(14, C.sunD, END));
+ el("line", {x1: 180, y1: 250, x2: 960, y2: 250, stroke: NAVY, "stroke-width": 2}, s);
+ tx(s, 570, 290, "lap time (lower is faster) →", R(12, C.ink2, MID));
+ const dyn = el("g", {}, s);
+ window.renderLaps = o => {
+  dyn.textContent = ""; const all = o.cp.concat(o.ch), lo0 = Math.min(...all), hi0 = Math.max(...all), pad = 0.08 * (hi0 - lo0) + 0.3, lo = lo0 - pad, hi = hi0 + pad;
+  const X = v => 180 + 780 * (v - lo) / (hi - lo);
+  const step = (hi - lo) > 20 ? 5 : (hi - lo) > 8 ? 2 : (hi - lo) > 3 ? 1 : 0.5;
+  for (let t = Math.ceil(lo / step) * step; t <= hi; t += step) { el("line", {x1: X(t), y1: 250, x2: X(t), y2: 256, stroke: NAVY, "stroke-width": 1.5}, dyn); tx(dyn, X(t), 272, +t.toFixed(1), R(11, C.ink2, MID)); }
+  const row = (a, y, col, tint) => { const mn = Math.min(...a), mx = Math.max(...a), md = median(a);
+   el("rect", {x: X(mn) - 8, y: y - 13, width: X(mx) - X(mn) + 16, height: 26, rx: 13, fill: tint, stroke: NAVY, "stroke-width": 1.5}, dyn);
+   const r = seeded(Math.round(y * 31 + a[0] * 1000));
+   a.forEach(v => el("circle", {cx: X(v), cy: y + (r.r() - .5) * 12, r: 5, fill: col, stroke: NAVY, "stroke-width": 1.2}, dyn));
+   el("line", {x1: X(md), y1: y - 20, x2: X(md), y2: y + 20, stroke: NAVY, "stroke-width": 3}, dyn); return {mn, mx, md}; };
+  const a = row(o.cp, 110, C.leaf, C.leafT), b = row(o.ch, 190, C.sun, C.sunT);
+  el("line", {x1: X(a.mn), y1: 70, x2: X(a.mn), y2: 236, stroke: C.leafD, "stroke-width": 2, "stroke-dasharray": "5 4"}, dyn);
+  tx(dyn, X(a.mn), 66, "champion's best", B(11, C.leafD, MID));
+  el("line", {x1: X(b.mx), y1: 150, x2: X(b.mx), y2: 236, stroke: C.sunD, "stroke-width": 2, "stroke-dasharray": "5 4"}, dyn);
+  tx(dyn, X(b.mx), 232, "challenger's worst", B(11, C.sunD, X(b.mx) > 860 ? END : MID));
+  vm.textContent = `Median rule: ${o.med ? "crowned" : "not crowned"}`; vm.setAttribute("fill", o.med ? (o.gain > 0 ? C.leafD : C.coralD) : C.ink2);
+  ve.textContent = `Every-lap rule: ${o.every ? "crowned" : "not crowned"}`; ve.setAttribute("fill", o.every ? (o.gain > 0 ? C.leafD : C.coralD) : C.ink2);
+ };
+ console.assert(Math.abs(lapModel({gain: 0, spread: 2, seed: 1}).rateMed - V("pub_median_null_probability")) < 0.06, "B7: a median rule crowns an equal car about half the time");
+ console.assert(lapModel({gain: 0, spread: 2, seed: 1}).rateEvery < 0.005, "B7: the every-lap rule almost never crowns an equal car");
+ console.assert(lapModel({gain: 10, spread: 1, seed: 1}).rateEvery > 0.95, "B7: a gain far above the spread is crowned");
+})();
+
+/* ---------------- SCENE 7: the rule meets the work floor ---------------- */
+const RECS = [["sched_baseline", "stock car", "baseline (FIFO)"], ["sched_r1_eft_placement", "smarter lane choice", "EFT placement"],
+ ["sched_r1_eft_metric_first", "smarter lane + perception first", "EFT + perception first"], ["sched_r1_metric_reserve", "reserved lane for perception", "GPU reservation"],
+ ["sched_r1_eft_reserve", "smarter lane + reserved lane", "EFT + reservation"]].map(([k, a, b]) => Object.assign({k, a, b}, V(k)));
+const disjoint = (cand, champ) => cand.max < champ.min;
+COMP.floorGap = (RECS[4].max - RECS[2].min).toFixed(1);
+console.assert(disjoint(RECS[2], RECS[0]) && !disjoint(RECS[1], RECS[0]), "C3: perception-first + EFT clears the baseline; EFT alone overlaps");
+console.assert(!disjoint(RECS[3], RECS[2]) && !disjoint(RECS[4], RECS[2]), "C3: the later candidates overlap the new champion");
+console.assert(RECS[4].median < RECS[2].median && RECS[4].max < RECS[2].max, "C3: the last row has a better median and worst seed");
+(() => {
+ const s = svgOf("s-floor"), X = v => 270 + (v - 20) * 25, FL = V("sched_work_floor_ms");
+ const base = el("g", {"data-s": "0"}, s);
+ el("rect", {x: X(20), y: 40, width: X(FL) - X(20), height: 244, fill: C.card2}, base);
+ for (let y = 48; y < 284; y += 14) el("line", {x1: X(20), y1: y + 10, x2: X(FL), y2: y, stroke: C.stone, "stroke-width": 1.5, opacity: .6}, base);
+ dual(base, X(20) + 2, 30, `track limit ${FL} ms`, `work floor ${FL} ms`, B(12, C.ink2));
+ el("line", {x1: X(20), y1: 290, x2: X(47), y2: 290, stroke: NAVY, "stroke-width": 2}, base);
+ for (let t = 20; t <= 45; t += 5) { el("line", {x1: X(t), y1: 290, x2: X(t), y2: 296, stroke: NAVY, "stroke-width": 1.5}, base); tx(base, X(t), 312, t + " ms", R(11, C.ink2, MID)); }
+ tx(base, X(47), 327, "lap time (lower is faster) →", R(11, C.ink2, END));
+ const rowY = i => 64 + i * 50, steps = ["1", "1", "1", "2", "3"];
+ RECS.forEach((r, i) => { const g = el("g", {"data-s": steps[i]}, s), y = rowY(i), champ = i === 0;
+  dual(g, 258, y + 5, r.a, r.b, B(12, champ ? C.leafD : C.ink, END));
+  el("rect", {x: X(r.min), y: y - 9, width: X(r.max) - X(r.min), height: 18, rx: 9, fill: champ ? C.leaf : C.sun, stroke: NAVY, "stroke-width": 2}, g);
+  el("line", {x1: X(r.median), y1: y - 14, x2: X(r.median), y2: y + 14, stroke: NAVY, "stroke-width": 3}, g);
+  tx(g, X(r.max) + 8, y + 5, `median ${r.median}`, R(11, C.ink2)); });
+ // step 1: against the stock car's best lap
+ const g1 = el("g", {class: "st-at", "data-s": "1"}, s);
+ el("line", {x1: X(RECS[0].min), y1: 40, x2: X(RECS[0].min), y2: 284, stroke: C.leafD, "stroke-width": 2.5, "stroke-dasharray": "6 4"}, g1);
+ tx(g1, X(RECS[0].min) + 4, 30, `stock car's best: ${RECS[0].min}`, B(11, C.leafD));
+ tx(g1, X(RECS[1].max) + 82, rowY(1) + 5, "overlaps", B(11, C.ink2));
+ const cw = el("g", {"data-s": "1"}, s); use(cw, "i-trophy", X(RECS[2].max) + 78, rowY(2) - 14, 22, 26); tx(cw, X(RECS[2].max) + 104, rowY(2) + 5, "crowned", B(12, C.leafD));
+ // steps 2-3: the new champion's best lap is the bar
+ const g2 = el("g", {class: "st-at", "data-s": "2 3"}, s);
+ el("line", {x1: X(RECS[2].min), y1: 40, x2: X(RECS[2].min), y2: 284, stroke: C.leafD, "stroke-width": 2.5, "stroke-dasharray": "6 4"}, g2);
+ tx(g2, X(RECS[2].min) + 4, 44, `champion's best: ${RECS[2].min}`, B(11, C.leafD));
+ el("rect", {x: X(RECS[2].min) - 4, y: rowY(2) - 13, width: X(RECS[2].max) - X(RECS[2].min) + 8, height: 26, rx: 13, fill: "none", stroke: C.leafD, "stroke-width": 3}, g2);
+ tx(el("g", {"data-s": "2"}, s), X(RECS[3].max) + 82, rowY(3) + 5, "overlaps: not crowned", B(11, C.ink2));
+ const g3 = el("g", {"data-s": "3"}, s);
+ tx(g3, X(RECS[4].max) + 82, rowY(4) + 5, `${COMP.floorGap} ms short: not crowned`, B(11, C.coralD));
+ el("rect", {x: X(20), y: 40, width: X(FL) - X(20), height: 244, fill: "none", stroke: C.coral, "stroke-width": 3, class: "lit"}, el("g", {"data-s": "3"}, s));
+})();
+
+/* ---------------- SCENE 8: the order of construction ---------------- */
+(() => {
+ const s = svgOf("s-order"), XS = [100, 290, 480, 670, 860];
+ const vals = [V("c1_baseline_ms_illustrative"), V("c1_baseline_ms_illustrative"), V("c1_after_handrun_ms_illustrative"), V("c1_after_handrun_ms_illustrative"), V("c1_after_auto_ms_illustrative")];
+ const signs = [["1 · Reference", "+ the stock car", "1 · Reference", "+ baseline"], ["2 · Sealed judge", "+ decoys", "2 · Frozen evaluator", "+ controls"],
+  ["3 · Rounds by hand", "people steer", "3 · Hand-run rounds", "a human watches"], ["4 · A report", "from the slips", "4 · First report", "from the records"], ["5 · Automate", "last", "5 · Automated loop", "last"]];
+ el("line", {x1: 20, y1: 122, x2: 980, y2: 122, stroke: NAVY, "stroke-width": 3, "stroke-dasharray": "10 6", "data-s": "0"}, s);
+ const Y = v => 300 - v * 0.36;
+ el("line", {x1: 20, y1: 300, x2: 980, y2: 300, stroke: NAVY, "stroke-width": 2, "data-s": "0"}, s);
+ tx(el("g", {"data-s": "0"}, s), 20, 322, "ms per policy call · illustrative: the shape of the first campaign, not its values", R(11, C.ink2));
+ XS.forEach((x, i) => { const g = el("g", {"data-s": String(i + 1)}, s);
+  el("rect", {x: x - 6, y: 92, width: 12, height: 30, fill: C.ink2, stroke: NAVY, "stroke-width": 2}, g);
+  el("rect", {x: x - 86, y: 28, width: 172, height: 64, rx: 12, fill: i === 4 ? C.sunT : C.card, stroke: NAVY, "stroke-width": 2.5, class: "lit"}, g);
+  dual(g, x, 56, signs[i][0], signs[i][2], B(14, null, MID)); dual(g, x, 76, signs[i][1], signs[i][3], R(12, C.ink2, MID));
+  const v = vals[i], b = el("rect", {x: x - 35, y: Y(v), width: 70, height: 300 - Y(v), fill: i >= 2 ? C.leaf : C.sun, stroke: NAVY, "stroke-width": 2, class: "growy", "data-s": String(i + 1)}, s);
+  tx(g, x, Y(v) - 8, `${v} ms`, B(13, null, MID)); });
+ const a3 = el("g", {"data-s": "3"}, s); tx(a3, 480, 210, "most of the gain: by hand", B(12, C.leafD, MID));
+ tx(a3, 480, 226, `${V("c1_handrun_days_illustrative")} days`, R(11, C.ink2, MID));
+ const a5 = el("g", {"data-s": "5"}, s); tx(a5, 860, 214, "smaller, harder, cheap", B(12, C.leafD, MID));
+ tx(a5, 860, 230, `${V("c1_auto_rounds_illustrative")} rounds, ≈ ${V("c1_auto_spend_usd_illustrative")} USD`, R(11, C.ink2, MID));
+ console.assert(vals[2] < vals[0] && vals[4] < vals[2] && (vals[0] - vals[2]) > (vals[2] - vals[4]), "A1: big gain by hand, small gain automated");
+})();
+
+/* ---------------- sources table from both params blocks ---------------- */
+(() => { const tb = document.querySelector("#src tbody");
+ for (const [k, o] of Object.entries(P)) { if (k.startsWith("_")) continue;
+  const v = Array.isArray(o.value) ? o.value.join("–") : typeof o.value === "object" ? Object.entries(o.value).map(([a, b]) => `${a} ${Array.isArray(b) ? "[" + b.join(", ") + "]" : b}`).join(", ") : fmt(o.value);
+  const tr = document.createElement("tr"); tr.innerHTML = `<td><code>${k}</code></td><td>${v} ${o.unit}</td><td><span class="tag ${o.class === "public" ? "pub" : "ill"}">${o.class}</span></td><td>${o.source}</td>`; tb.appendChild(tr); } })();
+
+/* ---------------- fill {{key}}, {{key/sub}}, {{@computed}} in text and attributes (no number is retyped) ---------------- */
+(() => {
+ const rep = str => str.replace(/\{\{(@?)([\w.\-]+)(?:\/([\w.\-]+))?\}\}/g, (m, at, k, sub) => {
+  if (at) { if (!(k in COMP)) { console.error("missing computed " + k); return m; } return COMP[k]; }
+  const o = P[k]; if (!o) { console.error("missing param " + k); return m; }
+  const v = sub === undefined ? o.value : o.value[sub]; if (v === undefined) { console.error("missing param " + m); return m; } return fmt(v); });
+ const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => n.parentNode && /^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+ for (let n; (n = w.nextNode());) if (n.nodeValue.includes("{{")) n.nodeValue = rep(n.nodeValue);
+ for (const a of ["data-why", "aria-label"]) document.querySelectorAll(`[${a}*="{{"]`).forEach(e => e.setAttribute(a, rep(e.getAttribute(a))));
+ // slider defaults come from the params, not from the markup
+ const set = (id, v) => { document.getElementById(id).value = v; };
+ set("bMiss", V("story_binding_predict/miss_pct")); set("bDec", V("story_binding_predict/decision_ms"));
+ set("lGain", V("e1_default_gain_pct")); set("lSpread", V("e1_default_spread_pct")); set("lSeed", LD.seed);
+})();
+</script>
+<script src="../../stories/story.js"></script>
+<script>
+/* ?view=eng: keep the switch's pressed state in step with the labels */
+if (document.body.classList.contains("view-eng")) document.querySelectorAll("[data-view-switch] [data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === "eng")));
+/* live figures: one pure model each, bound after story.js */
+Story.bind(document.getElementById("bind-live"), bindModel, o => {
+ document.getElementById("bMiss-v").textContent = (o.r1 * SOFT).toFixed(1) + " %"; document.getElementById("bDec-v").textContent = (o.r2 * DECL).toFixed(2) + " ms";
+ drawBind(o);
+ const cls = {crown: "ok", low: "mid", reject: "no"}[o.verdict];
+ document.getElementById("bind-read").innerHTML = `Ratios <b>${o.r1.toFixed(2)}</b> and <b>${o.r2.toFixed(2)}</b>; the closest call is the larger, <b>${o.b.toFixed(2)}</b>. ` +
+  `<span class="${cls}">` + {crown: `At most ${CAP}: it may be crowned, if it is also faster.`, low: `Below 1 but above ${CAP}: accepted, low margin, never crowned.`, reject: `At or above 1: a gate failed, rejected.`}[o.verdict] + `</span>`;
+});
+const lSeed = document.getElementById("lSeed");
+document.getElementById("lRedraw").addEventListener("click", () => { lSeed.value = +lSeed.value + 1; lSeed.dispatchEvent(new Event("input")); });
+Story.bind(document.getElementById("s6"), lapModel, o => {
+ document.getElementById("lGain-v").textContent = (o.gain > 0 ? "faster by " : o.gain < 0 ? "slower by " : "") + Math.abs(o.gain) + " %";
+ document.getElementById("lSpread-v").textContent = o.spread + " %";
+ renderLaps(o);
+ const pc = v => v >= 0.995 ? "100" : v > 0 && v < 0.005 ? "< 0.5" : String(Math.round(100 * v));
+ document.getElementById("laps-read").innerHTML = `Over ${fmt(LD.redraws)} redraws of ${NLAPS} laps each: the median rule crowns <b>${pc(o.rateMed)} %</b>, the every-lap rule <b>${pc(o.rateEvery)} %</b>.<br>` +
+  (o.gain <= 0 ? `<span class="no">The challenger is not faster, so every crown is a false promotion.</span>` :
+   o.gain < 2 * o.spread ? `<span class="mid">A real gain below the spread: the every-lap rule rarely sees it. That is its price.</span>` : `<span class="ok">A gain well above the spread: both rules see it.</span>`);
+});
+/* self-tests reproducing the page's own claims */
+{ const o = bindModel({miss: V("story_binding_predict/miss_pct"), dec: V("story_binding_predict/decision_ms")});
+  console.assert(o.verdict === "low", "B2: 0.4 and 0.95 → accepted, low margin");
+  console.assert(bindModel({miss: SOFT, dec: 0}).verdict === "reject" && bindModel({miss: 1, dec: 1}).verdict === "crown", "B2: ratio 1 fails; 0.5 is promotable"); }
+</script>
+</body>
+</html>
