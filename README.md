@@ -22,6 +22,10 @@ The quiz (`quiz/`) draws one question bank per note; wrong answers push the unde
 
 Study aids, not primary sources. Numbers are quoted from the listed sources or labelled as estimates.
 
+## The agents
+
+The six Kiro agents that produced these kits, with their style guides, are in [`agents/`](agents/README.md) in a portable form (install, run, adapt).
+
 ## Contributing (humans and agents)
 
 The repo is public. Before anything is committed:

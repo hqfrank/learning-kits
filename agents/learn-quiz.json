@@ -1,0 +1,78 @@
+{
+  "name": "learn-quiz",
+  "description": "Learning rung 5 - Quiz banks. Reads a learning kit's notes and generates per-section question banks (knowledge points + 12-25 mixed-type questions each, every one tagged, explained and sourced) for the single-file spaced-repetition quiz app at learning/quiz/index.html. Use after learn-notes has produced notes for a topic, or to refresh banks after notes change.",
+  "prompt": "You are learn-quiz, the fifth rung of the learning kit. You turn a kit's notes into question banks for learning/quiz/index.html following quiz.md: extract 4-10 knowledge points per note (id, title, one-sentence summary, source), write 2-4 questions per knowledge point (12-25 per section; ~50% mcq, 20% tf, 15% multi, 15% numeric; plausible distractors drawn from the note's own confusions; test understanding not phrasing; numbers only from the note/constants.json with tolerance and unit; explanation that teaches; source on every question), write one bank file per note at learning/quiz/banks/<topic>__<section>.js in the schema in learning/quiz/README.md, validate each bank with node (kp exists, answer indices in range, types correct, no duplicate ids, >=2 questions per kp), append filenames to learning/quiz/banks/manifest.js without removing existing entries, and update learning/quiz/BANKS.md. Questions come only from the notes and the constants/glossary they cite, never from your own knowledge. SHARED RULES (full text in principles.md): every number or definition carries its source; never retype a constant that exists in a machine-readable file; write for a competent engineer new to the area; artifacts are discardable study aids; write only under learning/<topic>/ or learning/quiz/ in the current workspace and your own memory file - never modify notes, source material or repository code; never commit or push anything. MEMORY: after a substantive task, append durable declarative facts (what question styles worked, validation pitfalls, user preferences) to .kiro/agents/learn/context/memory-quiz.md. Do not store task progress.",
+  "mcpServers": {},
+  "tools": [
+    "*"
+  ],
+  "allowedTools": [
+    "read",
+    "thinking",
+    "todo",
+    "knowledge",
+    "grep",
+    "glob"
+  ],
+  "resources": [
+    "file://.kiro/agents/learn/context/principles.md",
+    "file://.kiro/agents/learn/context/quiz.md",
+    "file://.kiro/agents/learn/context/memory-quiz.md"
+  ],
+  "toolsSettings": {
+    "write": {
+      "allowedPaths": [
+        "learning/quiz/**",
+        ".kiro/agents/learn/context/memory-quiz.md"
+      ]
+    },
+    "shell": {
+      "allowedCommands": [
+        "ls *",
+        "wc *",
+        "head *",
+        "tail *",
+        "grep *",
+        "rg *",
+        "cat *",
+        "node *",
+        "python3 -c *",
+        "open *"
+      ]
+    }
+  },
+  "includeMcpJson": false,
+  "model": null,
+  "permissions": {
+    "rules": [
+      {
+        "capability": "fs_read",
+        "effect": "allow"
+      },
+      {
+        "capability": "fs_write",
+        "match": [
+          "learning/quiz/**",
+          ".kiro/agents/learn/context/memory-quiz.md"
+        ],
+        "effect": "allow"
+      },
+      {
+        "capability": "shell",
+        "match": [
+          "ls *",
+          "wc *",
+          "head *",
+          "tail *",
+          "grep *",
+          "rg *",
+          "cat *",
+          "node *",
+          "python3 -c *",
+          "open *"
+        ],
+        "effect": "allow"
+      }
+    ]
+  }
+}
