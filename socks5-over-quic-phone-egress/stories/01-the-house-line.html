@@ -1,0 +1,1336 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The house line — how a cloud agent borrows your own address through your phone</title>
+<meta name="description" content="A visual story: a cloud agent's calls get screened because they come from an office number. A helper at your home looks the shop up locally and dials it on your line, over one trunk line with many channels. SOCKS5 over QUIC through the user's phone.">
+<link rel="stylesheet" href="../../stories/story.css">
+<style>
+  /* palette meaning (whole page): leaf = your home and its number (accepted) · coral = screened, refused, an attack
+     · sky = the trunk line and its channels (QUIC) · sun = the directory (DNS) and deadlines
+     · plum = trust (the usual line, the voiceprint, the ticket) · stone = the office and people */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--ink-2);margin:10px 4px 0}
+  .legend i{display:inline-block;width:16px;height:12px;border-radius:4px;border:1.5px solid var(--navy);margin-right:6px;vertical-align:-1px}
+  header.hero.wrap{padding-left:20px;padding-right:20px}
+  header.hero{padding-top:24px}
+  .hero-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+  .hero h1{max-width:46ch;font-size:clamp(22px,2.4vw,30px);line-height:1.12}
+  .hero .lede{font-size:clamp(15px,1.4vw,17px);margin-bottom:.5rem;max-width:90ch}
+  .kicker{line-height:1.6}
+  .cast .c svg{max-width:100%}
+  .stages{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+  .stages li{background:var(--card);border:2px solid var(--ink);border-radius:14px;padding:8px 12px;box-shadow:0 3px 0 var(--ink);font:700 15px/1.35 var(--body)}
+  .stages li b.n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font:800 13px var(--display);margin-right:6px}
+  .stages li .read-note{font-size:13px;margin-left:4px}
+  /* ambient loops: calls travel the trunk and the house line; the usual line carries a letter */
+  @keyframes ride{0%{offset-distance:0%}100%{offset-distance:100%}}
+  .ride{animation:ride var(--T,4s) linear infinite;offset-rotate:0deg;animation-delay:var(--dl,0s)}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+  .blink{animation:blink 1.4s ease-in-out infinite}
+  /* still mode (reduced motion, motion off, screenshots): a representative frame, not frame 0 */
+  .st-still .ride{animation:none;offset-distance:var(--od,40%)}
+  .st-still .blink{animation:none;opacity:1}
+  .grow{transform-box:fill-box;transform-origin:left center}
+  .js .st-scene .grow[data-s]:not(.is-on){transform:scaleX(0);opacity:1}
+  .st-scene .lit.is-lit,.st-scene .is-lit .lit{stroke:var(--coral)!important;stroke-width:4!important}
+  svg text.halo{paint-order:stroke;stroke:#FFFAF2;stroke-width:5px;stroke-linejoin:round}
+  svg text.mono{font-family:var(--mono)}
+  .readout{font:700 16px/1.5 var(--body);margin:10px 0 0}
+  .readout b{font-family:var(--mono);color:var(--coral-d)}
+  .readout .ok{color:var(--leaf-d)} .readout .no{color:var(--coral-d)} .readout .mid{color:var(--sun-d)}
+  details{margin-top:10px;font-size:15px;color:var(--ink-2)} summary{cursor:pointer;font-weight:700;color:var(--ink)}
+  code{font:600 .92em var(--mono);background:var(--card-2);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+  .grid2>*{min-width:0} .ctl label{flex-wrap:wrap;gap:4px 10px}
+  .ctl select{font:600 15px var(--body);padding:6px 8px;border:2px solid var(--ink);border-radius:10px;background:var(--card);color:var(--ink);width:100%}
+  .ctl3{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:4px 18px;margin-top:12px}
+  .breaks li{margin:4px 0}
+  .st-foot td{overflow-wrap:anywhere}
+  .rule{background:#FFF4DE;border:2px solid var(--ink);border-radius:16px;padding:12px 14px;margin:14px 0 0}
+  .rule b{color:var(--leaf-d)}
+  .st-card .face svg{max-height:120px}
+  .st-card .in{min-height:330px}
+  #src code{overflow-wrap:normal;word-break:break-word} #src td:first-child{min-width:11ch}
+  @media (max-width:600px){
+   .st-foot table#src{min-width:0} #src thead{display:none}
+   #src, #src tbody, #src tr, #src td{display:block;width:auto}
+   #src tr{border-bottom:1.5px solid var(--line);padding:8px 0}
+   #src td{border:0;padding:2px 0}
+   #src td:first-child{min-width:0;font-weight:800}
+   #src td:nth-child(n+2)::before{font:700 12px var(--body);color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;margin-right:6px}
+   #src td:nth-child(2)::before{content:"Value"} #src td:nth-child(3)::before{content:"Class"} #src td:nth-child(4)::before{content:"Source"}
+   #src code{overflow-wrap:anywhere}
+   .st-motion{left:auto;right:10px;bottom:10px;padding:4px 10px;font-size:13px} body{padding-bottom:56px}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#s1">Skip to the first scene</a>
+<noscript><p class="wrap" style="background:#FFF4DE;padding:10px;border-radius:10px">This story draws its pictures with JavaScript. The written version is in <a href="../notes/A1-the-end-to-end-picture.md">the notes</a>.</p></noscript>
+
+<!-- the cast: drawn once, reused with <use>. Outlines are presentation attributes inside each symbol. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <marker id="ah-ink" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1D2A44"/></marker>
+  <marker id="ah-leaf" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1D7660"/></marker>
+  <marker id="ah-coral" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#B33F1D"/></marker>
+  <marker id="ah-sky" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2C6A82"/></marker>
+  <marker id="ah-plum" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#7E3A6C"/></marker>
+  <symbol id="i-person" viewBox="0 0 66 100">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="12" y="54" width="40" height="43" rx="14" style="fill:var(--c,#8C8670)"/>
+    <circle cx="32" cy="38" r="14" style="fill:var(--skin,#D49A6A)"/>
+    <path d="M17 33 Q18 19 32 19 Q46 19 47 33 Z" style="fill:var(--hair,#3A4660)"/>
+   </g>
+   <circle cx="27" cy="40" r="1.9" fill="#141C2E"/><circle cx="37" cy="40" r="1.9" fill="#141C2E"/>
+   <ellipse cx="22.5" cy="45" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/><ellipse cx="41.5" cy="45" rx="2.6" ry="1.5" fill="#EE8E78" opacity=".75"/>
+   <path d="M28 46 Q32 49 36 46" fill="none" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="p-headset" viewBox="0 0 66 100">
+   <path d="M16 38 Q16 16 32 16 Q48 16 48 38" fill="none" stroke="#141C2E" stroke-width="3.2" stroke-linecap="round"/>
+   <rect x="11" y="33" width="8" height="12" rx="3" fill="#1D2A44" stroke="#141C2E" stroke-width="1.6"/>
+   <rect x="45" y="33" width="8" height="12" rx="3" fill="#1D2A44" stroke="#141C2E" stroke-width="1.6"/>
+   <path d="M15 44 Q18 54 28 52" fill="none" stroke="#141C2E" stroke-width="2.2" stroke-linecap="round"/>
+   <circle cx="29" cy="52" r="2.6" fill="#1D2A44"/>
+  </symbol>
+  <symbol id="p-laptop" viewBox="0 0 66 100">
+   <g stroke="#141C2E" stroke-width="2" stroke-linejoin="round"><rect x="30" y="64" width="34" height="22" rx="3" fill="#55607A"/><rect x="34" y="68" width="26" height="14" rx="1.5" fill="#A7C8D6"/><rect x="26" y="86" width="40" height="5" rx="2" fill="#8C8670"/></g>
+  </symbol>
+  <symbol id="i-office" viewBox="0 0 100 110">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="8" y="14" width="84" height="92" rx="4" fill="#C9C1AE"/><rect x="2" y="6" width="96" height="10" rx="3" fill="#8C8670"/>
+    <rect x="40" y="78" width="20" height="28" rx="2" fill="#55607A"/>
+   </g>
+   <g fill="#A7C8D6" stroke="#141C2E" stroke-width="1.8"><rect x="18" y="26" width="16" height="12" rx="2"/><rect x="42" y="26" width="16" height="12" rx="2"/><rect x="66" y="26" width="16" height="12" rx="2"/>
+    <rect x="18" y="48" width="16" height="12" rx="2"/><rect x="42" y="48" width="16" height="12" rx="2"/><rect x="66" y="48" width="16" height="12" rx="2"/></g>
+  </symbol>
+  <symbol id="i-house" viewBox="0 0 72 62">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><path d="M6 30 L36 6 L66 30 V58 H6 Z" fill="#FFF4DE"/><rect x="48" y="8" width="9" height="14" fill="#B33F1D"/>
+    <rect x="28" y="38" width="16" height="20" rx="2" fill="#3AA88D"/><rect x="12" y="34" width="11" height="10" rx="2" fill="#A7C8D6"/><rect x="49" y="34" width="11" height="10" rx="2" fill="#A7C8D6"/></g>
+  </symbol>
+  <symbol id="i-shop" viewBox="0 0 90 80">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="8" y="26" width="74" height="50" rx="3" fill="#FFFAF2"/>
+    <path d="M4 26 L12 8 H78 L86 26 Z" fill="#F2C64A"/>
+    <rect x="16" y="40" width="24" height="20" rx="2" fill="#A7C8D6"/><rect x="52" y="40" width="20" height="36" rx="2" fill="#B4669D"/>
+   </g>
+   <path d="M22 8 L18 26 M36 8 L34 26 M52 8 L54 26 M66 8 L70 26" stroke="#141C2E" stroke-width="2"/>
+  </symbol>
+  <symbol id="i-desk" viewBox="0 0 120 90">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="10" y="4" width="100" height="42" rx="6" fill="#1D2A44"/>
+    <rect x="4" y="56" width="112" height="30" rx="5" fill="#C9C1AE"/><rect x="4" y="52" width="112" height="8" rx="3" fill="#8C8670"/>
+   </g>
+   <g fill="#F2C64A"><rect x="18" y="12" width="20" height="8" rx="2"/><rect x="50" y="12" width="20" height="8" rx="2" opacity=".45"/><rect x="82" y="12" width="20" height="8" rx="2" opacity=".45"/>
+    <rect x="18" y="28" width="20" height="8" rx="2" opacity=".45"/><rect x="50" y="28" width="20" height="8" rx="2"/><rect x="82" y="28" width="20" height="8" rx="2" opacity=".45"/></g>
+  </symbol>
+  <symbol id="i-book" viewBox="0 0 54 64">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="5" y="4" width="44" height="56" rx="4" fill="#F2C64A"/><rect x="5" y="4" width="9" height="56" rx="3" fill="#8A6800"/></g>
+   <path d="M20 18 H42 M20 26 H38 M20 34 H42" stroke="#1D2A44" stroke-width="2.4" stroke-linecap="round"/>
+   <rect x="20" y="42" width="22" height="9" rx="2" fill="#FFFDF8" stroke="#141C2E" stroke-width="1.6"/>
+  </symbol>
+  <symbol id="i-letter" viewBox="0 0 64 46">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="3" y="4" width="58" height="38" rx="4" fill="#E9CFE0"/><path d="M3 7 L32 28 L61 7" fill="none"/></g>
+   <circle cx="32" cy="28" r="6" fill="#7E3A6C" stroke="#141C2E" stroke-width="1.6"/>
+  </symbol>
+  <symbol id="i-voice" viewBox="0 0 64 50">
+   <rect x="3" y="3" width="58" height="44" rx="8" fill="#FFFDF8" stroke="#141C2E" stroke-width="2.5"/>
+   <path d="M10 25 h5 l3 -10 l4 20 l4 -16 l4 12 l3 -8 l4 14 l4 -18 l4 12 l3 -6 h6" fill="none" stroke="#7E3A6C" stroke-width="2.6" stroke-linejoin="round" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-ticket" viewBox="0 0 64 40">
+   <path d="M3 6 H61 V15 A5 5 0 0 0 61 25 V34 H3 V25 A5 5 0 0 0 3 15 Z" fill="#B4669D" stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"/>
+   <path d="M44 9 V31" stroke="#FFFDF8" stroke-width="2" stroke-dasharray="3 3"/>
+   <path d="M11 15 H36 M11 21 H32 M11 27 H36" stroke="#FFFDF8" stroke-width="2.4" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-intercom" viewBox="0 0 44 64">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="4" y="4" width="36" height="56" rx="6" fill="#C9C1AE"/><rect x="11" y="11" width="22" height="18" rx="3" fill="#55607A"/></g>
+   <path d="M14 16 H30 M14 20 H30 M14 24 H30" stroke="#C9C1AE" stroke-width="1.6"/>
+   <circle cx="22" cy="44" r="7" fill="#EE6A45" stroke="#141C2E" stroke-width="2"/>
+  </symbol>
+  <symbol id="i-no" viewBox="0 0 40 40">
+   <circle cx="20" cy="20" r="16" fill="#FFFDF8" fill-opacity=".85" stroke="#B33F1D" stroke-width="5"/><path d="M9 9 L31 31" stroke="#B33F1D" stroke-width="5"/>
+  </symbol>
+  <symbol id="i-clock" viewBox="0 0 40 40">
+   <circle cx="20" cy="21" r="16" fill="#FBEFC6" stroke="#141C2E" stroke-width="2.5"/>
+   <rect x="16" y="1" width="8" height="5" rx="1.5" fill="#F2C64A" stroke="#141C2E" stroke-width="1.8"/>
+   <path d="M20 21 V11 M20 21 L27 25" stroke="#141C2E" stroke-width="2.6" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-mast" viewBox="0 0 44 70">
+   <path d="M22 18 L10 66 M22 18 L34 66 M14 50 H30 M17 36 H27" fill="none" stroke="#141C2E" stroke-width="2.6" stroke-linejoin="round"/>
+   <circle cx="22" cy="14" r="5" fill="#5E9FB8" stroke="#141C2E" stroke-width="2"/>
+   <path d="M10 6 Q4 14 10 22 M34 6 Q40 14 34 22" fill="none" stroke="#2C6A82" stroke-width="2.4" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-router" viewBox="0 0 64 40">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="4" y="16" width="56" height="20" rx="5" fill="#55607A"/></g>
+   <path d="M16 16 L12 4 M48 16 L52 4" stroke="#141C2E" stroke-width="2.6" stroke-linecap="round"/>
+   <g fill="#3AA88D"><circle cx="16" cy="26" r="2.6"/><circle cx="26" cy="26" r="2.6"/><circle cx="36" cy="26" r="2.6"/></g>
+  </symbol>
+ </defs>
+</svg>
+
+<!-- ================================ HERO: the answer as a picture ================================ -->
+<header class="hero wrap">
+ <div class="hero-top">
+  <div>
+   <div class="kicker">SOCKS5 over QUIC through the phone · story 1</div>
+   <h1><span class="lbl-k">To look like you, the agent calls through your house: a helper at home looks the shop up and dials it on your line, so the shop sees your number.</span><span class="lbl-e">A cloud agent borrows your IP address: each TCP connection rides one QUIC connection to your phone, which resolves the name and connects from your own network.</span></h1>
+  </div>
+  <div class="st-switch" data-view-switch role="group" aria-label="Label style">
+   <button data-view="kitchen" aria-pressed="true">House view</button><button data-view="eng" aria-pressed="false">Engineer view</button>
+  </div>
+ </div>
+ <p class="lede">An agent in a <b>far office</b> calls shops for you, and shops often screen calls from office numbers. So a <b>helper at your house</b> rings the office once, keeps that <b>trunk line</b> open, and puts each of the agent's calls through <b>on your line</b>. Flip to <b>Engineer view</b> for the real names.</p>
+ <figure class="panel" style="padding:10px 10px 4px">
+  <svg id="hero" data-wide viewBox="0 0 1000 470" role="img" aria-labelledby="hero-t"><title id="hero-t">Left, a far office where an assistant works and a receptionist wears a headset. Centre, a front desk with numbered extensions. Right of centre, your house, where a helper with a headset sits by a directory book and an intercom that is crossed out. Far right, a shop with a caller-ID screen that reads "your home". A thick blue trunk line runs from the house through the front desk to the office, with calls moving on it. A green line runs from the house to the shop. A dashed red line runs straight from the office to the shop and ends in "prove you are human". A plum letter travels on the usual line from the office to the house.</title></svg>
+  <figcaption class="legend"><span><i style="background:var(--leaf)"></i><span class="lbl-k">your home, your number</span><span class="lbl-e">the user's IP address</span></span><span><i style="background:var(--coral)"></i><span class="lbl-k">screened, refused</span><span class="lbl-e">blocked, rejected, attack</span></span><span><i style="background:var(--sky)"></i><span class="lbl-k">trunk line, channels</span><span class="lbl-e">QUIC connection, streams</span></span><span><i style="background:var(--sun)"></i><span class="lbl-k">directory, deadlines</span><span class="lbl-e">DNS, timeouts</span></span><span><i style="background:var(--plum)"></i><span class="lbl-k">trust</span><span class="lbl-e">control channel, pin, token</span></span><span><i style="background:var(--stone)"></i><span class="lbl-k">the office, people</span><span class="lbl-e">the cloud instance</span></span><span>Picture, not data: the shape of the design in <a href="../notes/A1-the-end-to-end-picture.md">A1</a>.</span></figcaption>
+ </figure>
+ <ol class="stages" aria-label="Five ideas">
+  <li><b class="n">1</b><span class="lbl-k">Look the shop up at home</span><span class="lbl-e">Remote DNS: socks5h</span> <a class="read-note" href="../notes/B1-socks5-in-ten-minutes.md">B1</a></li>
+  <li><b class="n">2</b><span class="lbl-k">One trunk, many channels</span><span class="lbl-e">One QUIC connection, a stream per call</span> <a class="read-note" href="../notes/B2-quic-for-this-job.md">B2</a></li>
+  <li><b class="n">3</b><span class="lbl-k">The helper rings out</span><span class="lbl-e">The phone dials; a port map finds the instance</span> <a class="read-note" href="../notes/B3-who-dials-whom.md">B3</a></li>
+  <li><b class="n">4</b><span class="lbl-k">A voiceprint and a one-time ticket</span><span class="lbl-e">A pinned fingerprint and a single-use token</span> <a class="read-note" href="../notes/B4-trust-without-a-ca.md">B4</a> <a class="read-note" href="../notes/B5-the-control-stream.md">B5</a></li>
+  <li><b class="n">5</b><span class="lbl-k">Never the intercom</span><span class="lbl-e">Private ranges refused after DNS</span> <a class="read-note" href="../notes/C1-threat-model.md">C1</a></li>
+ </ol>
+ <div class="cast" aria-label="The cast">
+  <div class="c" data-ref="office"><svg viewBox="0 0 100 110" role="img" aria-label="far office"><use href="#i-office"/></svg><b>The far office</b><span>the cloud instance: one per user, a data-centre address</span></div>
+  <div class="c" data-ref="assistant"><svg viewBox="0 0 66 100" role="img" aria-label="assistant"><use href="#i-person" style="--c:#8C8670;--skin:#8E5B3B"/><use href="#p-laptop"/></svg><b>The assistant</b><span>the agent and its tools (they read <code>ALL_PROXY</code>)</span></div>
+  <div class="c" data-ref="recep"><svg viewBox="0 0 66 100" role="img" aria-label="receptionist"><use href="#i-person" style="--c:#55607A;--skin:#F4CDA7;--hair:#7E3A6C"/><use href="#p-headset"/></svg><b>The receptionist</b><span>the passthrough listener on localhost</span></div>
+  <div class="c" data-ref="trunk"><svg viewBox="0 0 100 40" role="img" aria-label="trunk line"><path d="M4 20 H96" stroke="#141C2E" stroke-width="16" stroke-linecap="round"/><path d="M4 20 H96" stroke="#5E9FB8" stroke-width="11" stroke-linecap="round"/><circle cx="30" cy="20" r="4" fill="#FFFDF8"/><circle cx="56" cy="20" r="4" fill="#FFFDF8"/><circle cx="78" cy="20" r="4" fill="#FFFDF8"/></svg><b>Trunk line, channels</b><span>one QUIC connection; one stream per call</span></div>
+  <div class="c" data-ref="desk"><svg viewBox="0 0 120 90" role="img" aria-label="front desk"><use href="#i-desk"/></svg><b>The front desk</b><span>an anycast UDP front door: one public port per private instance</span></div>
+  <div class="c" data-ref="helper"><svg viewBox="0 0 66 100" role="img" aria-label="helper at home"><use href="#i-person" style="--c:#3AA88D;--skin:#D49A6A"/><use href="#p-headset"/></svg><b>The helper at home</b><span>the phone app's SOCKS5 server</span></div>
+  <div class="c" data-ref="book"><svg viewBox="0 0 54 64" role="img" aria-label="local directory"><use href="#i-book"/></svg><b>The local directory</b><span>the phone's own resolver (remote DNS)</span></div>
+  <div class="c" data-ref="shop"><svg viewBox="0 0 90 80" role="img" aria-label="shop"><use href="#i-shop"/></svg><b>The shop and its caller ID</b><span>a website that scores the source address</span></div>
+  <div class="c" data-ref="letter"><svg viewBox="0 0 64 46" role="img" aria-label="letter on the usual line"><use href="#i-letter"/></svg><b>The usual line</b><span>the existing HTTPS control channel</span></div>
+  <div class="c" data-ref="voice"><svg viewBox="0 0 64 50" role="img" aria-label="voiceprint"><use href="#i-voice"/></svg><b>The voiceprint</b><span>the pinned SHA-256 certificate fingerprint</span></div>
+  <div class="c" data-ref="ticket"><svg viewBox="0 0 64 40" role="img" aria-label="one-time ticket"><use href="#i-ticket"/></svg><b>The one-time ticket</b><span>a single-use, short-lived, device-bound token</span></div>
+  <div class="c" data-ref="intercom"><svg viewBox="0 0 44 64" role="img" aria-label="intercom"><use href="#i-intercom"/></svg><b>The intercom</b><span>the home network and other private addresses</span></div>
+ </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================================ 1. screened calls ================================ -->
+<section class="scene" id="s1" data-title="1 · Screened calls">
+ <h2><span class="num">1</span>Shops screen calls from office numbers</h2>
+ <p class="sub">Every call shows a number. A shop scores it before it answers. Step through.</p>
+ <figure class="st-scene panel" id="s-screen" data-dwell="3200" aria-label="Scene: IP reputation">
+  <svg data-wide viewBox="0 0 1000 300" role="img" aria-label="An office calls a shop; the shop's caller-ID screen shows an office number and asks the caller to prove it is human. Four reactions are listed. Then a helper at a house calls the shop and the screen shows your home. Last, a rented line from a stranger costs much more per gigabyte."></svg>
+  <ol class="st-cap">
+   <li><b>A call from the office.</b> The assistant's tools call out from a <span class="lbl-k">far office</span><span class="lbl-e">cloud IP address</span>. The shop's caller ID shows an office number. <a class="read-note" href="../notes/A0-why-the-users-ip.md">A0</a></li>
+   <li><b>Screened.</b> A challenge, a block, a slow answer, or the shop for the wrong town. On strict sites a large minority of tasks fail this way: about {{cloud_ip_task_failure_illustrative%}} <span class="tag ill">illustrative</span>.</li>
+   <li><b>A call from your home.</b> The helper at your house dials the same shop. The screen shows your own number, the one that matches your logins and your town.</li>
+   <li><b>Why not rent a line?</b> A <span class="lbl-k">rented line</span><span class="lbl-e">residential-proxy vendor</span> shows a stranger's number, and costs about {{@vendorUsd}} USD for {{traffic_per_instance_illustrative}} GB; your own line adds about {{@ownUsd}} USD plus a small shared fee <span class="tag ill">illustrative</span>. <a class="read-note" href="../notes/B3-who-dials-whom.md">B3</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 2. one call ================================ -->
+<section class="scene" id="s2" data-title="2 · One call">
+ <h2><span class="num">2</span>One call, end to end: the helper looks the shop up at home</h2>
+ <p class="sub">The shop sees your number, <b>but</b> which branch does it answer from? A chain shop has a branch near every office and every home.</p>
+ <div class="st-predict" id="p-who">
+  <p class="q">The assistant looks up "www.example.com" in the office's directory and passes on the number it found. The helper dials that number. Which branch answers?</p>
+  <div class="opts">
+   <button class="btn" data-choice="home" data-why="The helper dials the number it is given. The office's directory picked the branch near the office, so the shop sees your number calling a branch far from you.">The branch near you</button>
+   <button class="btn" data-choice="office" data-right data-why="With socks5:// the name is resolved in the cloud, so the helper dials the server picked for the cloud region. Your number, a far-away branch: the mismatch that socks5h:// avoids by sending the name, not the number.">The branch near the office</button>
+   <button class="btn" data-choice="both" data-why="Only one number is dialled: the one the office's directory returned. Who looks the name up decides the branch.">Either; it makes no difference</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-call" data-dwell="3600" aria-label="Scene: one SOCKS5 CONNECT through the tunnel">
+  <svg data-wide viewBox="0 0 1000 360" role="img" aria-label="A sequence of messages between four people: the assistant and the receptionist in the office, the helper at home and the shop. The assistant says hello, then asks for www.example.com port 443. The receptionist puts the request on channel 1 of the trunk unchanged. The helper looks the name up in the local directory, checks it, dials the shop and answers you're connected. Then the conversation passes through."></svg>
+  <ol class="st-cap">
+   <li><b>Hello.</b> The assistant rings the receptionist's desk in its own office (<code>socks5h://localhost:{{socks_listen_port_illustrative}}</code>). "No password?" The receptionist answers that itself. <a class="read-note" href="../notes/A1-the-end-to-end-picture.md">A1</a></li>
+   <li><b>"Connect me to www.example.com, port 443."</b> With the <code>h</code>, the assistant sends the <b>name</b>, not a number: ATYP {{socks5_atyp/domain}}. Nobody in the office looks it up. <a class="read-note" href="../notes/B1-socks5-in-ten-minutes.md">B1</a></li>
+   <li><b>Unchanged, on a new channel.</b> The receptionist reads only the destination for one check, then puts the same bytes on channel {{@firstStream}} of the trunk. It never runs the protocol: <span class="lbl-k">it passes the request on</span><span class="lbl-e">passthrough</span>.</li>
+   <li><b>Looked up at home.</b> The helper finds the name in the <span class="lbl-k">local directory</span><span class="lbl-e">phone's resolver</span>: the branch near you, {{page_dns_answers_01/www.example.com/phone}}. It checks the number is not an intercom number, then dials.</li>
+   <li><b>"You're connected."</b> REP {{@repOk}} goes back down the channel to the assistant. The shop sees your number calling its local branch.</li>
+   <li><b>But every round trip goes the long way.</b> The assistant now talks to the shop in its own code (TLS); the helper only passes it on. About {{ttfb_model_illustrative/wifi}} ms to the first reply on Wi-Fi, against {{ttfb_model_illustrative/direct_from_cloud}} ms direct from the office <span class="tag ill">illustrative</span>.</li>
+  </ol>
+ </figure>
+ <h3 style="margin-top:24px">Try it: who looks it up, and does the helper dial?</h3>
+ <figure class="panel" id="look-live">
+  <svg id="look" data-wide viewBox="0 0 1000 250" role="img" aria-label="The office, the trunk, the house and the shop in a row. A directory book lights where the name is looked up. Check marks or a stop sign show the office's check and the helper's check. A reply chip shows the answer the assistant gets, and the shop's screen shows what it sees."></svg>
+  <div class="ctl3">
+   <div class="ctl"><label for="lkScheme">The assistant's proxy setting</label><select id="lkScheme" data-k="scheme" aria-describedby="look-read"><option value="1">socks5h:// (send the name)</option><option value="0">socks5:// (look up in the office)</option></select></div>
+   <div class="ctl"><label for="lkDest">Destination</label><select id="lkDest" data-k="dest" aria-describedby="look-read"></select></div>
+   <div class="ctl"><label for="lkPort">Port</label><select id="lkPort" data-k="port" aria-describedby="look-read"></select></div>
+  </div>
+  <p class="readout" id="look-read" aria-live="polite"></p>
+  <figcaption><span class="tag ill">illustrative</span> Directory answers: the case table of <a href="../explorers/01-socks5-connect-walkthrough.html">explorer 01</a> (documentation addresses; 192.168.1.1 stands in for a home router). Ranges and codes: RFC 1918, RFC 1928, C1.</figcaption>
+  <details><summary>The rules</summary>The office check is a fixed list: 169.254/16, fe80::/10 and the known spellings of the metadata address; it opens no channel for them. The helper checks the <b>exact address it will dial</b>, after the lookup: private, link-local, loopback and reserved ranges, IPv4-mapped IPv6, and ports other than the allowed ones get REP 0x02 (<a href="../notes/C1-threat-model.md">C1</a>).</details>
+ </figure>
+</section>
+
+<!-- ================================ 3. one trunk, many channels ================================ -->
+<section class="scene" id="s3" data-title="3 · Many channels">
+ <h2><span class="num">3</span>One trunk, many channels: a crackle stalls only its own call</h2>
+ <p class="sub">One page makes many calls at once, <b>therefore</b> how the calls share the way to your house matters.</p>
+ <div class="st-predict" id="p-crackle">
+  <p class="q">A page opens {{story_crackle/calls}} calls at once. One piece of call {{story_crackle/hit}} is lost on the way and must be sent again. How many calls wait: on one shared line, and on the trunk?</p>
+  <div class="opts">
+   <button class="btn" data-choice="11" data-why="On one shared line everything travels in a single queue. Until the lost piece of call {{story_crackle/hit}} arrives, nothing behind it can be handed over.">1 and 1</button>
+   <button class="btn" data-choice="61" data-right data-why="A shared line (SOCKS5 over one WebSocket, one TCP connection) delivers in one order, so all {{story_crackle/calls}} wait. On the trunk each channel has its own order: only call {{story_crackle/hit}} waits. That is head-of-line blocking, removed across streams.">{{story_crackle/calls}} and 1</button>
+   <button class="btn" data-choice="66" data-why="The trunk is one line, but each channel is its own ordered stream. A lost packet delays only the streams whose data it carried.">{{story_crackle/calls}} and {{story_crackle/calls}}</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-trunk" data-dwell="3600" aria-label="Scene: streams versus connections">
+  <svg data-wide viewBox="0 0 1000 350" role="img" aria-label="Three ways to carry six calls from the office to the house. Six separate lines each spend two round trips dialling. One shared line carries six calls in single file; a crackle on call three stops all six. One trunk with six channels: the crackle stops only call three. A 65th call gets busy at once."></svg>
+  <ol class="st-cap">
+   <li><b>Six separate lines.</b> Each new line (TCP + TLS 1.3) spends {{quic_handshake_round_trips/tcp_plus_tls13}} round trips dialling before it can talk. The trunk dials once, in {{quic_handshake_round_trips/quic_tls13_new}}. <a class="read-note" href="../notes/B2-quic-for-this-job.md">B2</a></li>
+   <li><b>One shared line.</b> All calls in single file on one connection. A crackle on call {{story_crackle/hit}}, and every call behind it waits for the re-send.</li>
+   <li><b>One trunk, a channel per call.</b> Each call gets its own <span class="lbl-k">channel</span><span class="lbl-e">QUIC stream</span>, with its own order. The crackle stops only call {{story_crackle/hit}}.</li>
+   <li><b>But the trunk has a limit.</b> At most {{phone_max_incoming_streams_illustrative}} channels at once; one heavy page reached about {{heavy_page_concurrency_illustrative}} <span class="tag ill">illustrative</span>. Call {{@overCap}} hears "busy" (REP {{@repFail}}) at once, never a silent queue, and its client retries. <a class="read-note" href="../notes/C2-limits-and-failure-handling.md">C2</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 4. who dials whom ================================ -->
+<section class="scene" id="s4" data-title="4 · Who rings whom">
+ <h2><span class="num">4</span>The helper rings out, and keeps the line remembered</h2>
+ <p class="sub">The trunk joins the office and your house, <b>but</b> nobody can ring into a house, and the office has no public number of its own.</p>
+ <figure class="st-scene panel" id="s-dial" data-dwell="3600" aria-label="Scene: who dials whom">
+  <svg data-wide viewBox="0 0 1000 340" role="img" aria-label="The office tries to call the house and the home exchange drops it. The helper rings out through the home exchange to the front desk, whose board maps a public extension to the office's private room. Then the office opens channels back along the same line. Clicks keep the line remembered. The helper moves from Wi-Fi to a mobile mast and the trunk continues."></svg>
+  <ol class="st-cap">
+   <li><b>Nobody rings into a house.</b> The <span class="lbl-k">home exchange</span><span class="lbl-e">home router's NAT</span> drops calls it did not ask for. The office cannot reach the helper first. <a class="read-note" href="../notes/B3-who-dials-whom.md">B3</a></li>
+   <li><b>So the helper rings out, to a front desk.</b> One public number, one extension per private office: {{story_port_map/public}} → {{story_port_map/private}}. The home exchange now remembers this call.</li>
+   <li><b>Then the office asks for calls.</b> The helper dialled once; the office opens a new channel on that line whenever the assistant needs a shop. The front desk checks nobody, so the answer must be checked on the line itself (scene 5).</li>
+   <li><b>A click keeps it remembered.</b> An exchange may forget a silent line after {{udp_nat_idle_assumption}} s (RFC 9308). The helper clicks every {{keepalive_illustrative}} s; the trunk hangs up after {{conn_idle_timeout_illustrative}} s of silence <span class="tag ill">design values</span>. <a class="read-note" href="../notes/B2-quic-for-this-job.md">B2</a></li>
+   <li><b>Walk out of Wi-Fi.</b> The trunk carries on over the mobile mast: the office knows it by its <span class="lbl-k">call number</span><span class="lbl-e">connection ID</span>, not by your line. New shop calls now show the mobile number. <a class="read-note" href="../notes/C3-the-two-client-stacks.md">C3</a></li>
+  </ol>
+ </figure>
+ <h3 style="margin-top:24px">Try it: how often should the helper click?</h3>
+ <figure class="panel" id="ka-live">
+  <svg id="ka" data-wide viewBox="0 0 1000 250" role="img" aria-label="A two-minute timeline. Clicks are ticks. A bar shows when the home exchange remembers the line and gaps when it has forgotten. A sawtooth shows the trunk's silence timer against its hang-up limit."></svg>
+  <div class="grid2" style="margin-top:12px">
+   <div>
+    <div class="ctl"><label for="kaK">Click every <output id="kaK-v"></output></label><input id="kaK" data-k="k" type="range" min="2" max="60" step="1" aria-describedby="ka-read"></div>
+    <div class="ctl"><label for="kaI">Trunk hangs up after silence of <output id="kaI-v"></output></label><input id="kaI" data-k="idle" type="range" min="5" max="120" step="1" aria-describedby="ka-read"></div>
+   </div>
+   <div><p class="readout" id="ka-read" aria-live="polite"></p></div>
+  </div>
+  <figcaption><span class="tag pub">public</span> the {{udp_nat_idle_assumption}} s exchange memory is the assumption RFC 9308 §3.2 tells applications to make; real NATs vary. <span class="tag ill">illustrative</span> the defaults are the design's values. Timeline, rebinding and migration in <a href="../explorers/03-migration-and-idle-timeout.html">explorer 03</a>.</figcaption>
+ </figure>
+</section>
+
+<!-- ================================ 5. trust ================================ -->
+<section class="scene" id="s5" data-title="5 · Voiceprint, ticket">
+ <h2><span class="num">5</span>Trust without a notary: a voiceprint from the usual line, a ticket on channel 0</h2>
+ <p class="sub">Anyone can ring the extension, <b>therefore</b> each side checks the other on the trunk itself, using a line the app already trusts.</p>
+ <div class="st-predict" id="p-print">
+  <p class="q">A stranger copies the office's voiceprint ({{sha256_digest/hex_chars}} hex characters) from the letter. Can the stranger now answer the helper as the office?</p>
+  <div class="opts">
+   <button class="btn" data-choice="yes" data-why="The voiceprint is not a secret. It is a hash of the office's certificate; answering with that certificate needs the office's private key, which never leaves the office.">Yes: the helper only compares prints</button>
+   <button class="btn" data-choice="no" data-right data-why="The fingerprint is public. To pass the handshake the stranger must prove it holds the private key behind that certificate. Knowing the print gives nothing (B4).">No: the print is public; the voice needs the office's key</button>
+   <button class="btn" data-choice="30" data-why="That is the ticket's rule, not the voiceprint's. The print does not expire; it changes when the office gets a new certificate.">Only for the next 30 seconds</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-trust" data-dwell="3600" aria-label="Scene: pinning and the token">
+  <svg data-wide viewBox="0 0 1000 350" role="img" aria-label="The usual line brings a letter to the helper with the front-desk extension, the office's voiceprint, the trunk's language and a one-time ticket. The helper rings and compares the voiceprint: a match. An impostor's print does not match and the helper hangs up. A scanner that speaks the wrong language is refused. On channel 0 the helper reads the ticket; the office tears it and answers with the receptionist's extension."></svg>
+  <ol class="st-cap">
+   <li><b>A letter on the usual line, before every call.</b> The front-desk extension, the office's <span class="lbl-k">voiceprint</span><span class="lbl-e">certificate fingerprint</span>, the trunk's language and a <span class="lbl-k">one-time ticket</span><span class="lbl-e">connection token</span>. The usual line is trusted already: your login. <a class="read-note" href="../notes/B4-trust-without-a-ca.md">B4</a></li>
+   <li><b>The prints match.</b> The office made its own certificate at first boot; no notary signed it. The helper accepts the answer only if its SHA-256 print equals the one in the letter.</li>
+   <li><b>An impostor: hang up.</b> A different certificate gives a different print, even a properly signed one. The helper goes to "failed"; no call flows.</li>
+   <li><b>A scanner in the wrong language.</b> It asks for <code>h3</code>; the office speaks only <code>socks5-over-quic</code> and closes with {{quic_close_codes_example/no_application_protocol}} (alert {{tls_alert_no_application_protocol}}). The language is a label, not a password.</li>
+   <li><b>The ticket, read once on channel 0.</b> {{token_bits_illustrative}} random bits, good for {{token_lifetime_illustrative}} s, for this device only <span class="tag ill">design values</span>. The office tears it and answers with the receptionist's extension. A second reading fails. <a class="read-note" href="../notes/B5-the-control-stream.md">B5</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 6. guards ================================ -->
+<section class="scene" id="s6" data-title="6 · Never the intercom">
+ <h2><span class="num">6</span>Never the intercom, and four other guards</h2>
+ <p class="sub">Your house is now an exit to the internet, and the office has a port open to the world. The assistant reads text from the open web, <b>therefore</b> assume some page will try to steer it. Tap a card. Full threat model: <a href="../notes/C1-threat-model.md">C1</a>.</p>
+ <div class="st-cards" id="cards"></div>
+ <p class="rule"><b>Check the number you will dial, after the lookup.</b> A check on the name alone lets a name that points at your router through (DNS rebinding). Two checks in two different code bases rarely share a bug.</p>
+</section>
+
+<!-- ================================ 7. the commit point ================================ -->
+<section class="scene" id="s7" data-title="7 · You're connected">
+ <h2><span class="num">7</span>Before "you're connected", switch quietly; after it, hang up and redial</h2>
+ <p class="sub">The helper can vanish at any moment: a dead battery, a walk out of Wi-Fi. <b>But</b> the assistant should never wait on a house that is not there.</p>
+ <div class="st-predict" id="p-commit">
+  <p class="q">The helper goes silent halfway through the assistant's conversation with the shop. Can the receptionist move the call to the office line without the assistant noticing?</p>
+  <div class="opts">
+   <button class="btn" data-choice="yes" data-why="It could before “you're connected”. After that, the assistant's coded conversation (its TLS session) is tied to the helper's call to the shop. It cannot be moved.">Yes, it switches lines quietly</button>
+   <button class="btn" data-choice="fast" data-why="Speed does not help. The coded conversation belongs to the helper's call; a new line would be a new conversation.">Yes, if it is quick enough</button>
+   <button class="btn" data-choice="no" data-right data-why="After the commit point a failure is a reset. The assistant's HTTP client retries, and the retry goes direct from the office (C2).">No: the assistant hears a click and redials</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-commit" data-dwell="3600" aria-label="Scene: deadlines, fallback and the commit point">
+  <svg data-wide viewBox="0 0 1000 330" role="img" aria-label="A timeline of one call through the receptionist. Three deadline clocks: opening a channel, the hello reply and the connect reply. If the helper is silent, the receptionist dials the shop directly from the office. A line marks you're connected, the commit point. After it, a drop is a reset and the assistant redials."></svg>
+  <ol class="st-cap">
+   <li><b>Every wait has a deadline.</b> Open a channel: {{stream_open_timeout_illustrative}} s. Hello reply: {{method_reply_deadline_illustrative}} s, because the helper answers from memory. Connect reply: {{connect_reply_deadline_illustrative}} s, just above a slow lookup plus a slow dial ({{phone_dns_worst_illustrative}} + {{phone_connect_timeout_illustrative}} s) <span class="tag ill">design values</span>. <a class="read-note" href="../notes/C2-limits-and-failure-handling.md">C2</a></li>
+   <li><b>The helper is silent: dial direct.</b> The hello deadline runs out. The receptionist calls the shop from the office line instead. The assistant is still waiting for "you're connected", so it never notices; it is just slower by that deadline.</li>
+   <li><b>"You're connected" is the commit point.</b> Once that reply reaches the assistant, its coded conversation runs through the helper's call to the shop.</li>
+   <li><b>After it, a drop is a click.</b> If the helper vanishes now, the assistant hears a reset. Its HTTP client redials, and the redial goes direct from the office.</li>
+   <li><b>Every resource has a cap.</b> {{phone_max_incoming_streams_illustrative}} channels, then "busy" at once. A call silent for {{relay_idle_timeout_illustrative}} s ends. The trunk ends after {{conn_idle_timeout_illustrative}} s of silence <span class="tag ill">design values</span>.</li>
+  </ol>
+ </figure>
+</section>
+
+<section class="scene" id="s8" data-title="Your turn">
+ <h2>Your turn</h2>
+ <p class="sub">Move the real knobs, then check what stuck. A question to take with you: if your agent's tools ignored proxy settings, what would you have to capture instead, and at which layer? (<a href="../notes/D1-l3-versus-l5-tunnelling.md">D1</a>, <a href="../notes/D2-a-platform-owned-data-plane.md">D2</a>)</p>
+ <div class="next">
+  <a href="../explorers/01-socks5-connect-walkthrough.html"><b>One call, byte by byte</b><span>SOCKS5 CONNECT, socks5 vs socks5h, both filters (explorer 01).</span></a>
+  <a href="../explorers/02-streams-vs-connections.html"><b>Channels or lines?</b><span>Streams vs connections: RTT, loss, number of calls (explorer 02).</span></a>
+  <a href="../explorers/03-migration-and-idle-timeout.html"><b>Walk out of Wi-Fi</b><span>Migration, idle timeout and keepalive on a timeline (explorer 03).</span></a>
+  <a href="../explorers/04-amplification-and-retry.html"><b>The prank caller</b><span>The 3× limit and the Retry token (explorer 04).</span></a>
+  <a href="../../quiz/"><b>Quiz yourself</b><span>Spaced-repetition questions for every note.</span></a>
+  <a href="../README.md"><b>Read the notes</b><span>15 notes: the problem, the protocols, safety, alternatives.</span></a>
+ </div>
+</section>
+
+<footer class="st-foot">
+ <h3>Where the house line breaks</h3>
+ <ul class="breaks">
+  <li>A call carries voice. Here each call is a TCP byte stream, and the conversation is end-to-end TLS that the helper passes on but cannot read.</li>
+  <li>The trunk is not a circuit. It is UDP packets; a lost packet is sent again, and only its own channel waits.</li>
+  <li>The front desk checks no caller. Anyone can dial the extension; the handshake (voiceprint, language, ticket) is the only gate.</li>
+  <li>A voice can be imitated. A certificate fingerprint cannot be answered without the private key.</li>
+  <li>The helper is software on your phone, and it runs only while the chat is open. The "intercom" also covers the cloud's own metadata address, not only rooms in your house.</li>
+ </ul>
+ <h3>Numbers on this page</h3>
+ <div class="tbl"><table id="src"><thead><tr><th>What</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+ <p>No number on this page is a measurement of a real deployment. Kit entries are copied verbatim from <a href="../constants.json">constants.json</a> and <a href="../explorers/params.json">explorers/params.json</a>; <code>story_*</code> entries are picture values for this page. Kit: <a href="../README.md">SOCKS5 over QUIC through the phone</a> · <a href="../SOURCES.md">sources</a> · <a href="../glossary.md">glossary</a>.</p>
+</footer>
+</main>
+
+<script type="application/json" id="params">
+{
+ "allowed_ports_illustrative": {
+  "value": [
+   80,
+   443
+  ],
+  "unit": "destination TCP ports allowed by the phone filter",
+  "class": "illustrative",
+  "source": "design parameter: the HTTP and HTTPS well-known ports only (first release)"
+ },
+ "blocked_ranges_ipv4": {
+  "value": {
+   "10.0.0.0/8": "RFC 1918 private",
+   "172.16.0.0/12": "RFC 1918 private",
+   "192.168.0.0/16": "RFC 1918 private",
+   "100.64.0.0/10": "RFC 6598 shared (carrier-grade NAT) space",
+   "169.254.0.0/16": "RFC 3927 link-local",
+   "127.0.0.0/8": "loopback (RFC 1122)",
+   "0.0.0.0/8": "'this network' (RFC 6890)",
+   "240.0.0.0/4": "reserved (RFC 1112)"
+  },
+  "unit": "CIDR",
+  "class": "public",
+  "source": "the cited RFCs; IANA special-purpose address registry (RFC 6890)"
+ },
+ "cloud_ip_task_failure_illustrative": {
+  "value": 0.3,
+  "unit": "fraction of web tasks on bot-protected sites that fail or hit a challenge from a cloud IP",
+  "class": "illustrative",
+  "source": "illustrative order of magnitude; the relation taught is 'a large minority, enough to block the product'"
+ },
+ "conn_idle_timeout_illustrative": {
+  "value": 30,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter (QUIC max_idle_timeout on both ends)"
+ },
+ "connect_reply_deadline_illustrative": {
+  "value": 20,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: must exceed phone_dns_worst_illustrative + phone_connect_timeout_illustrative"
+ },
+ "front_door_per_gb_illustrative": {
+  "value": 0.02,
+  "unit": "USD per GB processed and transferred",
+  "class": "illustrative",
+  "source": "illustrative variable fee"
+ },
+ "heavy_page_concurrency_illustrative": {
+  "value": 50,
+  "unit": "concurrent tunnel streams on a resource-heavy page",
+  "class": "illustrative",
+  "source": "illustrative; the relation taught is that one browser page can approach phone_max_incoming_streams_illustrative"
+ },
+ "keepalive_illustrative": {
+  "value": 10,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: below udp_nat_idle_assumption and below one third of conn_idle_timeout_illustrative"
+ },
+ "max_established_connections_illustrative": {
+  "value": 4,
+  "unit": "QUIC connections per instance",
+  "class": "illustrative",
+  "source": "design parameter: one device plus headroom for reconnect races"
+ },
+ "max_unvalidated_handshakes_illustrative": {
+  "value": 16,
+  "unit": "concurrent handshakes before address validation",
+  "class": "illustrative",
+  "source": "design parameter"
+ },
+ "metadata_address": {
+  "value": "169.254.169.254",
+  "unit": "IPv4 address",
+  "class": "public",
+  "source": "link-local address used by the instance metadata services of several public clouds (provider documentation); inside RFC 3927 169.254.0.0/16"
+ },
+ "metadata_address_encodings": {
+  "value": {
+   "decimal": "2852039166",
+   "hex": "0xa9fea9fe",
+   "octal": "025177524776",
+   "dotted_octal": "0251.0376.0251.0376",
+   "dotted_hex": "0xa9.0xfe.0xa9.0xfe"
+  },
+  "unit": "alternative spellings accepted by inet_aton-style parsers",
+  "class": "public",
+  "source": "my arithmetic from metadata_address; the encodings are the classic SSRF filter bypasses listed in the OWASP SSRF Prevention Cheat Sheet"
+ },
+ "method_reply_deadline_illustrative": {
+  "value": 3,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: the phone's method reply is in-memory, so a short deadline detects a dead phone quickly"
+ },
+ "page_dns_answers_01": {
+  "value": {
+   "www.example.com": {
+    "phone": "203.0.113.5",
+    "cloud": "198.51.100.7"
+   },
+   "rebind.example": {
+    "phone": "192.168.1.1",
+    "cloud": "192.168.1.1"
+   }
+  },
+  "unit": "address each resolver returns",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): names reserved by RFC 2606; public answers from the RFC 5737 documentation ranges (documentation_addresses). The phone's resolver picks a server near the user, the cloud's one near the cloud region. 192.168.1.1 is an RFC 1918 address standing in for a home router (DNS rebinding, C1)"
+ },
+ "phone_connect_timeout_illustrative": {
+  "value": 8,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: phone-side TCP connect timeout"
+ },
+ "phone_dns_worst_illustrative": {
+  "value": 10,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: worst legitimate resolver time with retries"
+ },
+ "phone_max_incoming_streams_illustrative": {
+  "value": 64,
+  "unit": "concurrent server-initiated bidirectional streams",
+  "class": "illustrative",
+  "source": "design parameter: the effective concurrency cap of the whole tunnel"
+ },
+ "quic_amplification_budget_one_initial": {
+  "value": 3600,
+  "unit": "bytes",
+  "class": "public",
+  "source": "my arithmetic: quic_amplification_factor x quic_min_client_initial_datagram"
+ },
+ "quic_amplification_factor": {
+  "value": 3,
+  "unit": "x bytes received from an unvalidated address",
+  "class": "public",
+  "source": "RFC 9000 §8.1"
+ },
+ "quic_close_codes_example": {
+  "value": {
+   "handshake_failure": "0x0128",
+   "no_application_protocol": "0x0178"
+  },
+  "unit": "QUIC CONNECTION_CLOSE error code",
+  "class": "public",
+  "source": "my arithmetic: quic_crypto_error_base + tls_alert_handshake_failure / tls_alert_no_application_protocol"
+ },
+ "quic_crypto_error_base": {
+  "value": "0x0100",
+  "unit": "QUIC transport error code; CRYPTO_ERROR = 0x0100 + TLS alert",
+  "class": "public",
+  "source": "RFC 9000 §20.1; RFC 9001 §4.8"
+ },
+ "quic_first_stream_ids": {
+  "value": {
+   "client_bidi": [
+    0,
+    4,
+    8
+   ],
+   "server_bidi": [
+    1,
+    5,
+    9
+   ]
+  },
+  "unit": "stream IDs",
+  "class": "public",
+  "source": "my arithmetic from RFC 9000 §2.1: IDs of one type increase by 4"
+ },
+ "quic_handshake_round_trips": {
+  "value": {
+   "quic_tls13_new": 1,
+   "quic_0rtt_resumed": 0,
+   "tcp_plus_tls13": 2,
+   "tcp_plus_tls12": 3
+  },
+  "unit": "round trips before application data",
+  "class": "public",
+  "source": "RFC 9000 §7 and RFC 9001 §4; RFC 8446 §2 (TLS 1.3 1-RTT); TCP three-way handshake (RFC 9293) adds one; my arithmetic for the sums"
+ },
+ "quic_min_client_initial_datagram": {
+  "value": 1200,
+  "unit": "bytes (UDP payload)",
+  "class": "public",
+  "source": "RFC 9000 §14.1"
+ },
+ "relay_idle_timeout_illustrative": {
+  "value": 120,
+  "unit": "s without a byte in either direction",
+  "class": "illustrative",
+  "source": "design parameter (per relayed TCP connection)"
+ },
+ "residential_proxy_price_illustrative": {
+  "value": 8,
+  "unit": "USD per GB",
+  "class": "illustrative",
+  "source": "illustrative order of commercial residential-proxy pricing"
+ },
+ "sha256_digest": {
+  "value": {
+   "bytes": 32,
+   "hex_chars": 64
+  },
+  "unit": "bytes / hexadecimal characters",
+  "class": "public",
+  "source": "FIPS 180-4; my arithmetic for hex length"
+ },
+ "socks5_atyp": {
+  "value": {
+   "ipv4": "0x01",
+   "domain": "0x03",
+   "ipv6": "0x04"
+  },
+  "unit": "ATYP byte",
+  "class": "public",
+  "source": "RFC 1928 §4-5"
+ },
+ "socks5_message_sizes": {
+  "value": {
+   "method_request_one_method": 3,
+   "method_reply": 2,
+   "connect_ipv4": 10,
+   "connect_ipv6": 22,
+   "connect_domain": "7 + L (L = name length)",
+   "reply_ipv4": 10
+  },
+  "unit": "bytes",
+  "class": "public",
+  "source": "my arithmetic from the field layouts in RFC 1928 §3-6 (VER, CMD/REP, RSV, ATYP, address, 2-byte port)"
+ },
+ "socks5_reply_codes": {
+  "value": {
+   "0x00": "succeeded",
+   "0x01": "general SOCKS server failure",
+   "0x02": "connection not allowed by ruleset",
+   "0x03": "network unreachable",
+   "0x04": "host unreachable",
+   "0x05": "connection refused",
+   "0x06": "TTL expired",
+   "0x07": "command not supported",
+   "0x08": "address type not supported"
+  },
+  "unit": "REP byte",
+  "class": "public",
+  "source": "RFC 1928 §6"
+ },
+ "socks_listen_port_illustrative": {
+  "value": 10080,
+  "unit": "TCP port bound to localhost",
+  "class": "illustrative",
+  "source": "design parameter; chosen away from socks5_conventional_port to avoid clashes with other software"
+ },
+ "stream_open_timeout_illustrative": {
+  "value": 8,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: listener waits this long to open a stream to the phone"
+ },
+ "tls_alert_no_application_protocol": {
+  "value": 120,
+  "unit": "TLS alert number",
+  "class": "public",
+  "source": "RFC 7301 §3.2"
+ },
+ "token_bits_illustrative": {
+  "value": 256,
+  "unit": "bits from a cryptographic random source",
+  "class": "illustrative",
+  "source": "design parameter"
+ },
+ "token_lifetime_illustrative": {
+  "value": 30,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: single-use connection token"
+ },
+ "traffic_per_instance_illustrative": {
+  "value": 5,
+  "unit": "GB per month",
+  "class": "illustrative",
+  "source": "illustrative proxied traffic of one moderately used agent instance"
+ },
+ "ttfb_model_illustrative": {
+  "value": {
+   "wifi": 320,
+   "cellular": 600,
+   "wifi_pipelined": 270,
+   "cellular_pipelined": 480,
+   "direct_from_cloud": 60
+  },
+  "unit": "ms to first response byte (server time excluded)",
+  "class": "illustrative",
+  "source": "my arithmetic in A1 from the rtt_* and phone_dns_typical_illustrative values: method 1 x RTTcp + CONNECT (RTTcp + DNS + RTTps) + TLS 1.3 (RTTcp + RTTps) + HTTP (RTTcp + RTTps); pipelined removes one RTTcp; direct = 3 x RTTcs"
+ },
+ "udp_nat_idle_assumption": {
+  "value": 30,
+  "unit": "s",
+  "class": "public",
+  "source": "RFC 9308 §3.2 (applications can assume a NAT binding may expire after 30 s of inactivity)"
+ }
+}
+</script>
+<script type="application/json" id="params-story">
+{
+ "story_crackle": {"value": {"calls": 6, "hit": 3}, "unit": "concurrent calls / the call that loses a packet", "class": "illustrative", "source": "story 1 scene 3: picture values for the predict and the figure (B2: a lost packet delays only the streams whose data it carried)"},
+ "story_ports": {"value": [443, 80, 22], "unit": "destination TCP ports offered by the live figure", "class": "illustrative", "source": "story 1 scene 2: the two allowed ports (allowed_ports_illustrative) plus 22 (SSH) as a refused example, as in explorer 01"},
+ "story_port_map": {"value": {"public": "203.0.113.10:20147", "private": "10.0.0.11:4433"}, "unit": "public address:port → private address:port", "class": "illustrative", "source": "the example mapping in note B3 (documentation address, RFC 5737; generic RFC 1918 private address; quic_listen_port_illustrative; a port inside front_door_port_range_illustrative)"}
+}
+</script>
+
+<script>
+/* ===================== drawing: builds every SVG, fills {{placeholders}}; story.js then runs the scenes ===================== */
+const NS = "http://www.w3.org/2000/svg", NAVY = "#141C2E";
+const P = Object.assign(JSON.parse(document.getElementById("params").textContent), JSON.parse(document.getElementById("params-story").textContent));
+const V = key => { const [k, ...sub] = key.split("/"); const o = P[k]; if (!o) { console.error("missing param " + k); return NaN; }
+  let v = o.value; for (const s of sub) v = v == null ? undefined : v[s]; if (v === undefined) console.error("missing param " + key); return v; };
+const COMP = {};  // values computed by the page (shown as {{@name}})
+const C = {coral:"#EE6A45", coralD:"#B33F1D", sun:"#F2C64A", sunD:"#8A6800", sky:"#5E9FB8", skyD:"#2C6A82", leaf:"#3AA88D", leafD:"#1D7660",
+  plum:"#B4669D", plumD:"#7E3A6C", stone:"#8C8670", ink:"#1D2A44", ink2:"#55607A", card:"#FFFAF2", card2:"#EFE5D4", line:"#DCCDB4",
+  skyT:"#E3EFF4", leafT:"#D7EFE7", coralT:"#FBE0D6", sunT:"#FBEFC6", plumT:"#F1DDEA", stoneT:"#ECE7DC", grey:"#C9C1AE"};
+const SKIN = ["#F4CDA7", "#D49A6A", "#8E5B3B", "#E8B98F"];
+function el(t, a = {}, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+function tx(p, x, y, s, a = {}) { const t = el("text", Object.assign({x, y}, a), p); t.textContent = s; return t; }
+function dual(p, x, y, k, e, a = {}) { const g = el("g", {}, p); const c = a.class || ""; tx(g, x, y, k, Object.assign({}, a, {class: ("lbl-k " + c).trim()})); tx(g, x, y, e, Object.assign({}, a, {class: ("lbl-e " + c).trim()})); return g; }
+function use(p, id, x, y, w, h, style = "", a = {}) { return el("use", Object.assign({href: "#" + id, x, y, width: w, height: h, style}, a), p); }
+function person(p, x, y, w, shirt, skin, prop, hair) { const g = el("g", {}, p), h = w * 100 / 66;
+  use(g, "i-person", x, y, w, h, `--c:${shirt};--skin:${skin}` + (hair ? `;--hair:${hair}` : "")); if (prop) use(g, prop, x, y, w, h); return g; }
+const OL = {stroke: NAVY, "stroke-width": 2.5, "stroke-linejoin": "round"};
+const MID = {"text-anchor": "middle"}, END = {"text-anchor": "end"};
+const B = (sz, col, extra) => Object.assign({"font-size": sz, "font-weight": 800}, col ? {fill: col} : {}, extra || {});
+const R = (sz, col, extra) => Object.assign({"font-size": sz, "font-weight": 600}, col ? {fill: col} : {}, extra || {});
+const H = {class: "halo"};
+const svgOf = id => document.querySelector(`#${id} svg`) || document.getElementById(id);  // runs before story.js wraps wide svgs
+const fmt = v => typeof v === "number" ? String(v) : Array.isArray(v) ? v.join("–") : String(v);
+function bubble(p, x, y, w, h, fill = "#FFFDF8", stroke = NAVY) { return el("rect", {x, y, width: w, height: h, rx: 12, fill, stroke, "stroke-width": 2.5}, p); }
+function line(p, d, col, w = 3, a = {}) { return el("path", Object.assign({d, fill: "none", stroke: col, "stroke-width": w, "stroke-linecap": "round", "stroke-linejoin": "round"}, a), p); }
+function trunk(p, d, w = 12) { line(p, d, NAVY, w + 5); line(p, d, C.sky, w); }
+function tok(p, d, s, col, r = 7, a = {}) { const g = el("g", Object.assign({class: "st-tok", "data-s": String(s), style: `offset-path:path('${d}');` + (a.style || "")}, a.attrs || {}), p);
+  el("circle", {r, fill: col, stroke: NAVY, "stroke-width": 2}, g); return g; }
+function rider(p, d, T, od, dl, draw) { const g = el("g", {class: "ride st-loop", style: `offset-path:path('${d}');--T:${T}s;--od:${od}%;--dl:${dl}s`}, p); draw(g); return g; }
+function mark(p, x, y, ok, sz = 18) { return tx(p, x, y, ok ? "✓" : "✗", B(sz, ok ? C.leafD : C.coralD, MID)); }
+function house(p, x, y, w, h, roof = C.leafD) { // a house drawn as roof + walls; returns the wall box
+  el("path", Object.assign({d: `M${x - 12} ${y + 2} L${x + w / 2} ${y - h * 0.36} L${x + w + 12} ${y + 2} Z`, fill: roof}, OL), p);
+  el("rect", Object.assign({x, y, width: w, height: h, fill: "#FFF4DE"}, OL), p); return {x, y, w, h}; }
+
+/* derived numbers used in captions (no number is retyped) */
+COMP.vendorUsd = String(V("traffic_per_instance_illustrative") * V("residential_proxy_price_illustrative"));
+COMP.ownUsd = (V("traffic_per_instance_illustrative") * V("front_door_per_gb_illustrative")).toFixed(2);
+COMP.firstStream = String(V("quic_first_stream_ids/server_bidi")[0]);
+COMP.repOk = Object.keys(V("socks5_reply_codes")).find(k => V("socks5_reply_codes")[k] === "succeeded");
+COMP.repFail = Object.keys(V("socks5_reply_codes")).find(k => V("socks5_reply_codes")[k].startsWith("general"));
+COMP.repDeny = Object.keys(V("socks5_reply_codes")).find(k => V("socks5_reply_codes")[k].startsWith("connection not allowed"));
+COMP.overCap = String(V("phone_max_incoming_streams_illustrative") + 1);
+console.assert(+COMP.vendorUsd === 40 && COMP.ownUsd === "0.10", "B3: 5 GB costs about 40 USD through a vendor and 0.10 USD of variable front-door fee");
+console.assert(V("connect_reply_deadline_illustrative") > V("phone_dns_worst_illustrative") + V("phone_connect_timeout_illustrative"), "C2: the CONNECT deadline exceeds DNS worst + TCP connect (10 + 8 = 18 < 20)");
+console.assert(V("quic_amplification_factor") * V("quic_min_client_initial_datagram") === V("quic_amplification_budget_one_initial"), "C1: 3 × 1200 = 3600");
+console.assert(V("keepalive_illustrative") < V("udp_nat_idle_assumption") && V("keepalive_illustrative") * 3 <= V("conn_idle_timeout_illustrative"), "B2: keepalive below the NAT assumption and at most a third of the idle timeout");
+
+/* ---------------- HERO ---------------- */
+(() => {
+ const s = document.getElementById("hero");
+ el("rect", {x: 0, y: 0, width: 1000, height: 470, fill: "#F3E6D0"}, s);
+ // the usual line (plum), under everything
+ const UL = "M178 340 C 280 452 560 452 650 364";
+ const lg = el("g", {"data-ref": "letter"}, s);
+ line(lg, UL, C.plumD, 3, {"stroke-dasharray": "7 6", "marker-end": "url(#ah-plum)"});
+ rider(lg, UL, 6, 55, 0, g => use(g, "i-letter", -17, -12, 34, 24));
+ dual(lg, 410, 462, "the usual line (your login) brings: the extension, the voiceprint, a one-time ticket", "HTTPS control channel brings: port, fingerprint, ALPN, token", R(12, C.plumD, MID));
+ // the screened call (coral): straight from the office to the shop
+ const sg = el("g", {"data-ref": "shop"}, s);
+ line(sg, "M160 118 Q 300 26 474 48", C.coralD, 3, {"stroke-dasharray": "8 6", "marker-end": "url(#ah-coral)"});
+ bubble(sg, 480, 20, 270, 60, C.coralT, C.coralD);
+ dual(sg, 615, 44, "call from an office number:", "call from a cloud IP:", B(13, C.coralD, MID));
+ dual(sg, 615, 66, "prove you're human ✗", "CAPTCHA, block, wrong region ✗", B(13, C.coralD, MID));
+ // the office
+ const og = el("g", {"data-ref": "office"}, s);
+ use(og, "i-office", 20, 100, 140, 154);
+ dual(og, 90, 92, "the far office", "the cloud instance", B(14, null, MID));
+ const ag = el("g", {"data-ref": "assistant"}, s);
+ person(ag, 30, 262, 44, C.stone, SKIN[2], "p-laptop");
+ dual(ag, 52, 346, "assistant", "agent + tools", R(11, C.ink2, MID));
+ const rg = el("g", {"data-ref": "recep"}, s);
+ person(rg, 98, 262, 44, C.ink2, SKIN[0], "p-headset", C.plumD);
+ dual(rg, 122, 346, "receptionist", "listener", R(11, C.ink2, MID));
+ // the trunk line
+ const TR = "M160 296 H532";
+ const tg = el("g", {"data-ref": "trunk"}, s);
+ trunk(tg, TR);
+ [0, 1, 2, 3].forEach(i => rider(tg, TR, 3.6, 12 + 23 * i, -0.9 * i, g => el("circle", {r: 4.5, fill: "#FFFDF8", stroke: NAVY, "stroke-width": 1.5}, g)));
+ dual(tg, 225, 282, "the trunk line", "one QUIC connection", B(12, C.skyD, MID));
+ dual(tg, 225, 322, "a channel per call", "a stream per TCP call", R(11, C.ink2, MID));
+ // the front desk
+ const dg = el("g", {"data-ref": "desk"}, s);
+ use(dg, "i-desk", 290, 255, 110, 82);
+ dual(dg, 345, 246, "front desk", "anycast front door", B(12, null, MID));
+ dual(dg, 345, 356, "an extension per office", "one port per instance", R(11, C.ink2, MID));
+ // the house
+ const hb = house(s, 520, 162, 250, 188);
+ dual(s, 645, 150, "your house", "your phone", B(14, "#FFFDF8", MID));
+ const hg = el("g", {"data-ref": "helper"}, s);
+ person(hg, 540, 198, 54, C.leaf, SKIN[1], "p-headset");
+ dual(hg, 567, 314, "helper", "phone app", B(12, C.leafD, MID));
+ const bg = el("g", {"data-ref": "book"}, s);
+ use(bg, "i-book", 606, 226, 38, 45);
+ dual(bg, 625, 290, "directory", "resolver", R(11, C.sunD, MID));
+ const ig = el("g", {"data-ref": "intercom"}, s);
+ use(ig, "i-intercom", 700, 196, 30, 44); use(ig, "i-no", 696, 200, 38, 38);
+ dual(ig, 715, 258, "intercom", "home LAN", R(11, C.coralD, MID));
+ // your line to the shop
+ const YL = "M770 286 H856";
+ const yg = el("g", {"data-ref": "shop"}, s);
+ line(yg, YL, C.leafD, 4, {"marker-end": "url(#ah-leaf)"});
+ rider(yg, YL, 2.4, 50, 0, g => el("circle", {r: 4.5, fill: C.leaf, stroke: NAVY, "stroke-width": 1.5}, g));
+ dual(yg, 813, 276, "your number", "your IP", R(11, C.leafD, MID));
+ use(yg, "i-shop", 860, 250, 120, 107);
+ bubble(yg, 842, 178, 150, 58, C.leafT, C.leafD);
+ dual(yg, 917, 198, "caller ID:", "source address:", R(12, C.ink2, MID));
+ dual(yg, 917, 222, "your home ✓", "the user's IP ✓", B(14, C.leafD, MID));
+ dual(yg, 920, 376, "the shop", "a website", B(13, null, MID));
+})();
+</script>
+<script>
+/* ---------------- SCENE 1: screened calls (IP reputation) ---------------- */
+(() => {
+ const s = svgOf("s-screen");
+ const base = el("g", {"data-s": "0"}, s);
+ use(base, "i-shop", 800, 124, 150, 133);
+ dual(base, 875, 280, "the shop", "a website", B(13, null, MID));
+ bubble(base, 760, 14, 230, 92, C.card);
+ dual(base, 875, 36, "caller ID", "source address", R(12, C.ink2, MID));
+ // step 1: the office calls
+ const g1 = el("g", {"data-s": "1"}, s);
+ use(g1, "i-office", 30, 44, 110, 121);
+ dual(g1, 85, 34, "the far office", "cloud instance", B(13, null, MID));
+ const P1 = "M146 90 C 380 40 620 50 790 150";
+ line(g1, P1, C.coralD, 3, {"stroke-dasharray": "8 6", "marker-end": "url(#ah-coral)"});
+ tok(s, P1, 1, C.stone, 7, {style: "--dur:1400ms"});
+ dual(el("g", {class: "st-at", "data-s": "1"}, s), 875, 70, "an office number", "a data-centre address", B(15, null, MID));
+ // step 2: screened
+ const g2 = el("g", {class: "st-at", "data-s": "2"}, s);
+ dual(g2, 875, 66, "office number ✗", "cloud IP ✗", B(16, C.coralD, MID));
+ dual(g2, 875, 90, "prove you're human", "CAPTCHA or block", B(13, C.coralD, MID));
+ const RX = [["a challenge", "a CAPTCHA"], ["a block", "an outright block"], ["a slow answer", "a degraded response"], ["the wrong town", "geo-fenced content"]];
+ RX.forEach(([k, e], i) => { const x = 250 + (i % 2) * 220, y = 170 + Math.floor(i / 2) * 56;
+  el("rect", {x, y, width: 200, height: 42, rx: 10, fill: C.coralT, stroke: C.coralD, "stroke-width": 2}, g2);
+  dual(g2, x + 100, y + 27, k, e, B(14, C.coralD, MID)); });
+ dual(g2, 460, 156, `strict sites: about ${Math.round(V("cloud_ip_task_failure_illustrative") * 100)} % of tasks fail (illustrative)`, `bot-protected sites: about ${Math.round(V("cloud_ip_task_failure_illustrative") * 100)} % of tasks fail (illustrative)`, B(13, C.ink, MID));
+ // step 3: the helper calls from your home
+ const g3 = el("g", {"data-s": "3"}, s);
+ house(g3, 420, 196, 120, 80);
+ person(g3, 452, 196, 44, C.leaf, SKIN[1], "p-headset");
+ dual(g3, 480, 296, "your house: the helper dials", "your phone connects", B(12, C.leafD, MID));
+ const P3 = "M544 236 C 640 236 700 214 794 204";
+ line(g3, P3, C.leafD, 4, {"marker-end": "url(#ah-leaf)"});
+ tok(s, P3, 3, C.leaf, 7, {style: "--dur:1200ms"});
+ const g3b = el("g", {class: "st-at", "data-s": "3 4"}, s);
+ dual(g3b, 875, 70, "your home ✓", "the user's IP ✓", B(17, C.leafD, MID));
+ dual(g3b, 875, 92, "your town, your logins", "matches location and history", R(12, C.ink2, MID));
+ // step 4: rent a stranger's line instead?
+ const g4 = el("g", {"data-s": "4"}, s);
+ const usd = V("residential_proxy_price_illustrative") * V("traffic_per_instance_illustrative"), own = V("front_door_per_gb_illustrative") * V("traffic_per_instance_illustrative");
+ const W = 210, sc = W / usd;
+ dual(g4, 30, 214, `${V("traffic_per_instance_illustrative")} GB a month (illustrative)`, `${V("traffic_per_instance_illustrative")} GB a month (illustrative)`, B(12, C.ink2));
+ dual(g4, 30, 244, "a stranger's line", "proxy vendor", R(12, C.ink));
+ el("rect", {x: 150, y: 230, width: W, height: 20, rx: 5, fill: C.coral, stroke: NAVY, "stroke-width": 1.5, class: "grow", "data-s": "4"}, s);
+ tx(g4, 150 + W - 6, 245, `≈ ${usd} USD`, B(12, "#FFFDF8", END));
+ dual(g4, 30, 276, "your own line", "front-door fee", R(12, C.ink));
+ el("rect", {x: 150, y: 262, width: Math.max(3, own * sc), height: 20, rx: 2, fill: C.leaf, stroke: NAVY, "stroke-width": 1.5}, g4);
+ tx(g4, 162, 277, `≈ ${own.toFixed(2)} USD + a shared fixed fee`, B(12, C.leafD));
+})();
+</script>
+<script>
+/* ---------------- SCENE 2: one call, end to end (SOCKS5 CONNECT through the tunnel) ---------------- */
+(() => {
+ const s = svgOf("s-call");
+ const X = {a: 90, r: 250, h: 660, w: 910};
+ const base = el("g", {"data-s": "0"}, s);
+ el("rect", {x: 10, y: 10, width: 330, height: 340, rx: 16, fill: C.stoneT}, base);
+ el("rect", {x: 560, y: 10, width: 200, height: 340, rx: 16, fill: C.leafT}, base);
+ dual(base, 175, 32, "the far office", "cloud instance", B(13, C.ink2, MID));
+ dual(base, 660, 32, "your house", "your phone", B(13, C.leafD, MID));
+ dual(base, 450, 32, "trunk", "QUIC", B(13, C.skyD, MID));
+ person(base, X.a - 20, 40, 40, C.stone, SKIN[2], "p-laptop"); person(base, X.r - 20, 40, 40, C.ink2, SKIN[0], "p-headset", C.plumD);
+ person(base, X.h - 20, 40, 40, C.leaf, SKIN[1], "p-headset"); use(base, "i-shop", X.w - 36, 48, 72, 64);
+ dual(base, X.a, 116, "assistant", "agent tool", R(11, C.ink2, MID)); dual(base, X.r, 116, "receptionist", "listener", R(11, C.ink2, MID));
+ dual(base, X.h, 116, "helper", "phone app", R(11, C.ink2, MID)); dual(base, X.w, 126, "the shop", "the site", R(11, C.ink2, MID));
+ [X.a, X.r, X.h, X.w].forEach(x => el("line", {x1: x, y1: 124, x2: x, y2: 344, stroke: C.ink2, "stroke-width": 1.5, "stroke-dasharray": "3 5"}, base));
+ // the trunk band between the receptionist and the helper
+ el("rect", {x: 340, y: 124, width: 220, height: 220, fill: C.skyT, opacity: .7}, base);
+ const arrow = (g, x1, x2, y, col, w = 2.5) => line(g, `M${x1} ${y} H${x2 + (x2 > x1 ? -4 : 4)}`, col, w, {"marker-end": `url(#ah-${col === C.leafD ? "leaf" : col === C.skyD ? "sky" : "ink"})`});
+ const name = "www.example.com", L = name.length, sizes = V("socks5_message_sizes");
+ COMP.connectBytes = String(7 + L);
+ console.assert(sizes.connect_domain.startsWith("7 + L") && 7 + L === 22, "B1: CONNECT to a 15-character name is 7 + 15 = 22 bytes");
+ // step 1: hello (method negotiation) answered by the receptionist itself
+ const g1 = el("g", {"data-s": "1"}, s);
+ arrow(g1, X.a, X.r, 146, C.ink); dual(g1, (X.a + X.r) / 2, 140, "hello · no password?", "method: 05 01 00", R(11, C.ink, MID, ));
+ arrow(g1, X.r, X.a, 168, C.ink); dual(g1, (X.a + X.r) / 2, 162, "fine · no password", "reply: 05 00", R(11, C.ink, MID));
+ // step 2: the request, with the NAME
+ const g2 = el("g", {"data-s": "2"}, s);
+ arrow(g2, X.a, X.r, 198, C.ink, 3); dual(g2, (X.a + X.r) / 2, 192, `connect ${name} :443`, `CONNECT ATYP 0x03 "${name}" 443`, B(11, C.ink, MID));
+ dual(g2, (X.a + X.r) / 2, 214, `the name, not a number · ${7 + L} bytes`, `${7 + L} bytes (7 + L)`, R(11, C.ink2, MID));
+ // step 3: forwarded unchanged on a new channel
+ const g3 = el("g", {"data-s": "3"}, s);
+ mark(g3, X.r + 18, 238, true, 15); dual(g3, X.r + 30, 238, "office check", "metadata check", R(10, C.ink2));
+ line(g3, `M${X.r} 252 H${X.h - 4}`, NAVY, 9); line(g3, `M${X.r} 252 H${X.h - 4}`, C.sky, 5, {"marker-end": "url(#ah-sky)"});
+ dual(g3, 450, 246, `channel ${V("quic_first_stream_ids/server_bidi")[0]}: same bytes`, `stream ${V("quic_first_stream_ids/server_bidi")[0]}: same bytes`, B(11, C.skyD, MID, H));
+ tok(s, `M${X.r} 252 H${X.h}`, 3, "#FFFDF8", 6, {style: "--dur:1300ms"});
+ // step 4: looked up at home, checked, dialled
+ const g4 = el("g", {"data-s": "4"}, s);
+ use(g4, "i-book", X.h + 8, 132, 30, 36);
+ const ans = V("page_dns_answers_01/www.example.com/phone");
+ dual(g4, X.h + 44, 148, "the branch near you:", "phone resolver:", R(10, C.sunD));
+ tx(g4, X.h + 44, 162, ans, B(11, C.sunD, {class: "mono", style: "font-family:var(--mono)"}));
+ mark(g4, X.h + 14, 190, true, 15); dual(g4, X.h + 28, 190, "not the intercom", "filter after DNS", R(10, C.ink2));
+ arrow(g4, X.h, X.w, 280, C.leafD, 3); dual(g4, (X.h + X.w) / 2, 274, `dial ${ans} :443`, `TCP to ${ans}:443`, B(11, C.leafD, MID));
+ tok(s, `M${X.h} 280 H${X.w}`, 4, C.leaf, 6, {style: "--dur:1000ms"});
+ // step 5: you're connected
+ const g5 = el("g", {"data-s": "5"}, s);
+ line(g5, `M${X.h} 306 H${X.a + 4}`, C.leafD, 3, {"marker-end": "url(#ah-leaf)"});
+ dual(g5, 450, 300, `“you're connected” · REP ${COMP.repOk}`, `reply REP ${COMP.repOk} (succeeded)`, B(12, C.leafD, MID, H));
+ bubble(g5, 822, 148, 170, 46, C.leafT, C.leafD);
+ dual(g5, 907, 168, "your number ✓", "the user's IP ✓", B(12, C.leafD, MID)); dual(g5, 907, 185, "to the local branch", "to a nearby server", R(11, C.ink2, MID));
+ // step 6: the conversation passes through; every round trip goes the long way
+ const g6 = el("g", {"data-s": "6"}, s);
+ line(g6, `M${X.a + 4} 334 H${X.w - 4}`, C.ink2, 2.5, {"stroke-dasharray": "2 5", "marker-end": "url(#ah-ink)", "marker-start": "url(#ah-ink)"});
+ dual(g6, 450, 328, "coded conversation, passed on unread", "TLS end to end, relayed as bytes", R(11, C.ink, MID, H));
+ bubble(g6, 790, 200, 200, 50, C.sunT, C.sunD);
+ dual(g6, 890, 220, `first reply ≈ ${V("ttfb_model_illustrative/wifi")} ms`, `TTFB ≈ ${V("ttfb_model_illustrative/wifi")} ms (Wi-Fi)`, B(12, C.sunD, MID));
+ dual(g6, 890, 238, `direct from the office ≈ ${V("ttfb_model_illustrative/direct_from_cloud")} ms`, `direct ≈ ${V("ttfb_model_illustrative/direct_from_cloud")} ms`, R(11, C.ink2, MID));
+})();
+</script>
+<script>
+/* ---------------- LIVE A: who looks it up, and does the helper dial? (pure model) ---------------- */
+const LOOK = (() => {
+ const ip4 = s => { const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s); if (!m) return null; const o = m.slice(1).map(Number); return o.some(x => x > 255) ? null : ((o[0] * 256 + o[1]) * 256 + o[2]) * 256 + o[3]; };
+ const i2s = n => [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join(".");
+ // inet_aton-style parse (decimal, 0x-hex, 0-octal; 1–4 parts): the alternative spellings in C1
+ const aton = s => { const parts = String(s).split("."); if (parts.length > 4) return null; const v = [];
+  for (const p of parts) { if (/^0x[0-9a-f]+$/i.test(p)) v.push(parseInt(p.slice(2), 16)); else if (/^0[0-7]*$/.test(p)) v.push(parseInt(p, 8)); else if (/^[1-9]\d*$/.test(p)) v.push(+p); else return null; }
+  const n = v.length; for (let i = 0; i < n - 1; i++) if (v[i] > 255) return null; if (v[n - 1] >= 256 ** (5 - n)) return null;
+  let x = 0; for (let i = 0; i < n - 1; i++) x += v[i] * 256 ** (3 - i); return x + v[n - 1]; };
+ const inC = (n, c) => { const [b, l] = c.split("/"); const sz = 2 ** (32 - +l); return Math.floor(n / sz) === Math.floor(ip4(b) / sz); };
+ const mapped = s => { const m = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/i.exec(s); return m ? m[1] : null; };
+ const DESTS = ["www.example.com", "rebind.example", "192.168.1.1", "::ffff:192.168.1.1", V("metadata_address_encodings/hex"), "169.254.43518"];
+ const PORTS = V("story_ports");
+ function officeCheck(atyp, addr) {  // the receptionist's fixed list (C1): 169.254/16, fe80::/10, known spellings
+  if (atyp === "ipv4") return inC(ip4(addr), "169.254.0.0/16") ? "169.254/16, the office's own back room (metadata)" : null;
+  if (atyp === "ipv6") return /^fe[89ab]/i.test(addr) ? "fe80::/10" : null;
+  const sp = [V("metadata_address"), ...Object.values(V("metadata_address_encodings"))].map(x => x.toLowerCase());
+  return sp.includes(addr.toLowerCase()) ? "a known spelling of the metadata address" : null; }
+ function helperCheck(addr, port) {  // the helper's filter, on the exact address it will dial (C1)
+  if (!V("allowed_ports_illustrative").includes(port)) return `port ${port} is not a shop door (only ${V("allowed_ports_illustrative").join(" and ")})`;
+  const m = mapped(addr); const a4 = m || addr, n = ip4(a4); if (n === null) return null;
+  for (const [c, why] of Object.entries(V("blocked_ranges_ipv4"))) if (inC(n, c)) return (m ? `IPv4-mapped, embeds ${m}: ` : "") + `${a4} is in ${c} (${why})`;
+  return null; }
+ function lookup(who, name) { const n = aton(name); if (n !== null) return {addr: i2s(n), how: "a number, no directory needed"};
+  const e = V("page_dns_answers_01")[name]; return e ? {addr: e[who === "house" ? "phone" : "cloud"], how: who === "house" ? "the house directory" : "the office directory"} : null; }
+ function model(st) {
+  const h = !!+st.scheme, dest = DESTS[+st.dest | 0], port = PORTS[+st.port | 0], o = {dest, port, h};
+  let atyp, addr;
+  if (mapped(dest) || dest.includes(":")) { atyp = "ipv6"; addr = dest; }
+  else if (ip4(dest) !== null) { atyp = "ipv4"; addr = dest; }
+  else if (!h) { const r = lookup("office", dest); atyp = "ipv4"; addr = r.addr; o.lookAt = r.how.startsWith("a number") ? "none" : "office"; o.how = r.how; }
+  else { atyp = "domain"; addr = dest; }
+  o.atyp = atyp; o.sent = addr; o.lookAt = o.lookAt || (atyp === "domain" ? "house" : "none");
+  o.office = officeCheck(atyp, addr);
+  if (o.office) { o.rep = COMP.repDeny; o.by = "office"; o.channel = false; return o; }
+  o.channel = true;
+  const dial = atyp === "domain" ? lookup("house", addr) : {addr};
+  if (atyp === "domain") { o.how = dial.how; if (dial.how.startsWith("a number")) o.lookAt = "none"; }
+  o.dial = dial.addr;
+  o.helper = helperCheck(dial.addr, port);
+  if (o.helper) { o.rep = COMP.repDeny; o.by = "helper"; return o; }
+  o.rep = COMP.repOk; o.by = null;
+  const e = V("page_dns_answers_01")[dest];
+  o.branch = e ? (dial.addr === e.phone ? "near" : "far") : "literal";
+  return o; }
+ const t = (c, m) => console.assert(c, "story live A: " + m), R = (s, d, p) => model({scheme: s, dest: d, port: p});
+ t(R(1, 0, 0).lookAt === "house" && R(1, 0, 0).rep === COMP.repOk && R(1, 0, 0).branch === "near", "socks5h: looked up at home, connected to the near branch (B1)");
+ t(R(0, 0, 0).lookAt === "office" && R(0, 0, 0).branch === "far" && R(0, 0, 0).atyp === "ipv4", "socks5: looked up in the office, far branch (B1)");
+ t(R(1, 1, 0).by === "helper" && R(0, 1, 0).by === "helper" && R(1, 1, 0).channel, "a name that points at the home router is refused by the helper after the lookup, with either scheme (C1)");
+ t(R(1, 4, 0).by === "office" && !R(1, 4, 0).channel, "the hex spelling is refused in the office; no channel opens (C1)");
+ t(R(1, 5, 1).by === "helper" && R(1, 5, 1).dial === V("metadata_address"), "the short form passes the office list and is caught by the helper (C1)");
+ t(R(1, 3, 0).by === "helper", "IPv4-mapped 192.168.1.1 is refused (C1)");
+ t(R(1, 0, 2).by === "helper", "port 22 is refused (C1)");
+ let n = 0; for (const s of [0, 1]) for (let d = 0; d < DESTS.length; d++) for (let p = 0; p < PORTS.length; p++) { const r = R(s, d, p); if ([COMP.repOk, COMP.repDeny].includes(r.rep)) n++; }
+ t(n === 2 * DESTS.length * PORTS.length, "every combination ends with exactly one reply");
+ return {model, DESTS, PORTS};
+})();
+(() => {
+ const ds = document.getElementById("lkDest"), ps = document.getElementById("lkPort");
+ const lab = ["www.example.com (a shop)", "rebind.example (points at a home router)", "192.168.1.1 (a home router)", "::ffff:192.168.1.1 (the same, in IPv6 clothing)", `${LOOK.DESTS[4]} (the metadata address in hex)`, "169.254.43518 (the metadata address, short form)"];
+ LOOK.DESTS.forEach((d, i) => ds.appendChild(Object.assign(document.createElement("option"), {value: i, textContent: lab[i]})));
+ LOOK.PORTS.forEach((p, i) => ps.appendChild(Object.assign(document.createElement("option"), {value: i, textContent: p + (V("allowed_ports_illustrative").includes(p) ? " (a shop door)" : " (not a shop door)")})));
+})();
+</script>
+<script>
+/* ---------------- SCENE 3: one trunk, many channels ---------------- */
+(() => {
+ const s = svgOf("s-trunk"), N = V("story_crackle/calls"), HIT = V("story_crackle/hit");
+ const X0 = 230, X1 = 880, HX = 900;
+ const rows = [{y: 70, k: "six separate lines", e: `${N} × TCP + TLS 1.3`}, {y: 175, k: "one shared line", e: "one TCP connection (WebSocket)"}, {y: 275, k: "one trunk, a channel per call", e: `one QUIC connection, ${N} streams`}];
+ const base = el("g", {"data-s": "0"}, s);
+ house(base, HX + 8, 150, 70, 60); dual(base, HX + 43, 230, "your house", "your phone", B(12, C.leafD, MID));
+ const sq = (g, x, y, i, state) => { const col = state === "wait" ? C.coralT : state === "lost" ? C.coral : C.leaf;
+  el("rect", {x: x - 11, y: y - 11, width: 22, height: 22, rx: 5, fill: col, stroke: state === "wait" ? C.coralD : NAVY, "stroke-width": 2, "stroke-dasharray": state === "wait" ? "4 3" : "0"}, g);
+  tx(g, x, y + 5, String(i), B(12, state === "ok" ? "#FFFDF8" : C.ink, MID)); };
+ const crackle = (g, x, y) => line(g, `M${x - 14} ${y - 18} l6 8 l-6 4 l8 6 l-4 6`, C.coralD, 3);
+ // step 1: six separate lines, two round trips each
+ const g1 = el("g", {"data-s": "1"}, s);
+ dual(g1, X0 - 12, rows[0].y - 18, rows[0].k, rows[0].e, B(13, null, END)); dual(g1, X0 - 12, rows[0].y, `${V("quic_handshake_round_trips/tcp_plus_tls13")} round trips each to dial`, `${V("quic_handshake_round_trips/tcp_plus_tls13")} RTT handshake each`, R(11, C.ink2, END));
+ for (let i = 0; i < N; i++) { const y = rows[0].y - 30 + i * 12; line(g1, `M${X0} ${y} H${X1}`, C.ink2, 2);
+  for (let k = 0; k < V("quic_handshake_round_trips/tcp_plus_tls13"); k++) el("rect", {x: X0 + 4 + k * 16, y: y - 4, width: 12, height: 8, rx: 2, fill: C.sun, stroke: NAVY, "stroke-width": 1}, g1); }
+ // step 2: one shared line, single file; a crackle stops everyone
+ const g2 = el("g", {"data-s": "2"}, s);
+ dual(g2, X0 - 12, rows[1].y - 8, rows[1].k, rows[1].e, B(13, null, END)); dual(g2, X0 - 12, rows[1].y + 10, "one queue for every call", "in-order delivery for all", R(11, C.ink2, END));
+ line(g2, `M${X0} ${rows[1].y} H${X1}`, NAVY, 18); line(g2, `M${X0} ${rows[1].y} H${X1}`, C.grey, 13);
+ for (let i = 1; i <= N; i++) { const x = X0 + 60 + (N - i) * 60; sq(g2, x, rows[1].y, i, i === HIT ? "lost" : "wait"); if (i === HIT) crackle(g2, x, rows[1].y); }
+ dual(g2, X0 + 60 + N * 60 + 10, rows[1].y + 5, `all ${N} wait`, `all ${N} stall`, B(13, C.coralD));
+ // step 3: one trunk; the crackle stops only its own channel
+ const g3 = el("g", {"data-s": "3"}, s);
+ dual(g3, X0 - 12, rows[2].y - 8, rows[2].k, rows[2].e, B(13, null, END)); dual(g3, X0 - 12, rows[2].y + 10, `dialled once: ${V("quic_handshake_round_trips/quic_tls13_new")} round trip`, `${V("quic_handshake_round_trips/quic_tls13_new")}-RTT handshake, once`, R(11, C.ink2, END));
+ el("rect", {x: X0, y: rows[2].y - 36, width: X1 - X0, height: 72, rx: 14, fill: C.sky, stroke: NAVY, "stroke-width": 3}, g3);
+ for (let i = 1; i <= N; i++) { const y = rows[2].y - 30 + (i - 1) * 12; line(g3, `M${X0 + 8} ${y} H${X1 - 8}`, "#FFFDF8", 1.2, {opacity: .7}); }
+ for (let i = 1; i <= N; i++) { const y = rows[2].y - 30 + (i - 1) * 12, x = i === HIT ? X0 + 200 : X1 - 30 - (i % 3) * 26;
+  el("circle", {cx: x, cy: y, r: 5.5, fill: i === HIT ? C.coral : C.leaf, stroke: NAVY, "stroke-width": 1.5}, g3); }
+ crackle(g3, X0 + 214, rows[2].y - 30 + (HIT - 1) * 12 + 6);
+ dual(g3, X0 + 236, rows[2].y - 30 + (HIT - 1) * 12 + 4, `only call ${HIT} waits`, `only stream ${HIT} stalls`, B(12, "#FFFDF8", {style: "paint-order:stroke;stroke:#2C6A82;stroke-width:5px;stroke-linejoin:round"}));
+ // step 4: the channel limit
+ const g4 = el("g", {"data-s": "4"}, s);
+ bubble(g4, 300, 316, 440, 30, C.coralT, C.coralD);
+ dual(g4, 520, 336, `${V("phone_max_incoming_streams_illustrative")} channels in use → call ${COMP.overCap} hears “busy” (REP ${COMP.repFail}) at once`, `stream cap ${V("phone_max_incoming_streams_illustrative")} → connection ${COMP.overCap} gets REP ${COMP.repFail} at once`, B(12, C.coralD, MID));
+})();
+</script>
+<script>
+/* ---------------- SCENE 4: who rings whom; clicks; migration ---------------- */
+(() => {
+ const s = svgOf("s-dial"), Y = 200;
+ // lines first, so the people and boxes sit on top
+ const g1 = el("g", {class: "st-at", "data-s": "1"}, s);
+ line(g1, "M150 120 Q 430 10 708 188", C.coralD, 3, {"stroke-dasharray": "8 6", "marker-end": "url(#ah-coral)"});
+ dual(g1, 430, 62, "the office rings your house…", "an inbound connection to the phone…", B(13, C.coralD, MID));
+ dual(g1, 640, 150, "dropped ✗", "dropped by NAT ✗", B(14, C.coralD, MID, H));
+ const g2 = el("g", {class: "st-at", "data-s": "2 3 4"}, s);
+ trunk(g2, `M842 ${Y + 14} H150`, 10);
+ tok(s, `M842 ${Y + 14} H150`, 2, "#FFFDF8", 7, {style: "--dur:1500ms"});
+ for (let i = 0; i < 4; i++) tok(s, `M150 ${Y + 14} H842`, 3, "#FFFDF8", 5, {style: `--dur:1300ms;--d:${i * 160}ms`});
+ const g5 = el("g", {"data-s": "5"}, s);
+ line(g5, `M842 ${Y + 14} H770`, C.grey, 6, {"stroke-dasharray": "6 6"});
+ const MIG = `M846 172 L668 58 L540 ${Y + 14} H150`;
+ trunk(g5, MIG, 10);
+ tok(s, MIG, 5, "#FFFDF8", 7, {style: "--dur:1500ms"});
+ // the nodes
+ const base = el("g", {"data-s": "0"}, s);
+ use(base, "i-office", 30, 92, 120, 132); dual(base, 90, 84, "the far office", "cloud instance (private)", B(13, null, MID));
+ use(base, "i-desk", 420, 168, 120, 90); dual(base, 480, 274, "front desk", "anycast front door", B(12, null, MID, H));
+ house(base, 772, 122, 196, 136);
+ dual(base, 870, 108, "your house", "your phone", B(13, "#FFFDF8", MID));
+ person(base, 848, 136, 52, C.leaf, SKIN[1], "p-headset");
+ use(base, "i-router", 708, 194, 60, 38);
+ dual(base, 738, 250, "home exchange", "home NAT", B(11, C.ink2, MID, H));
+ // step 2: the board
+ const b2 = el("g", {class: "st-at", "data-s": "2 3 4"}, s);
+ bubble(b2, 300, 70, 360, 60, C.card);
+ dual(b2, 480, 92, "the desk's board: public number → private room", "port map: public → private", B(12, null, MID));
+ tx(b2, 480, 116, `${V("story_port_map/public")} → ${V("story_port_map/private")}`, B(13, C.skyD, {"text-anchor": "middle", style: "font-family:var(--mono)"}));
+ dual(el("g", {class: "st-at", "data-s": "2"}, s), 300, Y + 4, "the helper rings out once", "the phone dials out (client)", B(12, C.skyD, MID, H));
+ const m2 = el("g", {class: "st-at", "data-s": "2 3 4"}, s);
+ dual(m2, 738, 186, "remembers ✓", "binding ✓", R(11, C.leafD, MID, H));
+ // step 3: the office opens channels on that line; the desk checks nobody
+ const g3 = el("g", {class: "st-at", "data-s": "3"}, s);
+ dual(g3, 290, Y - 2, "the office opens a channel per call", "the server opens streams", B(12, C.skyD, MID, H));
+ dual(g3, 480, 292, "checks no caller", "no access control", B(12, C.coralD, MID, H));
+ // step 4: clicks on a timeline
+ const g4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ const T0 = 170, TS = 12, KA = V("keepalive_illustrative"), NAT = V("udp_nat_idle_assumption"), IDL = V("conn_idle_timeout_illustrative");
+ el("line", {x1: T0, y1: 322, x2: T0 + 60 * TS, y2: 322, stroke: NAVY, "stroke-width": 2}, g4);
+ for (let t = 0; t <= 60; t += KA) el("rect", {x: T0 + t * TS - 3, y: 296, width: 6, height: 18, rx: 2, fill: C.sun, stroke: NAVY, "stroke-width": 1.2}, g4);
+ dual(g4, T0 - 10, 310, "clicks", "keepalive", R(11, C.ink2, END));
+ el("rect", {x: T0, y: 326, width: 60 * TS, height: 8, fill: C.leaf, stroke: NAVY, "stroke-width": 1}, g4);
+ dual(g4, T0 - 10, 336, "remembered", "NAT binding", R(11, C.ink2, END));
+ el("line", {x1: T0 + NAT * TS, y1: 288, x2: T0 + NAT * TS, y2: 338, stroke: C.coralD, "stroke-width": 2, "stroke-dasharray": "4 3"}, g4);
+ dual(g4, T0 + NAT * TS + 6, 300, `may forget after ${NAT} s`, `NAT may expire at ${NAT} s`, B(11, C.coralD));
+ tx(g4, T0 + 60 * TS, 316, "60 s", R(11, C.ink2, END));
+ console.assert(KA < NAT && KA < IDL, "scene 4: clicks come before the exchange forgets and before the trunk hangs up");
+ // step 5: walk out of Wi-Fi
+ const g5b = el("g", {"data-s": "5"}, s);
+ use(g5b, "i-mast", 650, 12, 36, 57); use(g5b, "i-no", 716, 190, 44, 44);
+ dual(g5b, 640, 40, "mobile mast", "cellular", B(11, C.skyD, END));
+ dual(g5b, 400, 100, "same trunk: the office knows it by its call number", "same connection: matched by connection ID", B(12, C.skyD, MID, H));
+ dual(g5b, 400, 118, "new shop calls show the mobile number", "new site connections show the cellular IP", R(11, C.ink2, MID, H));
+})();
+</script>
+<script>
+/* ---------------- LIVE B: how often should the helper click? (pure model) ---------------- */
+const KAM = (() => {
+ const NAT = V("udp_nat_idle_assumption"), SPAN = 120;
+ function model(st) { const k = +st.k, I = +st.idle;
+  const survives = k < I, closeAt = survives ? null : I;
+  const gap = Math.max(0, k - NAT);                       // seconds per interval the office cannot reach the helper
+  const end = survives ? SPAN : closeAt, clicks = [];
+  for (let t = 0; t <= end; t += k) clicks.push(t);
+  return {k, I, NAT, survives, closeAt, gap, perMin: 60 / k, clicks, costly: k < NAT}; }
+ const t = (c, m) => console.assert(c, "story live B: " + m);
+ const d = model({k: V("keepalive_illustrative"), idle: V("conn_idle_timeout_illustrative")});
+ t(d.survives && d.gap === 0, "design values: the trunk survives and the office can always reach the helper");
+ t(!model({k: 30, idle: 30}).survives, "a click interval equal to the idle timeout closes the trunk");
+ t(model({k: 40, idle: 60}).survives && model({k: 40, idle: 60}).gap === 10, "clicks slower than the exchange's memory leave gaps (40 − 30 = 10 s)");
+ return {model, SPAN};
+})();
+</script>
+<script>
+/* ---------------- SCENE 5: voiceprint and ticket (pinning, ALPN, token) ---------------- */
+(() => {
+ const s = svgOf("s-trust"), Y = 262;
+ const base = el("g", {"data-s": "0"}, s);
+ use(base, "i-office", 24, 140, 110, 121); dual(base, 79, 132, "the far office", "cloud instance", B(13, null, MID));
+ trunk(base, `M134 ${Y} H780`, 10);
+ house(base, 790, 170, 180, 140); dual(base, 880, 158, "your house", "your phone", B(13, "#FFFDF8", MID));
+ person(base, 854, 196, 52, C.leaf, SKIN[1], "p-headset");
+ // step 1: the letter on the usual line
+ const UL = "M130 140 Q 460 -30 800 168";
+ const g1 = el("g", {"data-s": "1"}, s);
+ line(g1, UL, C.plumD, 3, {"stroke-dasharray": "7 6", "marker-end": "url(#ah-plum)"});
+ tok(s, UL, 1, C.plum, 7, {style: "--dur:1500ms"});
+ bubble(g1, 330, 54, 340, 104, "#FFFDF8", C.plumD);
+ dual(g1, 500, 76, "the letter (on the usual line)", "config response (HTTPS)", B(12, C.plumD, MID));
+ dual(g1, 350, 98, `extension ${V("story_port_map/public").split(":")[1]}`, `host, port ${V("story_port_map/public").split(":")[1]}`, R(12, C.ink));
+ use(g1, "i-voice", 350, 106, 34, 26); dual(g1, 390, 124, `voiceprint (${V("sha256_digest/hex_chars")} hex)`, `SHA-256 pin (${V("sha256_digest/hex_chars")} hex)`, R(12, C.ink));
+ use(g1, "i-ticket", 350, 134, 30, 19); dual(g1, 386, 148, "one-time ticket", "connection token", R(12, C.ink));
+ dual(g1, 530, 98, "language:", "ALPN:", R(12, C.ink)); tx(g1, 530, 116, "socks5-over-quic", B(11, C.ink, {style: "font-family:var(--mono)"}));
+ // step 2: the prints match
+ const cmp = (g, ok) => { bubble(g, 400, 176, 240, 58, ok ? C.leafT : C.coralT, ok ? C.leafD : C.coralD);
+  use(g, "i-voice", 414, 184, 50, 40, ok ? "" : "filter:hue-rotate(160deg)"); tx(g, 480, 212, ok ? "=" : "≠", B(22, ok ? C.leafD : C.coralD, MID));
+  use(g, "i-voice", 498, 184, 50, 40); mark(g, 576, 214, ok, 22);
+  dual(g, 520, 250, ok ? "answer's print = the letter's print" : "a different print: hang up", ok ? "certificate hash = pin" : "pin mismatch: handshake fails", B(12, ok ? C.leafD : C.coralD, MID, H)); };
+ cmp(el("g", {class: "st-at", "data-s": "2"}, s), true);
+ // step 3: an impostor
+ const g3 = el("g", {class: "st-at", "data-s": "3"}, s);
+ cmp(g3, false);
+ person(g3, 250, 276, 40, C.coral, SKIN[3], null, C.ink); dual(g3, 270, 348, "an impostor", "a man in the middle", B(11, C.coralD, MID));
+ // step 4: a scanner in the wrong language
+ const g4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ person(g4, 250, 276, 40, C.stone, SKIN[0], null); dual(g4, 270, 348, "a scanner", "an HTTP/3 probe", B(11, C.ink2, MID));
+ bubble(g4, 300, 280, 170, 30, "#FFFDF8"); tx(g4, 385, 300, "speak h3?", B(12, C.ink, MID));
+ bubble(g4, 400, 180, 260, 50, C.coralT, C.coralD);
+ dual(g4, 530, 202, `the office hangs up: ${V("quic_close_codes_example/no_application_protocol")}`, `CONNECTION_CLOSE ${V("quic_close_codes_example/no_application_protocol")}`, B(12, C.coralD, MID));
+ dual(g4, 530, 220, `= ${V("quic_crypto_error_base")} + alert ${V("tls_alert_no_application_protocol")}`, `CRYPTO_ERROR + no_application_protocol`, R(11, C.ink2, MID));
+ // step 5: the ticket, read once on channel 0
+ const g5 = el("g", {"data-s": "5"}, s);
+ const tk = el("g", {class: "st-tok", "data-s": "5", style: `offset-path:path('M780 ${Y} H140');--dur:1500ms`}, s); use(tk, "i-ticket", -18, -11, 36, 22);
+ use(g5, "i-ticket", 148, 192, 34, 21, "", {transform: "rotate(-14 165 202)"}); use(g5, "i-ticket", 170, 196, 34, 21, "", {transform: "rotate(12 187 206)"});
+ dual(g5, 200, 244, "torn: good once", "consumed: single use", B(11, C.plumD, {"text-anchor": "start"}, ));
+ dual(g5, 460, Y - 14, "channel 0: device + ticket", "stream 0: deviceId + token", B(12, C.plumD, MID, H));
+ dual(g5, 460, Y + 28, `answer: the receptionist's extension ${V("socks_listen_port_illustrative")}`, `{"socksPort": ${V("socks_listen_port_illustrative")}}`, B(12, C.skyD, MID, H));
+ dual(g5, 460, Y + 46, `${V("token_bits_illustrative")} random bits · ${V("token_lifetime_illustrative")} s · this device only`, `${V("token_bits_illustrative")} bits · ${V("token_lifetime_illustrative")} s · device-bound`, R(11, C.ink2, MID, H));
+})();
+</script>
+<script>
+/* ---------------- SCENE 6: five guards (flip cards) ---------------- */
+(() => {
+ const box = document.getElementById("cards");
+ const ranges = Object.keys(V("blocked_ranges_ipv4")).slice(0, 3).join(", ");
+ const enc = V("metadata_address_encodings");
+ const CARDS = [
+  {k: "Never the intercom", e: "Private ranges, after DNS", draw: g => { use(g, "i-intercom", 70, 14, 40, 58); use(g, "i-no", 100, 20, 46, 46); use(g, "i-router", 20, 64, 54, 34); },
+   looks: "A call to a shop name that secretly points at your router or your home NAS.", really: "Server-side request forgery (SSRF) into the home network, with DNS rebinding.",
+   caught: `The helper checks the exact address it will dial, after the lookup: ${ranges} and the other private, link-local and reserved ranges, IPv4-mapped IPv6 too. Reply REP ${COMP.repDeny}.`},
+  {k: "The office's back room", e: "The metadata service", draw: g => { use(g, "i-office", 60, 6, 70, 77); use(g, "i-no", 114, 50, 40, 40); },
+   looks: `A call to ${V("metadata_address")}, or to ${enc.hex} or ${enc.decimal}.`, really: "Stealing the instance's own credentials from the cloud metadata service.",
+   caught: `A second check in the office, before any channel opens: 169.254/16, fe80::/10 and ${Object.keys(enc).length} other spellings. The helper's range check is the authoritative one.`},
+  {k: "The prank caller", e: "UDP amplification", draw: g => { person(g, 30, 10, 46, C.coral, SKIN[3]); el("path", {d: "M84 50 H120", stroke: C.coralD, "stroke-width": 3, "marker-end": "url(#ah-coral)"}, g); person(g, 126, 10, 46, C.stone, SKIN[0]); },
+   looks: "A small first call that shows a victim's number as the caller ID.", really: "Reflection: the office's long answer floods the victim.",
+   caught: `Before the caller is proven, answer at most ${V("quic_amplification_factor")}× what arrived: ${V("quic_amplification_factor")} × ${V("quic_min_client_initial_datagram")} = ${V("quic_amplification_budget_one_initial")} bytes. Send a small Retry token first (RFC 9000 §8).`},
+  {k: "A flood of first calls", e: "Handshake exhaustion", draw: g => { for (let i = 0; i < 5; i++) el("circle", {cx: 30 + i * 26, cy: 30 + (i % 2) * 18, r: 10, fill: C.coral, stroke: NAVY, "stroke-width": 2}, g); use(g, "i-desk", 120, 40, 70, 52); },
+   looks: "Thousands of first calls, each asking the office to do expensive key work.", really: "Burning the server's CPU before anyone is authenticated.",
+   caught: `A Retry before any crypto work; at most ${V("max_unvalidated_handshakes_illustrative")} unproven callers and ${V("max_established_connections_illustrative")} connections at once (design values).`},
+  {k: "Shop doors only", e: "Ports and localhost", draw: g => { use(g, "i-shop", 20, 14, 90, 80); use(g, "i-no", 130, 24, 50, 50); tx(g, 155, 92, "22", B(14, C.coralD, MID)); },
+   looks: "A call to port 22 at a public address, or a stranger ringing the receptionist.", really: "Using your house as a general exit, or the listener as an open proxy.",
+   caught: `Only ports ${V("allowed_ports_illustrative").join(" and ")} (design value). The receptionist answers only callers inside the office (bound to localhost).`}];
+ CARDS.forEach(c => { const b = document.createElement("button"); b.className = "st-card";
+  b.innerHTML = `<div class="in"><div class="face"><svg viewBox="0 0 200 110" role="img" aria-label="${c.k}"></svg><h3>${c.k}</h3><p style="margin:2px 0 0;color:var(--ink-2);font-weight:700">${c.e}</p><span class="hint">Tap to flip</span></div>
+   <div class="face back"><dl><dt>Looks like</dt><dd>${c.looks}</dd><dt>Really</dt><dd>${c.really}</dd><dt>Caught by</dt><dd>${c.caught}</dd></dl></div></div>`;
+  c.draw(b.querySelector("svg")); box.appendChild(b); });
+})();
+</script>
+<script>
+/* ---------------- SCENE 7: deadlines, fallback and the commit point ---------------- */
+(() => {
+ const s = svgOf("s-commit");
+ const XA = 130, XC = 690, XE = 970, YA = 88, YB = 168, YC = 238;
+ const base = el("g", {"data-s": "0"}, s);
+ person(base, 20, 44, 46, C.stone, SKIN[2], "p-laptop"); dual(base, 43, 130, "assistant", "agent tool", R(11, C.ink2, MID));
+ dual(base, XA, 30, "the receptionist's call →", "listener steps →", B(12, C.ink2));
+ line(base, `M${XA} ${YA} H${XE}`, NAVY, 14); line(base, `M${XA} ${YA} H${XE}`, C.sky, 9);
+ dual(base, XE, YA - 16, "via your house", "via the phone", B(12, C.skyD, END));
+ // step 1: three deadlines
+ const D = [[230, "open a channel", "stream open", V("stream_open_timeout_illustrative")], [400, "hello reply", "method reply", V("method_reply_deadline_illustrative")], [570, "connect reply", "CONNECT reply", V("connect_reply_deadline_illustrative")]];
+ const g1 = el("g", {"data-s": "1"}, s);
+ D.forEach(([x, k, e, v]) => { use(g1, "i-clock", x - 16, YA - 58, 32, 32); dual(g1, x, YA + 30, k, e, R(11, C.ink, MID)); tx(g1, x, YA + 46, `${v} s`, B(13, C.sunD, MID)); });
+ // step 2: the helper is silent at the hello: dial direct
+ const g2 = el("g", {class: "st-at", "data-s": "2"}, s);
+ tx(g2, 400, YA + 7, "✗", B(22, C.coralD, MID));
+ line(g2, `M400 ${YA + 12} Q 410 ${YB} 440 ${YB}`, C.ink2, 2.5, {"marker-end": "url(#ah-ink)"});
+ line(g2, `M444 ${YB} H${XE}`, C.stone, 9, {"stroke-dasharray": "0"});
+ dual(g2, 450, YB - 14, "the office line: dial the shop direct", "direct connection from the cloud IP", B(12, C.ink, {"text-anchor": "start"}));
+ dual(g2, 450, YB + 26, `the assistant never notices; it waits ${V("method_reply_deadline_illustrative")} s longer`, `invisible fallback; first request slower by ${V("method_reply_deadline_illustrative")} s`, R(11, C.leafD, {"text-anchor": "start"}));
+ // step 3: the commit point
+ const g3 = el("g", {"data-s": "3"}, s);
+ el("line", {x1: XC, y1: 40, x2: XC, y2: 270, stroke: C.leafD, "stroke-width": 3, "stroke-dasharray": "7 5"}, g3);
+ dual(g3, XC, 286, "“you're connected” = the commit point", "SOCKS5 reply sent = commit point", B(12, C.leafD, MID));
+ dual(g3, (XC + XE) / 2, YA + 30, "coded talk through the helper", "TLS through the phone's TCP", R(11, C.skyD, MID));
+ // step 4: after it, a drop is a reset and a redial
+ const g4 = el("g", {"data-s": "4"}, s);
+ tx(g4, 820, YA + 7, "✗", B(22, C.coralD, MID));
+ line(g4, `M820 ${YA + 12} Q 812 ${YC} 790 ${YC}`, C.ink2, 2.5);
+ line(g4, `M790 ${YC} H${XA + 40}`, C.ink2, 2.5, {"marker-end": "url(#ah-ink)"});
+ dual(g4, 480, YC - 10, "a click: the assistant hears a reset", "reset; the HTTP client retries", B(12, C.coralD, MID));
+ dual(g4, 480, YC + 18, "it redials, and the redial goes direct from the office", "the retry takes the direct path", R(11, C.ink2, MID));
+ // step 5: every resource has a cap
+ const g5 = el("g", {"data-s": "5"}, s);
+ [[`${V("phone_max_incoming_streams_illustrative")} channels, then “busy”`, `${V("phone_max_incoming_streams_illustrative")} streams, then REP ${COMP.repFail}`], [`a call silent ${V("relay_idle_timeout_illustrative")} s ends`, `relay idle ${V("relay_idle_timeout_illustrative")} s`], [`the trunk silent ${V("conn_idle_timeout_illustrative")} s ends`, `QUIC idle ${V("conn_idle_timeout_illustrative")} s`]]
+  .forEach(([k, e], i) => { const x = 140 + i * 280; bubble(g5, x, 300, 260, 28, C.sunT, C.sunD); dual(g5, x + 130, 319, k, e, B(12, C.sunD, MID)); });
+})();
+</script>
+<script>
+/* ---------------- sources table from both params blocks ---------------- */
+(() => { const tb = document.querySelector("#src tbody");
+ const show = v => Array.isArray(v) ? v.join(", ") : typeof v === "object" ? Object.entries(v).map(([a, b]) => `${a} ${typeof b === "object" ? show(b) : b}`).join("; ") : fmt(v);
+ for (const [k, o] of Object.entries(P)) { if (k.startsWith("_")) continue;
+  const tr = document.createElement("tr"); tr.innerHTML = `<td><code>${k}</code></td><td>${show(o.value)} ${o.unit}</td><td><span class="tag ${o.class === "public" ? "pub" : "ill"}">${o.class}</span></td><td>${o.source}</td>`; tb.appendChild(tr); } })();
+
+/* ---------------- fill {{key}}, {{key/sub/sub}}, {{key%}}, {{@computed}} in text and attributes ---------------- */
+(() => {
+ const rep = str => str.replace(/\{\{(@?)([\w\-]+)((?:\/[^}\/%]+)*)(%?)\}\}/g, (m, at, k, path, pct) => {
+  if (at) { if (!(k in COMP)) { console.error("missing computed " + k); return m; } return COMP[k]; }
+  const v = V(k + path); if (v === undefined || (typeof v === "number" && isNaN(v))) return m;
+  return pct ? Math.round(v * 100) + " %" : fmt(v); });
+ const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => n.parentNode && /^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+ for (let n; (n = w.nextNode());) if (n.nodeValue.includes("{{")) n.nodeValue = rep(n.nodeValue);
+ for (const a of ["data-why", "aria-label"]) document.querySelectorAll(`[${a}*="{{"]`).forEach(e => e.setAttribute(a, rep(e.getAttribute(a))));
+ // slider defaults come from the params, not from the markup
+ document.getElementById("kaK").value = V("keepalive_illustrative"); document.getElementById("kaI").value = V("conn_idle_timeout_illustrative");
+})();
+</script>
+<script src="../../stories/story.js"></script>
+<script>
+/* ?view=eng: keep the switch's pressed state in step with the labels */
+if (document.body.classList.contains("view-eng")) document.querySelectorAll("[data-view-switch] [data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === "eng")));
+
+/* ---------------- LIVE A render ---------------- */
+(() => {
+ const s = document.getElementById("look"), root = document.getElementById("look-live"), out = document.getElementById("look-read");
+ Story.bind(root, LOOK.model, o => {
+  s.textContent = "";
+  el("rect", {x: 10, y: 10, width: 300, height: 230, rx: 16, fill: C.stoneT}, s);
+  el("rect", {x: 560, y: 10, width: 250, height: 230, rx: 16, fill: C.leafT}, s);
+  dual(s, 160, 34, "the far office", "cloud instance", B(13, C.ink2, MID)); dual(s, 685, 34, "your house", "your phone", B(13, C.leafD, MID));
+  person(s, 40, 50, 40, C.stone, SKIN[2], "p-laptop"); person(s, 210, 50, 40, C.ink2, SKIN[0], "p-headset", C.plumD); person(s, 600, 50, 40, C.leaf, SKIN[1], "p-headset");
+  use(s, "i-shop", 862, 60, 96, 85);
+  // where the name is looked up
+  const bookAt = o.lookAt === "office" ? [96, 62] : o.lookAt === "house" ? [660, 62] : null;
+  use(s, "i-book", 96, 62, 30, 36, o.lookAt === "office" ? "" : "opacity:.25"); use(s, "i-book", 660, 62, 30, 36, o.lookAt === "house" ? "" : "opacity:.25");
+  if (bookAt) { el("circle", {cx: bookAt[0] + 15, cy: bookAt[1] + 18, r: 26, fill: "none", stroke: C.sunD, "stroke-width": 3}, s); }
+  dual(s, 160, 128, `sends: ${o.atyp === "domain" ? "the name" : "a number"} (ATYP ${V("socks5_atyp/" + o.atyp)})`, `ATYP ${V("socks5_atyp/" + o.atyp)} · ${o.atyp}`, B(12, C.ink, MID));
+  tx(s, 160, 146, o.sent, R(12, C.ink2, {"text-anchor": "middle", style: "font-family:var(--mono)"}));
+  // office check
+  mark(s, 60, 186, !o.office, 20); dual(s, 78, 186, o.office ? "office check: refused" : "office check: passes", o.office ? "cloud-side check: refused" : "cloud-side check: passes", B(12, o.office ? C.coralD : C.leafD));
+  // the trunk and the channel
+  const Y = 120; line(s, `M310 ${Y} H560`, NAVY, 16); line(s, `M310 ${Y} H560`, o.channel ? C.sky : C.grey, 11);
+  dual(s, 435, Y - 16, o.channel ? `channel ${COMP.firstStream} opened` : "no channel opened", o.channel ? `stream ${COMP.firstStream} opened` : "no QUIC stream", B(12, o.channel ? C.skyD : C.coralD, MID));
+  if (o.channel) {
+   tx(s, 685, 128, o.dial, R(12, C.ink2, {"text-anchor": "middle", style: "font-family:var(--mono)"}));
+   mark(s, 600, 186, !o.helper, 20); dual(s, 618, 186, o.helper ? "helper: refused" : "helper: dials", o.helper ? "phone filter: refused" : "phone filter: passes", B(12, o.helper ? C.coralD : C.leafD));
+   if (!o.helper) { line(s, "M810 120 H858", C.leafD, 4, {"marker-end": "url(#ah-leaf)"}); }
+  }
+  // reply chip and the shop's screen
+  bubble(s, 20, 200, 280, 32, o.rep === COMP.repOk ? C.leafT : C.coralT, o.rep === COMP.repOk ? C.leafD : C.coralD);
+  dual(s, 160, 221, o.rep === COMP.repOk ? `“you're connected” · REP ${o.rep}` : `“not allowed” · REP ${o.rep}`, `REP ${o.rep}: ${V("socks5_reply_codes")[o.rep]}`, B(12, o.rep === COMP.repOk ? C.leafD : C.coralD, MID));
+  const scr = o.rep !== COMP.repOk ? ["no call arrives", "no connection"] : o.branch === "far" ? ["your number, far branch", "user's IP, far server"] : o.branch === "near" ? ["your number, near branch ✓", "user's IP, near server ✓"] : ["your number ✓", "user's IP ✓"];
+  bubble(s, 830, 160, 160, 44, o.rep !== COMP.repOk ? C.card : o.branch === "far" ? C.sunT : C.leafT, o.branch === "far" ? C.sunD : NAVY);
+  dual(s, 910, 187, scr[0], scr[1], B(11, o.rep !== COMP.repOk ? C.ink2 : o.branch === "far" ? C.sunD : C.leafD, MID));
+  // the sentence
+  const where = o.lookAt === "house" ? "looked up at home (remote DNS)" : o.lookAt === "office" ? "looked up in the office, before the call" : "a number, so no directory";
+  let txt = `<b>${o.h ? "socks5h" : "socks5"}</b>, ${o.dest}:${o.port}: ${where}. `;
+  if (o.by === "office") txt += `<span class="no">The receptionist refuses it (${o.office}) and opens no channel.</span>`;
+  else if (o.by === "helper") txt += `<span class="no">The helper refuses after the lookup: ${o.helper}.</span>`;
+  else txt += o.branch === "far" ? `<span class="mid">Connected, but your number now talks to the branch chosen for the office's region.</span>` : `<span class="ok">Connected; the shop sees your number${o.branch === "near" ? " calling its local branch" : ""}.</span>`;
+  out.innerHTML = txt + ` Reply <b>${o.rep}</b>.`;
+ });
+})();
+
+/* ---------------- LIVE B render ---------------- */
+(() => {
+ const s = document.getElementById("ka"), root = document.getElementById("ka-live"), out = document.getElementById("ka-read");
+ const X0 = 150, X1 = 980, SP = KAM.SPAN, X = t => X0 + (X1 - X0) * t / SP;
+ Story.bind(root, KAM.model, o => {
+  document.getElementById("kaK-v").textContent = o.k + " s"; document.getElementById("kaI-v").textContent = o.I + " s";
+  s.textContent = "";
+  const end = o.survives ? SP : o.closeAt;
+  // clicks
+  dual(s, X0 - 12, 50, "clicks", "keepalive", R(12, C.ink2, END));
+  o.clicks.forEach(t => el("rect", {x: X(t) - 3, y: 36, width: 6, height: 20, rx: 2, fill: C.sun, stroke: NAVY, "stroke-width": 1.2}, s));
+  // the exchange's memory: remembered for NAT s after each click
+  dual(s, X0 - 12, 90, "remembered", "NAT binding", R(12, C.ink2, END));
+  el("rect", {x: X0, y: 78, width: X(end) - X0, height: 16, fill: C.coralT, stroke: C.coralD, "stroke-width": 1.2}, s);
+  o.clicks.forEach(t => { const a = t, b = Math.min(end, t + o.NAT, o.clicks.includes(t + o.k) ? t + o.k : end); if (b > a) el("rect", {x: X(a), y: 78, width: X(b) - X(a), height: 16, fill: C.leaf, stroke: NAVY, "stroke-width": 1}, s); });
+  // the trunk's silence timer (sawtooth) against its hang-up limit
+  dual(s, X0 - 12, 150, "silence timer", "idle timer", R(12, C.ink2, END));
+  const YT = 205, YS = 68 / Math.max(o.I, o.k, 1), yI = YT - o.I * YS;
+  el("line", {x1: X0, y1: YT, x2: X1, y2: YT, stroke: NAVY, "stroke-width": 1.5}, s);
+  el("line", {x1: X0, y1: yI, x2: X1, y2: yI, stroke: C.coralD, "stroke-width": 2, "stroke-dasharray": "6 4"}, s);
+  tx(s, X1, yI - 6, `hang up at ${o.I} s`, B(11, C.coralD, END));
+  let d = `M${X(0)} ${YT}`;
+  for (const t of o.clicks) { const nxt = Math.min(t + o.k, end); const h = Math.min(nxt - t, o.I); d += ` L${X(t + h)} ${YT - h * YS}`; if (t + o.k <= end && o.survives) d += ` L${X(t + o.k)} ${YT}`; }
+  line(s, d, C.skyD, 2.5);
+  if (!o.survives) { el("rect", {x: X(o.closeAt), y: 30, width: X1 - X(o.closeAt), height: 180, fill: C.card2, opacity: .6}, s); tx(s, X(o.closeAt) + 10, YT - 30, "✗ trunk hung up", B(13, C.coralD)); }
+  for (let t = 0; t <= SP; t += 30) tx(s, X(t), 232, t + " s", R(11, C.ink2, MID));
+  const parts = [];
+  parts.push(o.survives ? `<span class="ok">The trunk stays up</span>` : `<span class="no">The trunk hangs up at ${o.I} s: a click must come before the silence limit</span>`);
+  if (o.survives) parts.push(o.gap > 0 ? `<span class="no">the exchange forgets the line for ${o.gap} s of every ${o.k} s, so the office cannot reach the helper then</span>` : `<span class="ok">the exchange always remembers the line</span>`);
+  parts.push(`<b>${+o.perMin.toFixed(1)}</b>${o.perMin === 1 ? " click" : " clicks"} a minute${o.costly ? " (RFC 9308: more often than every 30 s costs a phone battery; the design accepts it only while a chat is open)" : ""}`);
+  out.innerHTML = parts.join("; ") + ".";
+ });
+})();
+</script>
+</body>
+</html>

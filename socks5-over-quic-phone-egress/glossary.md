@@ -1,0 +1,133 @@
+# Glossary — SOCKS5 over QUIC through the user's phone
+
+One line per term, alphabetical, each defined once. The note where a term is introduced is named in
+parentheses. Numbers are not repeated here; they live in [`constants.json`](constants.json).
+
+- **0-RTT** — data sent in a resuming client's first flight, before the handshake completes; replayable ([[notes/B2-quic-for-this-job|B2]]).
+- **ABI (application binary interface)** — a processor and calling-convention target for native code, for example 64-bit ARM ([[notes/C3-the-two-client-stacks|C3]]).
+- **activity guard** — refusing a device swap while the active tunnel carried traffic recently ([[notes/B5-the-control-stream|B5]]).
+- **address validation** — proof that a client can receive packets at its claimed address ([[notes/C1-threat-model|C1]]).
+- **agent service** — a cloud service that runs an agent for each user and lets it act through tools ([[notes/A0-why-the-users-ip|A0]]).
+- **allowlist (flag mode)** — the flag is on only for named users ([[notes/C6-rollout-and-migration|C6]]).
+- **`ALL_PROXY` / `HTTP_PROXY` / `HTTPS_PROXY`** — environment variables that many HTTP clients read to find a proxy ([[notes/A1-the-end-to-end-picture|A1]]).
+- **ALPN** — the TLS extension that negotiates the application protocol; here a private protocol gate ([[notes/B4-trust-without-a-ca|B4]]).
+- **amplification attack** — using a server's larger replies to flood a spoofed victim address ([[notes/C1-threat-model|C1]]).
+- **anycast** — one address announced from many locations; packets go to the nearest one ([[notes/B3-who-dials-whom|B3]]).
+- **attribution** — tying traffic to a device and a time for investigation ([[notes/C4-observability-without-user-data|C4]]).
+- **ATYP** — the SOCKS5 address-type byte: IPv4, domain name, or IPv6 ([[notes/B1-socks5-in-ten-minutes|B1]]).
+- **backpressure** — a slow consumer slowing the producer instead of growing a buffer ([[notes/C2-limits-and-failure-handling|C2]]).
+- **bearer credential** — a credential that works for whoever holds it ([[notes/B5-the-control-stream|B5]]).
+- **binding** — a platform record that lets one caller use one device ([[notes/D2-a-platform-owned-data-plane|D2]]).
+- **bypass list** — destinations a browser or client sends directly instead of through the proxy ([[notes/A1-the-end-to-end-picture|A1]]).
+- **caller-owned data plane** — each calling service runs its own tunnel endpoints and device connections ([[notes/D2-a-platform-owned-data-plane|D2]]).
+- **captive portal** — a network that intercepts traffic until the user signs in or accepts terms ([[notes/C5-testing-a-tunnel|C5]]).
+- **certificate authority (CA)** — an issuer whose signature a client trusts to bind a key to a name ([[notes/B4-trust-without-a-ca|B4]]).
+- **certificate pinning** — accepting only a certificate (or key) known in advance ([[notes/B4-trust-without-a-ca|B4]]).
+- **cloud IP address** — a source address in a data-centre range ([[notes/A0-why-the-users-ip|A0]]).
+- **commit point** — the moment after which a connection is bound to one path and cannot fall back ([[notes/C2-limits-and-failure-handling|C2]]).
+- **config call** — the HTTPS request that returns the tunnel parameters and a token ([[notes/B5-the-control-stream|B5]]).
+- **CONNECT** — the SOCKS5 command that asks the proxy to open a TCP connection to a destination ([[notes/B1-socks5-in-ten-minutes|B1]]).
+- **connection ID** — the identifier that ties QUIC packets to a connection independent of addresses ([[notes/B2-quic-for-this-job|B2]]).
+- **connection migration** — the client deliberately moving a QUIC connection to a new network path ([[notes/B2-quic-for-this-job|B2]]).
+- **connection token** — a short-lived, single-use, device-bound random value that admits one QUIC connection ([[notes/B5-the-control-stream|B5]]).
+- **control channel** — the existing authenticated HTTPS API between the phone and the assistant service ([[notes/A1-the-end-to-end-picture|A1]]).
+- **control hello** — the phone's first message on the control stream ([[notes/B5-the-control-stream|B5]]).
+- **control plane** — the components that decide (registry, bindings, health, auth), as opposed to those that carry bytes ([[notes/D2-a-platform-owned-data-plane|D2]]).
+- **control stream** — the first client-initiated bidirectional stream (ID 0), used here for device identification ([[notes/B2-quic-for-this-job|B2]]).
+- **CRYPTO_ERROR** — the QUIC error range `0x0100`–`0x01ff` that carries a TLS alert number ([[notes/B4-trust-without-a-ca|B4]]).
+- **cryptokey routing** — tying allowed IP prefixes to peer public keys, for both routing and source checks ([[notes/D1-l3-versus-l5-tunnelling|D1]]).
+- **custom-routing mode** — a front-door mode that maps each public port to one private `address:port` instead of balancing load ([[notes/B3-who-dials-whom|B3]]).
+- **data classification at write time** — labelling each stored item's sensitivity when it is first written ([[notes/C4-observability-without-user-data|C4]]).
+- **data path** — the QUIC connection that carries proxied connections ([[notes/A1-the-end-to-end-picture|A1]]).
+- **defence in depth** — independent controls in layers, so that one failure does not expose the asset ([[notes/C1-threat-model|C1]]).
+- **deny-by-default** — no traffic flows to a destination until it is explicitly allowed ([[notes/B3-who-dials-whom|B3]]).
+- **destination filter** — the phone's check of each destination address and port before it connects ([[notes/C1-threat-model|C1]]).
+- **device registry** — the table of devices, their class, state and fleet instance ([[notes/D2-a-platform-owned-data-plane|D2]]).
+- **direct connection** — the fallback path: the listener connects to the destination from the cloud IP ([[notes/A1-the-end-to-end-picture|A1]]).
+- **disconnect reason** — the label that says why a tunnel ended (idle, error, replaced, shutdown) ([[notes/C4-observability-without-user-data|C4]]).
+- **DNS rebinding** — a name that resolves to a different (often private) address than a filter expected ([[notes/C1-threat-model|C1]]).
+- **DNS-over-HTTPS relay** — a component that forwards DNS queries over HTTPS (RFC 8484) ([[notes/D2-a-platform-owned-data-plane|D2]]).
+- **dry run** — a mode that reports what a script would change without changing it ([[notes/C6-rollout-and-migration|C6]]).
+- **ECDSA P-256** — the elliptic-curve signature algorithm on the NIST P-256 curve ([[notes/B4-trust-without-a-ca|B4]]).
+- **egress** — the point where traffic leaves for the internet ([[notes/A0-why-the-users-ip|A0]]).
+- **end-to-end test** — a test over the real deployed path, from device to site ([[notes/C5-testing-a-tunnel|C5]]).
+- **exponential backoff** — retry delays that double up to a cap ([[notes/C2-limits-and-failure-handling|C2]]).
+- **fail closed** — refuse service when a check cannot be completed ([[notes/C5-testing-a-tunnel|C5]]).
+- **feature flag** — a runtime switch that enables a feature per user or globally ([[notes/C6-rollout-and-migration|C6]]).
+- **fingerprint** — the SHA-256 hash of a certificate's DER encoding ([[notes/B4-trust-without-a-ca|B4]]).
+- **flow control** — receiver-advertised limits on bytes in flight, per stream and per connection ([[notes/C2-limits-and-failure-handling|C2]]).
+- **gauge / counter / histogram** — a current value / a running total / a distribution of observed values ([[notes/C4-observability-without-user-data|C4]]).
+- **geo-consistent resolution** — DNS answers that match the location of the exit address ([[notes/B1-socks5-in-ten-minutes|B1]]).
+- **geo-fencing** — serving or refusing content by the apparent location of the source address ([[notes/A0-why-the-users-ip|A0]]).
+- **global anycast UDP front door** — a provider service that advertises static anycast addresses at many edges and forwards UDP into private networks ([[notes/B3-who-dials-whom|B3]]).
+- **grace period (token)** — the short time a demoted token remains valid ([[notes/B5-the-control-stream|B5]]).
+- **handover (iOS)** — the multipath service type that moves a connection to a new interface when the current one fails ([[notes/C3-the-two-client-stacks|C3]]).
+- **handshake phase** — the listener steps before the SOCKS5 reply reaches the tool, during which fallback is invisible ([[notes/C2-limits-and-failure-handling|C2]]).
+- **head-of-line blocking** — one lost packet delaying data that does not depend on it ([[notes/B2-quic-for-this-job|B2]]).
+- **HTTP/2 CONNECT** — the HTTP method that turns a request stream into a byte tunnel to `host:port` ([[notes/D2-a-platform-owned-data-plane|D2]]).
+- **idempotent** — safe to run more than once with the same result ([[notes/C6-rollout-and-migration|C6]]).
+- **idle timeout** — the time without packets after which a QUIC connection closes silently ([[notes/B2-quic-for-this-job|B2]]).
+- **install-scoped device ID** — an app-generated identifier that lives as long as the app installation ([[notes/B5-the-control-stream|B5]]).
+- **IP reputation** — a site's score of how trustworthy a source address is ([[notes/A0-why-the-users-ip|A0]]).
+- **JNI (Java Native Interface)** — the bridge between Kotlin/Java code and native C code on Android ([[notes/C3-the-two-client-stacks|C3]]).
+- **keepalive** — a packet sent only to keep a connection and on-path NAT state alive ([[notes/B2-quic-for-this-job|B2]]).
+- **kill switch** — a control that disables the feature for a user or for everyone without a deployment ([[notes/C4-observability-without-user-data|C4]]).
+- **known behaviour** — designed behaviour that looks like a bug, recorded so that nobody files it ([[notes/C5-testing-a-tunnel|C5]]).
+- **last writer wins** — a newer device replaces the active one ([[notes/B5-the-control-stream|B5]]).
+- **layer-3 tunnel** — a tunnel that carries IP packets ([[notes/D1-l3-versus-l5-tunnelling|D1]]).
+- **layer-5 proxy** — a proxy that carries one requested connection at a time, such as SOCKS5 ([[notes/D1-l3-versus-l5-tunnelling|D1]]).
+- **length-prefixed framing** — each message preceded by its byte length ([[notes/B5-the-control-stream|B5]]).
+- **loopback integration test** — a test that runs a real client and server over the local host's network stack ([[notes/C5-testing-a-tunnel|C5]]).
+- **MASQUE** — the IETF family of HTTP/3-based proxying methods (CONNECT-UDP, CONNECT-IP) ([[notes/B2-quic-for-this-job|B2]]).
+- **metadata service** — the link-local service from which a cloud instance reads its configuration and credentials ([[notes/C1-threat-model|C1]]).
+- **method negotiation** — the first SOCKS5 exchange, which selects the authentication method ([[notes/B1-socks5-in-ten-minutes|B1]]).
+- **mutual TLS** — TLS in which the client also presents a certificate ([[notes/B4-trust-without-a-ca|B4]]).
+- **MVP (minimum viable product)** — the first release, with deliberately limited scope ([[notes/A0-why-the-users-ip|A0]]).
+- **NAT rebinding** — a NAT on the path changing the client's apparent address or port ([[notes/B2-quic-for-this-job|B2]]).
+- **NAT64 / DNS64** — carrier translation that lets IPv6-only clients reach IPv4 addresses through synthesised IPv6 addresses ([[notes/B3-who-dials-whom|B3]]).
+- **NDK** — the Android Native Development Kit for building native libraries ([[notes/C3-the-two-client-stacks|C3]]).
+- **negative test** — a test that passes only if the system refuses ([[notes/C5-testing-a-tunnel|C5]]).
+- **`NO_PROXY`** — an environment variable listing destinations that skip the proxy ([[notes/A1-the-end-to-end-picture|A1]]).
+- **operational data** — signals about whether the system works ([[notes/C4-observability-without-user-data|C4]]).
+- **passthrough** — forwarding SOCKS5 bytes without running the protocol state machine ([[notes/B1-socks5-in-ten-minutes|B1]]).
+- **passthrough listener** — the local SOCKS5 endpoint on the instance that forwards SOCKS5 bytes to the phone without running the protocol itself ([[notes/A1-the-end-to-end-picture|A1]]).
+- **path validation** — the `PATH_CHALLENGE` / `PATH_RESPONSE` check of a new path ([[notes/B2-quic-for-this-job|B2]]).
+- **phone egress** — routing an agent's connections so that they leave from the user's phone ([[notes/A0-why-the-users-ip|A0]]).
+- **pipelining (SOCKS5)** — sending the next protocol message before the reply to the previous one arrives ([[notes/A1-the-end-to-end-picture|A1]]).
+- **platform-owned data plane** — one platform team runs the device connections and offers callers an API ([[notes/D2-a-platform-owned-data-plane|D2]]).
+- **port map** — the table from public front-door ports to private instance addresses ([[notes/B3-who-dials-whom|B3]]).
+- **protocol inversion** — the reserve design in which the phone opens every stream on the server's request ([[notes/C3-the-two-client-stacks|C3]]).
+- **PTO (probe timeout)** — the RFC 9002 timer after which a sender probes for lost data ([[notes/B2-quic-for-this-job|B2]]).
+- **QUIC** — the RFC 9000 transport over UDP with built-in TLS 1.3 and multiplexed streams ([[notes/B2-quic-for-this-job|B2]]).
+- **QUIC-LB** — an IETF draft that encodes a server identifier in QUIC connection IDs for routable load balancing ([[notes/B3-who-dials-whom|B3]]).
+- **reconcile** — bring actual state to the desired state on every run, accepting "already done" ([[notes/C6-rollout-and-migration|C6]]).
+- **remote DNS** — name resolution done by the proxy, selected by `socks5h://` ([[notes/B1-socks5-in-ten-minutes|B1]]).
+- **REP** — the SOCKS5 reply-code byte ([[notes/B1-socks5-in-ten-minutes|B1]]).
+- **re-provision** — replace an instance with a fresh one from the current image ([[notes/C6-rollout-and-migration|C6]]).
+- **residential-proxy vendor** — a company that sells exit traffic from home connections ([[notes/A0-why-the-users-ip|A0]]).
+- **Retry packet** — the QUIC server's stateless reply that carries an address-validation token ([[notes/C1-threat-model|C1]]).
+- **reverse stream pattern** — the client dials the connection, the server opens the streams ([[notes/C3-the-two-client-stacks|C3]]).
+- **rollback** — undoing a rollout, here by configuration switches ([[notes/C6-rollout-and-migration|C6]]).
+- **rollout** — the staged change of every layer across environments ([[notes/C6-rollout-and-migration|C6]]).
+- **RTT (round-trip time)** — the time for a message to reach a peer and a reply to come back ([[notes/A1-the-end-to-end-picture|A1]]).
+- **self-signed certificate** — a certificate signed by its own key ([[notes/B4-trust-without-a-ca|B4]]).
+- **server-initiated bidirectional stream** — a stream the server opens and both sides write; stream IDs 1, 5, 9 … ([[notes/B2-quic-for-this-job|B2]]).
+- **SOCKS5** — the RFC 1928 proxy protocol: method negotiation, one request, one reply, then a byte relay ([[notes/B1-socks5-in-ten-minutes|B1]]).
+- **`socks5h://`** — the proxy URL scheme for SOCKS5 with name resolution on the proxy side ([[notes/A1-the-end-to-end-picture|A1]]).
+- **`SO_ORIGINAL_DST`** — the Linux socket option that returns a redirected connection's original destination ([[notes/D1-l3-versus-l5-tunnelling|D1]]).
+- **SSRF (server-side request forgery)** — making a server fetch a destination of the attacker's choice, typically an internal one ([[notes/C1-threat-model|C1]]).
+- **stale tunnel** — a tunnel the server still believes alive after the phone has gone ([[notes/C2-limits-and-failure-handling|C2]]).
+- **stream limit** — the maximum number of concurrent streams a peer may open ([[notes/C2-limits-and-failure-handling|C2]]).
+- **stream (QUIC)** — an ordered, reliable byte sequence with its own flow control inside a QUIC connection ([[notes/B2-quic-for-this-job|B2]]).
+- **TAP device** — a virtual interface that exchanges Ethernet frames with a user-space program ([[notes/D1-l3-versus-l5-tunnelling|D1]]).
+- **test scaffolding** — setup that exists only to exercise a code path in a test ([[notes/C5-testing-a-tunnel|C5]]).
+- **thrash** — two devices repeatedly replacing each other ([[notes/B5-the-control-stream|B5]]).
+- **threat model** — a list of attacker goals, paths and the controls that stop them ([[notes/C1-threat-model|C1]]).
+- **tool** — a program the agent calls to act, for example a web fetcher or a headless browser ([[notes/A0-why-the-users-ip|A0]]).
+- **transparent proxy** — a proxy that captures connections without the application's knowledge ([[notes/A0-why-the-users-ip|A0]]).
+- **TUN device** — a virtual interface that exchanges IP packets with a user-space program ([[notes/D1-l3-versus-l5-tunnelling|D1]]).
+- **tunnel manager** — the phone component that owns the QUIC connection's life cycle ([[notes/C3-the-two-client-stacks|C3]]).
+- **tunnel-API tier / fleet tier** — the stateless front tier and the stateful tier that holds device sessions ([[notes/D2-a-platform-owned-data-plane|D2]]).
+- **user data** — signals about what the user did, such as destinations ([[notes/C4-observability-without-user-data|C4]]).
+- **verify callback** — a hook in a TLS stack where the application decides whether to trust the peer's certificate ([[notes/B4-trust-without-a-ca|B4]]).
+- **WireGuard** — a kernel layer-3 tunnel with a Noise-based handshake and cryptokey routing ([[notes/D1-l3-versus-l5-tunnelling|D1]]).

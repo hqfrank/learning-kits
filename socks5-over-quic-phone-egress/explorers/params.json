@@ -1,0 +1,424 @@
+{
+ "socks5_version": {
+  "value": 5,
+  "unit": "VER byte (0x05)",
+  "class": "public",
+  "source": "RFC 1928 §3"
+ },
+ "socks5_methods": {
+  "value": {
+   "no_auth": "0x00",
+   "gssapi": "0x01",
+   "username_password": "0x02",
+   "no_acceptable_methods": "0xFF"
+  },
+  "unit": "METHOD byte",
+  "class": "public",
+  "source": "RFC 1928 §3"
+ },
+ "socks5_commands": {
+  "value": {
+   "connect": "0x01",
+   "bind": "0x02",
+   "udp_associate": "0x03"
+  },
+  "unit": "CMD byte",
+  "class": "public",
+  "source": "RFC 1928 §4"
+ },
+ "socks5_atyp": {
+  "value": {
+   "ipv4": "0x01",
+   "domain": "0x03",
+   "ipv6": "0x04"
+  },
+  "unit": "ATYP byte",
+  "class": "public",
+  "source": "RFC 1928 §4-5"
+ },
+ "socks5_reply_codes": {
+  "value": {
+   "0x00": "succeeded",
+   "0x01": "general SOCKS server failure",
+   "0x02": "connection not allowed by ruleset",
+   "0x03": "network unreachable",
+   "0x04": "host unreachable",
+   "0x05": "connection refused",
+   "0x06": "TTL expired",
+   "0x07": "command not supported",
+   "0x08": "address type not supported"
+  },
+  "unit": "REP byte",
+  "class": "public",
+  "source": "RFC 1928 §6"
+ },
+ "socks5_domain_max_len": {
+  "value": 255,
+  "unit": "octets",
+  "class": "public",
+  "source": "RFC 1928 §5: the domain name is prefixed by a one-octet length"
+ },
+ "socks5_message_sizes": {
+  "value": {
+   "method_request_one_method": 3,
+   "method_reply": 2,
+   "connect_ipv4": 10,
+   "connect_ipv6": 22,
+   "connect_domain": "7 + L (L = name length)",
+   "reply_ipv4": 10
+  },
+  "unit": "bytes",
+  "class": "public",
+  "source": "my arithmetic from the field layouts in RFC 1928 §3-6 (VER, CMD/REP, RSV, ATYP, address, 2-byte port)"
+ },
+ "socks_listen_port_illustrative": {
+  "value": 10080,
+  "unit": "TCP port bound to localhost",
+  "class": "illustrative",
+  "source": "design parameter; chosen away from socks5_conventional_port to avoid clashes with other software"
+ },
+ "allowed_ports_illustrative": {
+  "value": [
+   80,
+   443
+  ],
+  "unit": "destination TCP ports allowed by the phone filter",
+  "class": "illustrative",
+  "source": "design parameter: the HTTP and HTTPS well-known ports only (first release)"
+ },
+ "blocked_ranges_ipv4": {
+  "value": {
+   "10.0.0.0/8": "RFC 1918 private",
+   "172.16.0.0/12": "RFC 1918 private",
+   "192.168.0.0/16": "RFC 1918 private",
+   "100.64.0.0/10": "RFC 6598 shared (carrier-grade NAT) space",
+   "169.254.0.0/16": "RFC 3927 link-local",
+   "127.0.0.0/8": "loopback (RFC 1122)",
+   "0.0.0.0/8": "'this network' (RFC 6890)",
+   "240.0.0.0/4": "reserved (RFC 1112)"
+  },
+  "unit": "CIDR",
+  "class": "public",
+  "source": "the cited RFCs; IANA special-purpose address registry (RFC 6890)"
+ },
+ "blocked_ranges_ipv6": {
+  "value": {
+   "::1/128": "loopback (RFC 4291)",
+   "fe80::/10": "link-local (RFC 4291)",
+   "fc00::/7": "unique local (RFC 4193)",
+   "::ffff:0:0/96": "IPv4-mapped: apply the IPv4 rules to the embedded address (RFC 4291 §2.5.5.2)"
+  },
+  "unit": "CIDR",
+  "class": "public",
+  "source": "the cited RFCs"
+ },
+ "metadata_address": {
+  "value": "169.254.169.254",
+  "unit": "IPv4 address",
+  "class": "public",
+  "source": "link-local address used by the instance metadata services of several public clouds (provider documentation); inside RFC 3927 169.254.0.0/16"
+ },
+ "metadata_address_encodings": {
+  "value": {
+   "decimal": "2852039166",
+   "hex": "0xa9fea9fe",
+   "octal": "025177524776",
+   "dotted_octal": "0251.0376.0251.0376",
+   "dotted_hex": "0xa9.0xfe.0xa9.0xfe"
+  },
+  "unit": "alternative spellings accepted by inet_aton-style parsers",
+  "class": "public",
+  "source": "my arithmetic from metadata_address; the encodings are the classic SSRF filter bypasses listed in the OWASP SSRF Prevention Cheat Sheet"
+ },
+ "documentation_addresses": {
+  "value": {
+   "ipv4": [
+    "192.0.2.0/24",
+    "198.51.100.0/24",
+    "203.0.113.0/24"
+   ],
+   "ipv6": "2001:db8::/32"
+  },
+  "unit": "CIDR",
+  "class": "public",
+  "source": "RFC 5737; RFC 3849 (all example addresses in this kit come from these ranges)"
+ },
+ "quic_first_stream_ids": {
+  "value": {
+   "client_bidi": [
+    0,
+    4,
+    8
+   ],
+   "server_bidi": [
+    1,
+    5,
+    9
+   ]
+  },
+  "unit": "stream IDs",
+  "class": "public",
+  "source": "my arithmetic from RFC 9000 §2.1: IDs of one type increase by 4"
+ },
+ "page_dns_answers_01": {
+  "value": {
+   "www.example.com": {
+    "phone": "203.0.113.5",
+    "cloud": "198.51.100.7"
+   },
+   "rebind.example": {
+    "phone": "192.168.1.1",
+    "cloud": "192.168.1.1"
+   }
+  },
+  "unit": "address each resolver returns",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): names reserved by RFC 2606; public answers from the RFC 5737 documentation ranges (documentation_addresses). The phone's resolver picks a server near the user, the cloud's one near the cloud region. 192.168.1.1 is an RFC 1918 address standing in for a home router (DNS rebinding, C1)"
+ },
+ "quic_handshake_round_trips": {
+  "value": {
+   "quic_tls13_new": 1,
+   "quic_0rtt_resumed": 0,
+   "tcp_plus_tls13": 2,
+   "tcp_plus_tls12": 3
+  },
+  "unit": "round trips before application data",
+  "class": "public",
+  "source": "RFC 9000 §7 and RFC 9001 §4; RFC 8446 §2 (TLS 1.3 1-RTT); TCP three-way handshake (RFC 9293) adds one; my arithmetic for the sums"
+ },
+ "rfc9002_time_threshold": {
+  "value": 1.125,
+  "unit": "x max(smoothed_rtt, latest_rtt)",
+  "class": "public",
+  "source": "RFC 9002 §6.1.2 (kTimeThreshold = 9/8)"
+ },
+ "rfc9002_packet_threshold": {
+  "value": 3,
+  "unit": "packets",
+  "class": "public",
+  "source": "RFC 9002 §6.1.1 (kPacketThreshold)"
+ },
+ "rtt_cloud_phone_illustrative": {
+  "value": {
+   "wifi": 50,
+   "cellular": 120
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round round-trip times between a cloud region and a phone"
+ },
+ "rtt_phone_site_illustrative": {
+  "value": 30,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round RTT from the phone's network to a nearby site"
+ },
+ "rtt_cloud_site_illustrative": {
+  "value": 20,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round RTT from a cloud region to a site"
+ },
+ "phone_dns_typical_illustrative": {
+  "value": 30,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round resolver time on the phone"
+ },
+ "ttfb_model_illustrative": {
+  "value": {
+   "wifi": 320,
+   "cellular": 600,
+   "wifi_pipelined": 270,
+   "cellular_pipelined": 480,
+   "direct_from_cloud": 60
+  },
+  "unit": "ms to first response byte (server time excluded)",
+  "class": "illustrative",
+  "source": "my arithmetic in A1 from the rtt_* and phone_dns_typical_illustrative values: method 1 x RTTcp + CONNECT (RTTcp + DNS + RTTps) + TLS 1.3 (RTTcp + RTTps) + HTTP (RTTcp + RTTps); pipelined removes one RTTcp; direct = 3 x RTTcs"
+ },
+ "phone_max_incoming_streams_illustrative": {
+  "value": 64,
+  "unit": "concurrent server-initiated bidirectional streams",
+  "class": "illustrative",
+  "source": "design parameter: the effective concurrency cap of the whole tunnel"
+ },
+ "streams_per_page_illustrative": {
+  "value": {
+   "no_bypass": 60,
+   "with_bypass": 6
+  },
+  "unit": "tunnel streams per browser page load",
+  "class": "illustrative",
+  "source": "illustrative relation: a bypass list for analytics/ads/CDN telemetry cuts tunnel streams by about ten times"
+ },
+ "heavy_page_concurrency_illustrative": {
+  "value": 50,
+  "unit": "concurrent tunnel streams on a resource-heavy page",
+  "class": "illustrative",
+  "source": "illustrative; the relation taught is that one browser page can approach phone_max_incoming_streams_illustrative"
+ },
+ "page_loss_02": {
+  "value": {
+   "wifi": 0.005,
+   "cellular": 0.02
+  },
+  "unit": "fraction of packets lost on the cloud-phone leg",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): round loss rates to drive the head-of-line model; not measurements"
+ },
+ "page_packets_per_connection_02": {
+  "value": 20,
+  "unit": "packets per proxied connection",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): one small page resource"
+ },
+ "conn_idle_timeout_illustrative": {
+  "value": 30,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter (QUIC max_idle_timeout on both ends)"
+ },
+ "keepalive_illustrative": {
+  "value": 10,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: below udp_nat_idle_assumption and below one third of conn_idle_timeout_illustrative"
+ },
+ "udp_nat_idle_assumption": {
+  "value": 30,
+  "unit": "s",
+  "class": "public",
+  "source": "RFC 9308 §3.2 (applications can assume a NAT binding may expire after 30 s of inactivity)"
+ },
+ "udp_keepalive_min": {
+  "value": 15,
+  "unit": "s",
+  "class": "public",
+  "source": "RFC 8085 §3.5, as summarised in RFC 9308 §3.2"
+ },
+ "rfc4787_udp_mapping_timer": {
+  "value": {
+   "must_not_expire_below": 120,
+   "recommended_default": 300
+  },
+  "unit": "s",
+  "class": "public",
+  "source": "RFC 4787 REQ-5 (many deployed NATs are shorter; that is why RFC 9308 assumes 30 s)"
+ },
+ "quic_idle_timeout_min_pto_multiple": {
+  "value": 3,
+  "unit": "x current PTO",
+  "class": "public",
+  "source": "RFC 9000 §10.1 (effective idle timeout is the minimum of both endpoints' values, and at least three PTOs)"
+ },
+ "quic_path_challenge_data": {
+  "value": 8,
+  "unit": "bytes",
+  "class": "public",
+  "source": "RFC 9000 §19.17"
+ },
+ "relay_idle_timeout_illustrative": {
+  "value": 120,
+  "unit": "s without a byte in either direction",
+  "class": "illustrative",
+  "source": "design parameter (per relayed TCP connection)"
+ },
+ "stream_open_timeout_illustrative": {
+  "value": 8,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: listener waits this long to open a stream to the phone"
+ },
+ "backoff_illustrative": {
+  "value": {
+   "initial": 1,
+   "factor": 2,
+   "cap": 32
+  },
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: phone reconnect schedule 1, 2, 4, 8, 16, 32, 32 ..."
+ },
+ "short_lived_threshold_illustrative": {
+  "value": 10,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: a tunnel that dies sooner than this counts as a failure for backoff"
+ },
+ "page_timeline_03": {
+  "value": {
+   "switch_at": 43,
+   "short_gap": 3,
+   "medium_gap": 28,
+   "long_gap": 45,
+   "horizon": 90
+  },
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): when the phone leaves Wi-Fi, how long it has no network, and the length of the drawn timeline"
+ },
+ "quic_min_client_initial_datagram": {
+  "value": 1200,
+  "unit": "bytes (UDP payload)",
+  "class": "public",
+  "source": "RFC 9000 §14.1"
+ },
+ "quic_amplification_factor": {
+  "value": 3,
+  "unit": "x bytes received from an unvalidated address",
+  "class": "public",
+  "source": "RFC 9000 §8.1"
+ },
+ "quic_amplification_budget_one_initial": {
+  "value": 3600,
+  "unit": "bytes",
+  "class": "public",
+  "source": "my arithmetic: quic_amplification_factor x quic_min_client_initial_datagram"
+ },
+ "retry_integrity_tag": {
+  "value": 128,
+  "unit": "bits",
+  "class": "public",
+  "source": "RFC 9001 §5.8"
+ },
+ "quic_max_connection_id_len": {
+  "value": 20,
+  "unit": "bytes (QUIC version 1)",
+  "class": "public",
+  "source": "RFC 9000 §17.2"
+ },
+ "max_unvalidated_handshakes_illustrative": {
+  "value": 16,
+  "unit": "concurrent handshakes before address validation",
+  "class": "illustrative",
+  "source": "design parameter"
+ },
+ "page_flight_04": {
+  "value": {
+   "self_signed": 1500,
+   "long_chain": 5000
+  },
+  "unit": "bytes in the server's first flight",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): order of magnitude for a flight with one small self-signed P-256 certificate (B4) versus a longer certificate chain"
+ },
+ "page_retry_token_04": {
+  "value": 64,
+  "unit": "bytes of Retry token",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): the token length is the server's choice (RFC 9000 §8.1.2 leaves it open)"
+ },
+ "page_abandoned_handshake_04": {
+  "value": 10,
+  "unit": "s a server keeps state for a handshake that never completes",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json)"
+ },
+ "page_flood_rate_04": {
+  "value": 1000,
+  "unit": "spoofed Initial datagrams per second",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json)"
+ }
+}

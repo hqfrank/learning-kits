@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The 3× limit caps amplification; a Retry token removes it and keeps handshake slots for real phones</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a;
+    --warn:#ffd36b; --phone:#c9a0ff; --cloud:#5ec8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 8px}
+  .sub{color:var(--muted);max-width:78ch;margin:4px 0}
+  .banner{border-left:3px solid var(--warn);padding:6px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0;max-width:78ch;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  label,.lbl{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{width:100%;background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .radio{display:flex;gap:14px;flex-wrap:wrap}
+  .radio label{font-weight:400;display:inline-flex;gap:5px;align-items:center}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.est{color:var(--phone);border-color:var(--phone)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:first-child code{overflow-wrap:normal;white-space:nowrap}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  .sources{margin:0 22px 18px}
+  @media(max-width:860px){.sources{margin:0 12px 12px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>The 3× limit caps what a spoofed Initial can reflect; a Retry token cuts it below 1× and keeps the handshake slots for real phones</h1>
+  <p class="sub">The cloud's QUIC port accepts UDP from anywhere. An attacker can send Initial packets with a victim's address
+  as the source. Until a client proves it receives packets at its address, a server may send at most
+  <span data-p="quic_amplification_factor"></span>× the bytes it received from it (RFC 9000 §8.1). The design goes further: it
+  answers every new Initial with a small stateless Retry that carries a token, and starts the TLS handshake only when the
+  token comes back from the claimed address (RFC 9000 §8.1.2). Move the sizes and the flood rate (notes C1, B3, B2).</p>
+  <p class="banner">Protocol limits are public (RFC 9000, RFC 9001). The flight sizes, token length, flood rate and the time an
+  abandoned handshake holds a slot are page choices, illustrative; the handshake cap is an illustrative design parameter. The
+  Retry size is computed from its fields with worst-case 20-byte connection IDs. Nothing here is a measurement.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <span class="lbl" id="cases-l">Preloaded cases</span>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <label for="init">Size of each Initial datagram <span class="val" id="init_v"></span></label>
+      <input id="init" type="range" min="600" max="1500" step="10">
+      <div class="hint">A server drops an Initial in a datagram smaller than <span data-p="quic_min_client_initial_datagram"></span> bytes (RFC 9000 §14.1).</div>
+    </div>
+    <div class="ctrl">
+      <label for="flight">Server's first flight (certificate and handshake) <span class="val" id="flight_v"></span></label>
+      <input id="flight" type="range" min="500" max="12000" step="100">
+      <div class="hint">Page choices: <span data-p="page_flight_04" data-f="self_signed"></span> bytes with one self-signed P-256 certificate, <span data-p="page_flight_04" data-f="long_chain"></span> with a longer chain.</div>
+    </div>
+    <div class="ctrl">
+      <label><input type="checkbox" id="retry"> force address validation with a Retry (the design, C1)</label>
+    </div>
+    <div class="ctrl">
+      <label for="tok">Retry token length <span class="val" id="tok_v"></span></label>
+      <input id="tok" type="range" min="16" max="200" step="4">
+      <div class="hint">The server picks the token format. Page choice: <span data-p="page_retry_token_04"></span> bytes.</div>
+    </div>
+    <div class="ctrl">
+      <label for="rate">Spoofed Initials per second <span class="val" id="rate_v"></span></label>
+      <input id="rate" type="range" min="0" max="1" step="any" aria-describedby="rate_h">
+      <div class="hint" id="rate_h">Log scale, 1 to 100 000. Page choice: <span data-p="page_flood_rate_04"></span> per second.</div>
+    </div>
+    <div class="ctrl">
+      <label for="net">The real phone's network</label>
+      <select id="net"><option value="wifi">Wi-Fi</option><option value="cellular">cellular</option></select>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="pic" viewBox="0 0 720 460" role="img" aria-labelledby="pic-t"><title id="pic-t">Bytes in and out per spoofed Initial, and the two handshake paths</title></svg>
+    <div class="why">
+      <h3>What decides the outcome</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel sources" aria-label="Sources">
+  <h2>Parameters and sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = an RFC value or arithmetic on one;
+  <span class="tag ill">illustrative</span> = a design parameter or page choice; <span class="tag est">my estimate</span> = a
+  modelling step stated on the page; <span class="tag der">derived</span> = computed here.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Generated 2026-11-12 · Study aid for <em>socks5-over-quic-phone-egress</em> (rung 3). Sources: notes C1, B2, B3 and
+  <code>constants.json</code> of this kit; RFC 9000 §8.1, §8.1.2, §14.1, §17.2.5, §21; RFC 9001 §5.8, §9.2. Numbers are from
+  the listed sources or labelled illustrative or estimated.
+</footer>
+
+<script type="application/json" id="params" data-keys="quic_min_client_initial_datagram,quic_amplification_factor,quic_amplification_budget_one_initial,retry_integrity_tag,quic_max_connection_id_len,max_unvalidated_handshakes_illustrative,rtt_cloud_phone_illustrative,quic_handshake_round_trips,page_flight_04,page_retry_token_04,page_abandoned_handshake_04,page_flood_rate_04">
+{
+ "quic_min_client_initial_datagram": {
+  "value": 1200,
+  "unit": "bytes (UDP payload)",
+  "class": "public",
+  "source": "RFC 9000 §14.1"
+ },
+ "quic_amplification_factor": {
+  "value": 3,
+  "unit": "x bytes received from an unvalidated address",
+  "class": "public",
+  "source": "RFC 9000 §8.1"
+ },
+ "quic_amplification_budget_one_initial": {
+  "value": 3600,
+  "unit": "bytes",
+  "class": "public",
+  "source": "my arithmetic: quic_amplification_factor x quic_min_client_initial_datagram"
+ },
+ "retry_integrity_tag": {
+  "value": 128,
+  "unit": "bits",
+  "class": "public",
+  "source": "RFC 9001 §5.8"
+ },
+ "quic_max_connection_id_len": {
+  "value": 20,
+  "unit": "bytes (QUIC version 1)",
+  "class": "public",
+  "source": "RFC 9000 §17.2"
+ },
+ "max_unvalidated_handshakes_illustrative": {
+  "value": 16,
+  "unit": "concurrent handshakes before address validation",
+  "class": "illustrative",
+  "source": "design parameter"
+ },
+ "rtt_cloud_phone_illustrative": {
+  "value": {
+   "wifi": 50,
+   "cellular": 120
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round round-trip times between a cloud region and a phone"
+ },
+ "quic_handshake_round_trips": {
+  "value": {
+   "quic_tls13_new": 1,
+   "quic_0rtt_resumed": 0,
+   "tcp_plus_tls13": 2,
+   "tcp_plus_tls12": 3
+  },
+  "unit": "round trips before application data",
+  "class": "public",
+  "source": "RFC 9000 §7 and RFC 9001 §4; RFC 8446 §2 (TLS 1.3 1-RTT); TCP three-way handshake (RFC 9293) adds one; my arithmetic for the sums"
+ },
+ "page_flight_04": {
+  "value": {
+   "self_signed": 1500,
+   "long_chain": 5000
+  },
+  "unit": "bytes in the server's first flight",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): order of magnitude for a flight with one small self-signed P-256 certificate (B4) versus a longer certificate chain"
+ },
+ "page_retry_token_04": {
+  "value": 64,
+  "unit": "bytes of Retry token",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): the token length is the server's choice (RFC 9000 §8.1.2 leaves it open)"
+ },
+ "page_abandoned_handshake_04": {
+  "value": 10,
+  "unit": "s a server keeps state for a handshake that never completes",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json)"
+ },
+ "page_flood_rate_04": {
+  "value": 1000,
+  "unit": "spoofed Initial datagrams per second",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json)"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function(){
+  "use strict";
+  // Anti-amplification limit: before validation a server sends at most factor x bytes received (RFC 9000 §8.1).
+  const amp_budget_rfc9000_s8_1 = (P, received) => P.quic_amplification_factor.value * received;
+  // Retry packet size (RFC 9000 §17.2.5): first byte 1 + version 4 + DCID length 1 + DCID + SCID length 1 + SCID
+  // + token + Retry Integrity Tag (128 bits, RFC 9001 §5.8). Worst case: 20-byte connection IDs.
+  const retry_size_rfc9000_s17_2_5 = (P, token) => {
+    const cid = P.quic_max_connection_id_len.value;
+    return 1 + 4 + 1 + cid + 1 + cid + token + P.retry_integrity_tag.value / 8;
+  };
+  function analyse_04(P, x){
+    const accepted = x.init >= P.quic_min_client_initial_datagram.value;     // RFC 9000 §14.1
+    const budget = amp_budget_rfc9000_s8_1(P, x.init);
+    const retrySize = retry_size_rfc9000_s17_2_5(P, x.token);
+    const cap = P.max_unvalidated_handshakes_illustrative.value, life = P.page_abandoned_handshake_04.value;
+    // per spoofed Initial
+    const sentNoRetry = accepted ? Math.min(x.flight, budget) : 0;
+    const sentPer = !accepted ? 0 : x.retry ? retrySize : sentNoRetry;
+    // flood: without Retry each accepted spoofed Initial takes a handshake slot for `life` seconds (page choice)
+    const slotsWanted = accepted && !x.retry ? x.rate * life : 0;
+    const slotsBusy = Math.min(cap, slotsWanted);
+    const startedPerS = accepted && !x.retry ? Math.min(x.rate, cap / life) : 0;   // crypto handshakes started
+    const repliesPerS = !accepted ? 0 : x.retry ? x.rate : startedPerS;           // a full server answers nothing
+    const victimBps = repliesPerS * sentPer, attackerBps = x.rate * x.init;
+    const legitLockedOut = accepted && !x.retry && slotsWanted >= cap;
+    // a real phone: extra round trips before its handshake completes (my estimate: each further client flight is
+    // one datagram of the same size, which lifts the limit by budget bytes; after a Retry the address is validated
+    // and the limit no longer applies).
+    const extraFlights = x.retry ? 0 : Math.max(0, Math.ceil(x.flight / budget) - 1);
+    const extraRtt = (x.retry ? 1 : 0) + extraFlights;
+    const rtt = P.rtt_cloud_phone_illustrative.value[x.net];
+    return {accepted, budget, retrySize, sentNoRetry, sentPer, factor: x.init > 0 ? sentPer / x.init : 0,
+      slotsBusy, cap, startedPerS, repliesPerS, victimBps, attackerBps, legitLockedOut, extraFlights, extraRtt,
+      extraMs: extraRtt * rtt, rtt,
+      handshakeRtts: P.quic_handshake_round_trips.value.quic_tls13_new + extraRtt};
+  }
+  function cases(P){
+    const F = P.page_flight_04.value, tok = P.page_retry_token_04.value, R = P.page_flood_rate_04.value, m = P.quic_min_client_initial_datagram.value;
+    const d = {init: m, flight: F.self_signed, retry: true, token: tok, rate: R, net: "cellular"};
+    const c = o => Object.assign({}, d, o);
+    return [
+      {name: "Design: Retry on, under a flood", x: c({})},
+      {name: "No Retry, same flood", x: c({retry: false})},
+      {name: "No Retry, long chain, light probing", x: c({retry: false, flight: F.long_chain, rate: 1})},
+      {name: "Retry on, long chain", x: c({flight: F.long_chain, rate: 1})},
+      {name: "Undersized Initial", x: c({retry: false, init: 1000})},
+    ];
+  }
+  function sweep(P){
+    const out = [];
+    for (const init of [600, 1500]) for (const flight of [500, 12000]) for (const retry of [false, true])
+      for (const token of [16, 200]) for (const rate of [1, 100000]) for (const net of ["wifi", "cellular"])
+        out.push(analyse_04(P, {init, flight, retry, token, rate, net}));
+    return out;
+  }
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const t = (c, m) => { assert(c, m); if (c) passed++; else failed++; };
+    const near = (a, b, e) => Math.abs(a - b) <= (e || 1e-9);
+    const m = P.quic_min_client_initial_datagram.value;
+    t(amp_budget_rfc9000_s8_1(P, m) === P.quic_amplification_budget_one_initial.value, "3 x 1200 = 3600 (quic_amplification_budget_one_initial)");
+    const base = {init: m, token: 64, rate: 1, net: "wifi"};
+    let a = analyse_04(P, Object.assign({}, base, {flight: 5000, retry: false}));
+    t(a.sentPer === 3600 && near(a.factor, 3), "5000-byte flight, no Retry: 3600 bytes sent, factor 3");
+    t(a.extraFlights === 1 && a.extraRtt === 1, "a real phone waits one extra round trip for the rest of a 5000-byte flight");
+    a = analyse_04(P, Object.assign({}, base, {flight: 1500, retry: false}));
+    t(a.sentPer === 1500 && near(a.factor, 1.25) && a.extraRtt === 0, "1500-byte flight fits the budget: factor 1.25, no extra RTT");
+    a = analyse_04(P, Object.assign({}, base, {flight: 1500, retry: false, init: 1000}));
+    t(!a.accepted && a.sentPer === 0 && a.victimBps === 0, "an Initial below 1200 bytes is dropped: nothing reflected");
+    a = analyse_04(P, Object.assign({}, base, {flight: 5000, retry: true}));
+    t(a.retrySize === 127, "Retry with 20-byte CIDs and a 64-byte token = 127 bytes");
+    t(a.factor < 1 && a.startedPerS === 0, "Retry: factor below 1, no crypto work for a spoofed Initial");
+    t(a.extraRtt === 1 && a.handshakeRtts === 2, "Retry costs a real phone exactly one round trip (C1)");
+    a = analyse_04(P, Object.assign({}, base, {flight: 1500, retry: false, rate: P.page_flood_rate_04.value}));
+    const cap = P.max_unvalidated_handshakes_illustrative.value, life = P.page_abandoned_handshake_04.value;
+    t(a.legitLockedOut && a.slotsBusy === cap, "no Retry under a flood: every handshake slot taken, a real phone is locked out");
+    t(near(a.victimBps, (cap / life) * 1500), "the cap also bounds reflection: cap / lifetime handshakes per second");
+    a = analyse_04(P, Object.assign({}, base, {flight: 1500, retry: true, rate: P.page_flood_rate_04.value}));
+    t(!a.legitLockedOut && a.victimBps < a.attackerBps, "Retry under the same flood: no lock-out, victim gets less than the attacker sends");
+    t(amp_budget_rfc9000_s8_1(P, 1500) === 4500, "a larger Initial raises the budget: 3 x 1500");
+    return {passed, failed};
+  }
+  return {analyse_04, retry_size_rfc9000_s17_2_5, cases, sweep, selfTest};
+})();
+/*MODEL-END*/
+if (typeof window !== "undefined") window.MODEL = MODEL;
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, est: {cls: "est", txt: "my estimate"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t){ return `<div class="metric"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : TAGS.ill;
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f || undefined)); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); })); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  const CASES = MODEL.cases(PARAMS);
+  const LO = 1, HI = 100000, toRate = u => LO * Math.pow(HI / LO, u), toU = r => Math.log(r / LO) / Math.log(HI / LO);
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.textContent = c.name; b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  function applyCase(i){
+    const x = CASES[i].x;
+    $("init").value = x.init; $("flight").value = x.flight; $("retry").checked = x.retry; $("tok").value = x.token;
+    $("rate").value = toU(x.rate); $("net").value = x.net;
+    update(); setPressed("cases", i);
+  }
+  const bytes = b => b >= 1e6 ? fmt(b / 1e6, 1) + " MB" : b >= 1e4 ? fmt(b / 1e3, 0) + " kB" : fmt(b) + " B";
+  function draw(x, a){
+    const W = 720, padL = 250, padR = 70;
+    const max = Math.max(x.flight, a.budget, x.init) * 1.02, sx = v => (W - padL - padR) * v / max;
+    let s = `<title id="pic-t">Bytes in and out per spoofed Initial, and the two handshake paths</title>`;
+    s += `<text x="12" y="20" font-size="13" fill="#aeb6c4">Per spoofed Initial (bytes). The dashed box is the ${V("quic_amplification_factor")}× budget before validation.</text>`;
+    const rows = [
+      ["received from the spoofed address", x.init, "#5ec8ff", false, a.accepted ? "" : " (dropped: too small)"],
+      ["server's full first flight", x.flight, "#8a93a3", false, ""],
+      ["sent to the victim, no Retry", a.sentNoRetry, "#ff7a7a", !x.retry, ""],
+      ["sent to the victim, Retry", a.accepted ? a.retrySize : 0, "#49d17a", x.retry, ""],
+    ];
+    rows.forEach(([name, v, col, on, extra], i) => {
+      const y = 36 + i * 30;
+      s += `<text x="${padL - 8}" y="${y + 14}" text-anchor="end" font-size="12" ${on ? 'font-weight="700"' : ""}>${on ? "▶ " : ""}${name}</text>`;
+      s += `<rect x="${padL}" y="${y}" width="${Math.max(sx(v), v > 0 ? 1.5 : 0)}" height="20" fill="${col}" ${on || i < 2 ? "" : 'opacity="0.45"'}/>`;
+      s += `<text x="${padL + sx(v) + 6}" y="${y + 14}" font-size="12">${fmt(v)}${extra}</text>`;
+    });
+    s += `<rect x="${padL}" y="32" width="${sx(a.budget)}" height="${4 * 30}" fill="none" stroke="#ffd36b" stroke-dasharray="5 4"/>` +
+         `<text x="${padL + sx(a.budget) - 4}" y="${32 + 4 * 30 + 14}" text-anchor="end" font-size="11" fill="#ffd36b">budget ${fmt(a.budget)} = ${V("quic_amplification_factor")} × ${fmt(x.init)}</text>`;
+    // two sequence diagrams
+    const top = 196, H = 220;
+    const seq = (x0, title, cols, msgs) => {
+      let q = `<text x="${x0 + 4}" y="${top}" font-size="13" font-weight="700">${title}</text>`;
+      cols.forEach(([n, cx]) => { q += `<text x="${x0 + cx}" y="${top + 20}" text-anchor="middle" font-size="12">${n}</text><line x1="${x0 + cx}" y1="${top + 26}" x2="${x0 + cx}" y2="${top + H - 10}" stroke="#3a3f4a"/>`; });
+      msgs.forEach(([from, to, label, col, dash], i) => {
+        const y = top + 44 + i * 34, x1 = x0 + cols[from][1], x2 = x0 + cols[to][1], d = x2 > x1 ? 1 : -1;
+        if (from === to){ const lastCol = from === cols.length - 1;
+          q += `<text x="${lastCol ? x1 - 6 : x1 + 6}" y="${y + 4}" font-size="11" text-anchor="${lastCol ? "end" : "start"}" fill="${col}">${label}</text>`; return; }
+        q += `<line x1="${x1}" y1="${y}" x2="${x2 - d * 6}" y2="${y}" stroke="${col}" stroke-width="2" ${dash ? 'stroke-dasharray="5 4"' : ""}/><path d="M${x2} ${y} l${-d * 8} -5 v10 z" fill="${col}"/>` +
+             `<text x="${(x1 + x2) / 2}" y="${y - 5}" text-anchor="middle" font-size="11">${label}</text>`;
+      });
+      return q;
+    };
+    const A = [["attacker", 40], ["server", 170], ["victim", 310]];
+    const atk = !a.accepted ? [[0, 1, `Initial ${fmt(x.init)} B, src = victim`, "#5ec8ff"], [1, 1, "dropped: below the minimum", "#49d17a"]] :
+      x.retry ? [[0, 1, `Initial ${fmt(x.init)} B, src = victim`, "#5ec8ff"], [1, 2, `Retry ${fmt(a.retrySize)} B`, "#49d17a"], [2, 2, "never returns the token", "#aeb6c4"], [1, 1, "no state kept, no crypto", "#49d17a"]] :
+      [[0, 1, `Initial ${fmt(x.init)} B, src = victim`, "#5ec8ff"], [1, 2, `flight ${fmt(a.sentNoRetry)} B (≤ ${V("quic_amplification_factor")}×)`, "#ff7a7a"],
+       [1, 1, `slot held ${V("page_abandoned_handshake_04")} s (${fmt(a.slotsBusy, 0)}/${a.cap})`, a.legitLockedOut ? "#ff7a7a" : "#ffd36b"]];
+    s += seq(0, "Spoofed Initial", A, atk);
+    const Bc = [["phone", 40], ["server", 250]];
+    const fl = Math.min(x.flight, a.budget);
+    const legit = x.retry ? [[0, 1, `Initial ≥ ${fmt(V("quic_min_client_initial_datagram"))} B`, "#5ec8ff"], [1, 0, `Retry + token (${fmt(a.retrySize)} B)`, "#49d17a"],
+        [0, 1, "Initial + token (address proved)", "#5ec8ff"], [1, 0, `full flight ${fmt(x.flight)} B, no limit`, "#c9a0ff"], [0, 0, `+1 RTT = +${fmt(a.extraMs)} ms`, "#ffd36b"]] :
+      a.legitLockedOut ? [[0, 1, `Initial ≥ ${fmt(V("quic_min_client_initial_datagram"))} B`, "#5ec8ff"], [1, 1, "dropped: all handshake slots busy", "#ff7a7a"], [0, 0, "the phone cannot connect", "#ff7a7a"]] :
+      [[0, 1, `Initial ${fmt(x.init)} B`, "#5ec8ff"], [1, 0, `first ${fmt(fl)} B of the flight`, "#c9a0ff"],
+       ...(a.extraFlights ? [[0, 1, "ACK / more datagrams", "#5ec8ff", true], [1, 0, `the rest, ${a.extraFlights} more flight(s)`, "#c9a0ff", true]] : []),
+       [0, 0, a.extraFlights ? `+${a.extraFlights} RTT = +${fmt(a.extraMs)} ms (my estimate)` : "no extra round trip", "#ffd36b"]];
+    if (!a.accepted) legit.splice(0, legit.length, [0, 1, `Initial ${fmt(x.init)} B`, "#5ec8ff"], [1, 1, "dropped: below the minimum", "#ff7a7a"]);
+    s += `<line x1="372" y1="${top - 14}" x2="372" y2="${top + H}" stroke="#3a3f4a"/>`;
+    s += seq(380, "Real phone (" + x.net + ")", Bc, legit);
+    $("pic").setAttribute("viewBox", `0 0 ${W} ${top + H + 6}`);
+    $("pic").innerHTML = s;
+  }
+  function update(){
+    const x = {init: +$("init").value, flight: +$("flight").value, retry: $("retry").checked, token: +$("tok").value,
+      rate: Math.round(toRate(+$("rate").value)), net: $("net").value};
+    $("init_v").textContent = fmt(x.init) + " B"; $("flight_v").textContent = fmt(x.flight) + " B";
+    $("tok_v").textContent = x.token + " B"; $("rate_v").textContent = fmt(x.rate) + " /s";
+    const a = MODEL.analyse_04(PARAMS, x);
+    $("headline").innerHTML =
+      metric("Bytes out ÷ bytes in, per spoofed Initial", fmt(a.factor, 2) + "×", TAGS.der) +
+      metric("Victim receives", bytes(a.victimBps) + "/s", TAGS.der) +
+      metric("Attacker sends", bytes(a.attackerBps) + "/s", TAGS.der) +
+      metric("Crypto handshakes started by spoofs", fmt(a.startedPerS, 1) + " /s", TAGS.der) +
+      metric("Handshake slots busy", `${fmt(a.slotsBusy, 0)} / ${a.cap}`, TAGS.ill) +
+      metric("Real phone", a.legitLockedOut || !a.accepted ? "cannot connect" : `+${a.extraRtt} RTT (+${fmt(a.extraMs)} ms)`, TAGS.est);
+    draw(x, a);
+    let why;
+    if (!a.accepted) why = `The Initial is ${fmt(x.init)} bytes, below the ${V("quic_min_client_initial_datagram")}-byte minimum, so the server drops it without a reply (RFC 9000 §14.1). The minimum exists so that 3× of it is enough for a normal first flight while keeping amplification bounded; a real client pads its first datagram.`;
+    else if (x.retry) why = `Every new Initial gets a ${fmt(a.retrySize)}-byte Retry, ${fmt(a.factor, 2)}× the bytes received, and the server keeps no state and does no public-key work until the token comes back from the claimed address. A spoofed source never sees the token, so the flood costs the server almost nothing and the ${a.cap} handshake slots stay free for real phones. The price is one round trip on each new connection (C1).`;
+    else if (a.legitLockedOut) why = `Without a Retry, each spoofed Initial starts a real handshake and holds a slot. At ${fmt(x.rate)} per second the ${a.cap} slots are always full, so the cap protects the CPU but also turns away the real phone: a denial of service. Reflection is bounded by the cap too, at ${fmt(a.startedPerS, 1)} flights per second.`;
+    else why = `Without a Retry the server answers each spoofed Initial with up to ${fmt(a.budget)} bytes, the ${V("quic_amplification_factor")}× budget; here it sends ${fmt(a.sentPer)} (${fmt(a.factor, 2)}×). ${a.extraFlights ? `A real phone needs ${a.extraFlights} more round trip(s) to receive the whole ${fmt(x.flight)}-byte flight, because the limit holds until its address is validated (my estimate).` : "The whole flight fits the budget, so a real phone pays no extra round trip."}`;
+    $("why_text").textContent = why;
+    $("callout").innerHTML = `<strong>Note on the kit's wording.</strong> Note C1 says a Retry is "about the size of the Initial, so a factor near one remains". From the fields of RFC 9000 §17.2.5 with worst-case connection IDs this page gets ${fmt(MODEL.retry_size_rfc9000_s17_2_5(PARAMS, V("page_retry_token_04")))} bytes for a ${V("page_retry_token_04")}-byte token, about ${fmt(MODEL.retry_size_rfc9000_s17_2_5(PARAMS, V("page_retry_token_04")) / V("quic_min_client_initial_datagram"), 2)}× a minimum Initial: <em>at most</em> about one, and usually well below. Either way a Retry does not amplify.`;
+    $("live").textContent = `Factor ${fmt(a.factor, 2)}; victim receives ${bytes(a.victimBps)} per second; real phone ${a.legitLockedOut || !a.accepted ? "cannot connect" : "pays " + a.extraRtt + " extra RTT"}.`;
+  }
+  onInput(["init", "flight", "tok", "rate"], () => { setPressed("cases", -1); update(); });
+  ["retry", "net"].forEach(id => $(id).addEventListener("change", () => { setPressed("cases", -1); update(); }));
+  window.Story = {scenes: {out: {n: CASES.length}}, go: (id, k) => { if (id === "out") applyCase(k - 1); }};
+  fillDataP(); renderSources(); runSelfTests();
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>One QUIC connection, many streams: one handshake and no cross-connection stalls</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a;
+    --warn:#ffd36b; --phone:#c9a0ff; --cloud:#5ec8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 8px}
+  .sub{color:var(--muted);max-width:78ch;margin:4px 0}
+  .banner{border-left:3px solid var(--warn);padding:6px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0;max-width:78ch;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  label,.lbl{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{width:100%;background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .radio{display:flex;gap:14px;flex-wrap:wrap}
+  .radio label{font-weight:400;display:inline-flex;gap:5px;align-items:center}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.est{color:var(--phone);border-color:var(--phone)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:first-child code{overflow-wrap:normal;white-space:nowrap}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  .sources{margin:0 22px 18px}
+  @media(max-width:860px){.sources{margin:0 12px 12px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>QUIC streams combine the two good halves: one handshake like a shared connection, and per-connection loss isolation like separate ones</h1>
+  <p class="sub">An agent opens N TCP connections at once (one browser page can open dozens). Three ways to carry them between
+  the cloud and the phone: N separate TCP + TLS 1.3 connections, one shared TCP connection (the WebSocket option of note B2), or
+  one QUIC connection with one stream each (the design). Move the round-trip time, the loss rate and N to see the handshake
+  cost and how many connections one lost packet stalls (notes B2, A1, C2).</p>
+  <p class="banner">An illustrative model, not a measurement. Handshake round trips and loss thresholds are public (RFC 9000,
+  RFC 9001, RFC 8446, RFC 9002); RTTs, loss rates and connection counts are illustrative. The stall length per lost packet
+  is my estimate from the RFC 9002 time threshold plus one round trip for the retransmission. Loss is applied to the
+  cloud-to-phone leg only.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <span class="lbl" id="cases-l">Preloaded cases</span>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <label for="rtt">Cloud-to-phone RTT <span class="val" id="rtt_v"></span></label>
+      <input id="rtt" type="range" min="10" max="300" step="5">
+      <div class="hint">Illustrative <span data-p="rtt_cloud_phone_illustrative" data-f="wifi"></span> ms on Wi-Fi and <span data-p="rtt_cloud_phone_illustrative" data-f="cellular"></span> ms on cellular.</div>
+    </div>
+    <div class="ctrl">
+      <label for="loss">Packet loss on that leg <span class="val" id="loss_v"></span></label>
+      <input id="loss" type="range" min="0" max="0.1" step="0.001">
+      <div class="hint">Page choice, illustrative: <span id="loss_hint"></span>.</div>
+    </div>
+    <div class="ctrl">
+      <label for="n">Concurrent TCP connections N <span class="val" id="n_v"></span></label>
+      <input id="n" type="range" min="1" step="1">
+      <div class="hint">Capped at the phone's stream limit, an illustrative <span data-p="phone_max_incoming_streams_illustrative"></span>; one more gets REP 0x01 at once (C2).</div>
+    </div>
+    <div class="ctrl">
+      <label for="k">Packets per connection <span class="val" id="k_v"></span></label>
+      <input id="k" type="range" min="1" max="100" step="1">
+      <div class="hint">More packets, more chances that one is lost. Page choice, illustrative.</div>
+    </div>
+    <div class="ctrl">
+      <span class="lbl">Options</span>
+      <div class="radio" style="flex-direction:column;gap:4px">
+        <label><input type="checkbox" id="warm"> tunnel already up (shared TCP and QUIC pay no handshake)</label>
+        <label><input type="checkbox" id="retry"> address validation by Retry on a cold QUIC start (+1 RTT, C1)</label>
+        <label><input type="checkbox" id="pipe"> pipeline the SOCKS5 method and CONNECT (A1 idea, −1 RTT)</label>
+      </div>
+    </div>
+    <div class="ctrl">
+      <button id="redraw">New random draw</button>
+      <div class="hint">The squares are one seeded draw of which connections lost a packet; all three options see the same draws.</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="pic" viewBox="0 0 720 420" role="img" aria-labelledby="pic-t"><title id="pic-t">Mean time to first byte per option, and which connections stalled</title></svg>
+    <div class="why">
+      <h3>What dominates right now</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel sources" aria-label="Sources">
+  <h2>Parameters and sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = an RFC value or arithmetic on one;
+  <span class="tag ill">illustrative</span> = a round teaching value or page model choice; <span class="tag est">my estimate</span>
+  = a modelling step stated on the page; <span class="tag der">derived</span> = computed here.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Generated 2026-11-12 · Study aid for <em>socks5-over-quic-phone-egress</em> (rung 3). Sources: notes B2, A1, C1, C2 and
+  <code>constants.json</code> of this kit; RFC 9000 §2, §7; RFC 9001 §4; RFC 8446 §2; RFC 9002 §6.1. Numbers are from the
+  listed sources or labelled illustrative or estimated.
+</footer>
+
+<script type="application/json" id="params" data-keys="quic_handshake_round_trips,rfc9002_time_threshold,rfc9002_packet_threshold,rtt_cloud_phone_illustrative,rtt_phone_site_illustrative,rtt_cloud_site_illustrative,phone_dns_typical_illustrative,ttfb_model_illustrative,phone_max_incoming_streams_illustrative,streams_per_page_illustrative,heavy_page_concurrency_illustrative,page_loss_02,page_packets_per_connection_02">
+{
+ "quic_handshake_round_trips": {
+  "value": {
+   "quic_tls13_new": 1,
+   "quic_0rtt_resumed": 0,
+   "tcp_plus_tls13": 2,
+   "tcp_plus_tls12": 3
+  },
+  "unit": "round trips before application data",
+  "class": "public",
+  "source": "RFC 9000 §7 and RFC 9001 §4; RFC 8446 §2 (TLS 1.3 1-RTT); TCP three-way handshake (RFC 9293) adds one; my arithmetic for the sums"
+ },
+ "rfc9002_time_threshold": {
+  "value": 1.125,
+  "unit": "x max(smoothed_rtt, latest_rtt)",
+  "class": "public",
+  "source": "RFC 9002 §6.1.2 (kTimeThreshold = 9/8)"
+ },
+ "rfc9002_packet_threshold": {
+  "value": 3,
+  "unit": "packets",
+  "class": "public",
+  "source": "RFC 9002 §6.1.1 (kPacketThreshold)"
+ },
+ "rtt_cloud_phone_illustrative": {
+  "value": {
+   "wifi": 50,
+   "cellular": 120
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round round-trip times between a cloud region and a phone"
+ },
+ "rtt_phone_site_illustrative": {
+  "value": 30,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round RTT from the phone's network to a nearby site"
+ },
+ "rtt_cloud_site_illustrative": {
+  "value": 20,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round RTT from a cloud region to a site"
+ },
+ "phone_dns_typical_illustrative": {
+  "value": 30,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round resolver time on the phone"
+ },
+ "ttfb_model_illustrative": {
+  "value": {
+   "wifi": 320,
+   "cellular": 600,
+   "wifi_pipelined": 270,
+   "cellular_pipelined": 480,
+   "direct_from_cloud": 60
+  },
+  "unit": "ms to first response byte (server time excluded)",
+  "class": "illustrative",
+  "source": "my arithmetic in A1 from the rtt_* and phone_dns_typical_illustrative values: method 1 x RTTcp + CONNECT (RTTcp + DNS + RTTps) + TLS 1.3 (RTTcp + RTTps) + HTTP (RTTcp + RTTps); pipelined removes one RTTcp; direct = 3 x RTTcs"
+ },
+ "phone_max_incoming_streams_illustrative": {
+  "value": 64,
+  "unit": "concurrent server-initiated bidirectional streams",
+  "class": "illustrative",
+  "source": "design parameter: the effective concurrency cap of the whole tunnel"
+ },
+ "streams_per_page_illustrative": {
+  "value": {
+   "no_bypass": 60,
+   "with_bypass": 6
+  },
+  "unit": "tunnel streams per browser page load",
+  "class": "illustrative",
+  "source": "illustrative relation: a bypass list for analytics/ads/CDN telemetry cuts tunnel streams by about ten times"
+ },
+ "heavy_page_concurrency_illustrative": {
+  "value": 50,
+  "unit": "concurrent tunnel streams on a resource-heavy page",
+  "class": "illustrative",
+  "source": "illustrative; the relation taught is that one browser page can approach phone_max_incoming_streams_illustrative"
+ },
+ "page_loss_02": {
+  "value": {
+   "wifi": 0.005,
+   "cellular": 0.02
+  },
+  "unit": "fraction of packets lost on the cloud-phone leg",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): round loss rates to drive the head-of-line model; not measurements"
+ },
+ "page_packets_per_connection_02": {
+  "value": 20,
+  "unit": "packets per proxied connection",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): one small page resource"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function(){
+  "use strict";
+  // A1 latency model: method 1 x RTTcp + CONNECT (RTTcp + DNS + RTTps) + TLS 1.3 (RTTcp + RTTps) + HTTP (RTTcp + RTTps);
+  // pipelining removes one RTTcp (A1, ttfb_model_illustrative).
+  function ttfb_A1(rcp, rps, dns, pipelined){ return (pipelined ? 0 : rcp) + (rcp + dns + rps) + 2 * (rcp + rps); }
+  // Direct from the cloud: about three cloud-to-site round trips (A1).
+  const ttfb_direct_A1 = rcs => 3 * rcs;
+  // My estimate: a lost packet is declared lost after kTimeThreshold x RTT (RFC 9002 §6.1.2), then one more RTT
+  // brings the retransmission. In-order data behind it waits that long.
+  const stall_time_est = (P, rtt) => rtt * (1 + P.rfc9002_time_threshold.value);
+  // Probability that at least one of k packets is lost (independent loss).
+  const p_any_loss = (p, k) => 1 - Math.pow(1 - p, k);
+
+  function compare_02(P, x){
+    const HS = P.quic_handshake_round_trips.value;
+    const base = ttfb_A1(x.rtt, P.rtt_phone_site_illustrative.value, P.phone_dns_typical_illustrative.value, x.pipelined);
+    const st = stall_time_est(P, x.rtt);
+    const pk = p_any_loss(x.loss, x.k), pall = p_any_loss(x.loss, x.n * x.k);
+    const mk = (setup, handshakes, pStall) => ({setup, handshakes, pStall, stalledExp: x.n * pStall,
+      stallExp: pStall * st, mean: setup + base + pStall * st});
+    return {base, st,
+      sep: mk(HS.tcp_plus_tls13 * x.rtt, x.n, pk),                                   // a new TCP + TLS 1.3 per connection
+      shared: mk(x.warm ? 0 : HS.tcp_plus_tls13 * x.rtt, x.warm ? 0 : 1, pall),       // one TCP: any loss stalls all N
+      quic: mk(x.warm ? 0 : (HS.quic_tls13_new + (x.retry ? 1 : 0)) * x.rtt, x.warm ? 0 : 1, pk)}; // streams isolate loss
+  }
+  function mulberry32(a){ return function(){ a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  // One seeded draw: which connections lost at least one packet. Common random numbers for all three options.
+  function draw_02(seed, n, k, loss){
+    const r = mulberry32(seed), lost = [];
+    for (let j = 0; j < n; j++){ let l = false; for (let i = 0; i < k; i++) if (r() < loss) l = true; lost.push(l); }
+    const any = lost.some(Boolean);
+    return {sep: lost, quic: lost, shared: lost.map(() => any)};
+  }
+  function cases(P){
+    const R = P.rtt_cloud_phone_illustrative.value, L = P.page_loss_02.value, S = P.streams_per_page_illustrative.value,
+      K = P.page_packets_per_connection_02.value;
+    return [
+      {name: "Heavy page on cellular", rtt: R.cellular, loss: L.cellular, n: P.heavy_page_concurrency_illustrative.value, k: K, warm: true, retry: true, pipelined: false},
+      {name: "Light page on Wi-Fi (bypass list)", rtt: R.wifi, loss: L.wifi, n: S.with_bypass, k: K, warm: true, retry: true, pipelined: false},
+      {name: "No bypass list, Wi-Fi", rtt: R.wifi, loss: L.wifi, n: S.no_bypass, k: K, warm: true, retry: true, pipelined: false},
+      {name: "Cold start on cellular", rtt: R.cellular, loss: L.cellular, n: S.with_bypass, k: K, warm: false, retry: true, pipelined: false},
+      {name: "One request, no loss", rtt: R.wifi, loss: 0, n: 1, k: K, warm: true, retry: true, pipelined: false},
+    ];
+  }
+  function sweep(P){
+    const out = [];
+    for (const rtt of [10, 300]) for (const loss of [0, 0.1]) for (const n of [1, P.phone_max_incoming_streams_illustrative.value])
+      for (const k of [1, 100]) for (const warm of [false, true]) for (const retry of [false, true]) for (const pipelined of [false, true])
+        out.push(compare_02(P, {rtt, loss, n, k, warm, retry, pipelined}));
+    return out;
+  }
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const t = (c, m) => { assert(c, m); if (c) passed++; else failed++; };
+    const near = (a, b, e) => Math.abs(a - b) <= (e || 1e-9);
+    const R = P.rtt_cloud_phone_illustrative.value, ps = P.rtt_phone_site_illustrative.value, dns = P.phone_dns_typical_illustrative.value,
+      T = P.ttfb_model_illustrative.value, HS = P.quic_handshake_round_trips.value;
+    t(ttfb_A1(R.wifi, ps, dns, false) === T.wifi, "A1 Wi-Fi first byte = ttfb_model_illustrative.wifi");
+    t(ttfb_A1(R.cellular, ps, dns, false) === T.cellular, "A1 cellular first byte");
+    t(ttfb_A1(R.wifi, ps, dns, true) === T.wifi_pipelined, "A1 Wi-Fi pipelined");
+    t(ttfb_A1(R.cellular, ps, dns, true) === T.cellular_pipelined, "A1 cellular pipelined");
+    t(ttfb_direct_A1(P.rtt_cloud_site_illustrative.value) === T.direct_from_cloud, "A1 direct from the cloud");
+    t(HS.tcp_plus_tls13 === HS.quic_tls13_new + 1, "TCP + TLS 1.3 costs one RTT more than a new QUIC handshake");
+    t(near(stall_time_est(P, 50), 106.25), "stall estimate at 50 ms = 50 x (1 + 9/8)");
+    const base = {rtt: 50, n: 6, k: 10, warm: true, retry: true, pipelined: false};
+    let c = compare_02(P, Object.assign({}, base, {loss: 0}));
+    t(c.sep.stalledExp === 0 && c.shared.stalledExp === 0 && c.quic.stalledExp === 0, "no loss, no stalls");
+    c = compare_02(P, Object.assign({}, base, {loss: 0.01}));
+    t(near(c.sep.stalledExp, 6 * (1 - Math.pow(0.99, 10))) && near(c.shared.stalledExp, 6 * (1 - Math.pow(0.99, 60))), "stall formulas, 1 % loss");
+    t(c.shared.stalledExp > c.quic.stalledExp && near(c.quic.stalledExp, c.sep.stalledExp), "shared TCP stalls more; QUIC matches separate connections");
+    t(c.sep.handshakes === 6 && c.quic.handshakes === 0 && c.quic.setup === 0, "warm QUIC: no handshake; separate: one per connection");
+    c = compare_02(P, Object.assign({}, base, {loss: 0.01, n: 1}));
+    t(near(c.shared.pStall, c.quic.pStall), "N = 1: sharing changes nothing");
+    c = compare_02(P, Object.assign({}, base, {loss: 0, warm: false}));
+    t(c.quic.setup === 2 * 50 && c.shared.setup === 2 * 50, "cold: QUIC 1 RTT + Retry 1 RTT = TCP + TLS 1.3");
+    c = compare_02(P, Object.assign({}, base, {loss: 0, warm: false, retry: false}));
+    t(c.quic.setup === 50, "cold QUIC without Retry: 1 RTT");
+    const d = draw_02(7, 20, 10, 0.05);
+    t(d.quic.filter(Boolean).length === d.sep.filter(Boolean).length, "common random numbers: QUIC and separate stall the same connections");
+    t(d.shared.every(v => v === d.shared[0]) && d.shared[0] === d.sep.some(Boolean), "shared: one loss stalls all or none");
+    return {passed, failed};
+  }
+  return {compare_02, draw_02, ttfb_A1, cases, sweep, selfTest};
+})();
+/*MODEL-END*/
+if (typeof window !== "undefined") window.MODEL = MODEL;
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, est: {cls: "est", txt: "my estimate"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t){ return `<div class="metric"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : TAGS.ill;
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f || undefined)); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); })); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  const CASES = MODEL.cases(PARAMS);
+  let seed = 11;
+  $("n").max = V("phone_max_incoming_streams_illustrative");
+  $("loss_hint").textContent = `${fmt(V("page_loss_02", "wifi") * 100, 1)} % on Wi-Fi, ${fmt(V("page_loss_02", "cellular") * 100, 1)} % on cellular`;
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.textContent = c.name; b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  function applyCase(i){
+    const c = CASES[i];
+    $("rtt").value = c.rtt; $("loss").value = c.loss; $("n").value = c.n; $("k").value = c.k;
+    $("warm").checked = c.warm; $("retry").checked = c.retry; $("pipe").checked = c.pipelined;
+    update(); setPressed("cases", i);
+  }
+  const OPTS = [["sep", "N separate TCP + TLS 1.3"], ["shared", "one shared TCP (WebSocket)"], ["quic", "one QUIC, N streams (design)"]];
+  function draw(x, c, d){
+    const W = 720, padL = 200, padR = 20, barH = 26, y0 = 50, gap = 46;
+    const max = Math.max(c.sep.mean, c.shared.mean, c.quic.mean) * 1.18, sx = v => (W - padL - padR) * v / max;
+    let s = `<title id="pic-t">Mean time to first byte per option, and which connections stalled</title>` +
+      `<text x="12" y="22" font-size="13" fill="#aeb6c4">Mean time to first response byte per connection (ms).</text><text x="12" y="36" font-size="12" fill="#aeb6c4">Solid = handshake · light = A1 request path · hatched = expected stall</text>` +
+      `<defs><pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#3a1e22"/><line x1="0" y1="0" x2="0" y2="6" stroke="#ff7a7a" stroke-width="3"/></pattern></defs>`;
+    OPTS.forEach(([k, name], i) => {
+      const o = c[k], y = y0 + i * gap; let x0 = padL;
+      s += `<text x="${padL - 8}" y="${y + 17}" text-anchor="end" font-size="12" ${k === "quic" ? 'font-weight="700"' : ""}>${name}</text>`;
+      s += `<rect x="${x0}" y="${y}" width="${sx(o.setup)}" height="${barH}" fill="#5ec8ff"/>`; x0 += sx(o.setup);
+      s += `<rect x="${x0}" y="${y}" width="${sx(c.base)}" height="${barH}" fill="#5ec8ff" opacity="0.35"/>`; x0 += sx(c.base);
+      s += `<rect x="${x0}" y="${y}" width="${sx(o.stallExp)}" height="${barH}" fill="url(#hatch)"/>`; x0 += sx(o.stallExp);
+      const lx = x0 + 6;
+      s += `<text x="${lx}" y="${y + 17}" font-size="12" font-weight="700">${fmt(o.mean)} ms</text>`;
+    });
+    // squares: one seeded draw
+    const yq = y0 + 3 * gap + 26, per = 32, sq = 11, sp = 14;
+    s += `<text x="12" y="${yq - 8}" font-size="13" fill="#aeb6c4">One random draw, one square per connection.</text><text x="12" y="${yq + 6}" font-size="12" fill="#aeb6c4">Red with × = stalled by a lost packet · hollow green = not stalled</text>`;
+    OPTS.forEach(([k, name], i) => {
+      const rows = Math.ceil(x.n / per), y = yq + 22 + i * (rows * sp + 16);
+      s += `<text x="${padL - 8}" y="${y + 9}" text-anchor="end" font-size="12">${name}</text>`;
+      d[k].forEach((lost, j) => {
+        const cx = padL + (j % per) * sp, cy = y + Math.floor(j / per) * sp;
+        s += lost ? `<rect x="${cx}" y="${cy}" width="${sq}" height="${sq}" fill="#ff7a7a"/><text x="${cx + 5.5}" y="${cy + 9.5}" text-anchor="middle" font-size="10" fill="#0f1115">×</text>`
+                  : `<rect x="${cx + 0.5}" y="${cy + 0.5}" width="${sq - 1}" height="${sq - 1}" fill="none" stroke="#49d17a"/>`;
+      });
+      s += `<text x="${padL + per * sp + 6}" y="${y + 9}" font-size="11" fill="#aeb6c4">${d[k].filter(Boolean).length} of ${x.n}</text>`;
+    });
+    const rows = Math.ceil(x.n / per), H = yq + 22 + 3 * (rows * sp + 16) + 4;
+    $("pic").setAttribute("viewBox", `0 0 ${W} ${H}`);
+    $("pic").innerHTML = s;
+  }
+  function update(){
+    const x = {rtt: +$("rtt").value, loss: +$("loss").value, n: +$("n").value, k: +$("k").value,
+      warm: $("warm").checked, retry: $("retry").checked, pipelined: $("pipe").checked};
+    $("rtt_v").textContent = fmt(x.rtt) + " ms"; $("loss_v").textContent = fmt(x.loss * 100, 1) + " %";
+    $("n_v").textContent = x.n; $("k_v").textContent = x.k;
+    const c = MODEL.compare_02(PARAMS, x), d = MODEL.draw_02(seed, x.n, x.k, x.loss);
+    $("headline").innerHTML =
+      metric("Separate TCP + TLS: mean", fmt(c.sep.mean) + " ms", TAGS.est) +
+      metric("Shared TCP: mean", fmt(c.shared.mean) + " ms", TAGS.est) +
+      metric("QUIC streams: mean", fmt(c.quic.mean) + " ms", TAGS.est) +
+      metric("Stalled (expected), shared vs QUIC", `${fmt(c.shared.stalledExp, 1)} vs ${fmt(c.quic.stalledExp, 1)}`, TAGS.est) +
+      metric("Handshakes on the cloud-phone leg", `${c.sep.handshakes} vs ${c.quic.handshakes}`, TAGS.der) +
+      metric("A1 request path, no stall", fmt(c.base) + " ms", TAGS.ill);
+    draw(x, c, d);
+    const setupGap = c.sep.setup - c.quic.setup, stallGap = c.shared.stallExp - c.quic.stallExp;
+    let why;
+    if (x.loss === 0) why = `No loss, so only handshakes differ. Separate connections pay ${fmt(c.sep.setup)} ms (two round trips, TCP then TLS 1.3) on every connection; ${x.warm ? "a warm tunnel pays nothing" : `a cold QUIC start pays ${fmt(c.quic.setup)} ms once`}.`;
+    else if (stallGap > setupGap) why = `Loss dominates. With ${x.n} connections sharing one TCP byte stream, ${fmt(c.shared.pStall * 100, 0)} % of the time a lost packet holds back all of them for about ${fmt(c.st)} ms (my estimate). QUIC streams stall only the connection whose packet was lost: ${fmt(c.quic.pStall * 100, 0)} % each. Against separate connections QUIC still saves ${fmt(setupGap)} ms of handshake.`;
+    else why = `Against N separate connections QUIC saves the handshake: ${fmt(c.sep.setup)} ms on every connection versus ${x.warm ? "nothing on a warm tunnel" : fmt(c.quic.setup) + " ms once"}. Against one shared TCP connection it saves the head-of-line stalls: ${fmt(c.shared.stalledExp, 1)} of ${x.n} connections stalled on average versus ${fmt(c.quic.stalledExp, 1)} (${fmt(stallGap)} ms on the mean, my estimate).`;
+    $("why_text").textContent = why;
+    $("callout").innerHTML = `<strong>Why not just share one TCP connection?</strong> It saves the handshakes, but TCP delivers one ordered byte stream, so one lost packet holds every proxied connection behind it: head-of-line blocking. QUIC keeps the single handshake and gives each stream its own ordering (B2). The A1 request path (${fmt(c.base)} ms here) is the same in all three: SOCKS5 still costs its round trips.`;
+    $("live").textContent = `Means: separate ${fmt(c.sep.mean)} ms, shared ${fmt(c.shared.mean)} ms, QUIC ${fmt(c.quic.mean)} ms.`;
+  }
+  onInput(["rtt", "loss", "n", "k"], () => { setPressed("cases", -1); update(); });
+  ["warm", "retry", "pipe"].forEach(id => $(id).addEventListener("change", () => { setPressed("cases", -1); update(); }));
+  $("redraw").addEventListener("click", () => { seed = (seed * 48271) % 2147483647; update(); });
+  window.Story = {scenes: {out: {n: CASES.length}}, go: (id, k) => { if (id === "out") applyCase(k - 1); }};
+  fillDataP(); renderSources(); runSelfTests();
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

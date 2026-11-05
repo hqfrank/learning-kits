@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>socks5h moves DNS to the phone: a byte-level SOCKS5 CONNECT stepper</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a;
+    --warn:#ffd36b; --phone:#c9a0ff; --cloud:#5ec8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 8px}
+  .sub{color:var(--muted);max-width:78ch;margin:4px 0}
+  .banner{border-left:3px solid var(--warn);padding:6px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0;max-width:78ch;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  label,.lbl{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{width:100%;background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .radio{display:flex;gap:14px;flex-wrap:wrap}
+  .radio label{font-weight:400;display:inline-flex;gap:5px;align-items:center}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.est{color:var(--phone);border-color:var(--phone)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:first-child code{overflow-wrap:normal;white-space:nowrap}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  .sources{margin:0 22px 18px}
+  @media(max-width:860px){.sources{margin:0 12px 12px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/*CSS-END*/
+  .bytes{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .fld{border:1px solid var(--line);border-radius:6px;padding:4px 6px;background:#12151c;min-width:46px}
+  .fld .hx{font:600 14px/1.3 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--accent);overflow-wrap:anywhere}
+  .fld .fn{font-size:11px;color:var(--muted)}
+  .fld.addr .hx{color:var(--phone)}
+  .fld.rep .hx{color:var(--warn)}
+  .stepbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+  .stepbar input{flex:1 1 160px}
+  .stepnote{margin-top:8px}
+  figure{margin:0}
+</style>
+</head>
+<body>
+<header>
+  <h1><code>socks5h</code> moves name resolution to the phone; <code>socks5</code> leaves it in the cloud</h1>
+  <p class="sub">Step through one SOCKS5 <code>CONNECT</code> (RFC 1928) from an agent tool in the cloud, through the
+  passthrough listener on <code>localhost:<span data-p="socks_listen_port_illustrative"></span></code> and one QUIC stream,
+  to the phone's SOCKS5 server and the site. Each step shows the exact bytes. Flip the client scheme to see where DNS
+  happens, and try the destinations the filters must refuse (notes B1, A1, C1, C2).</p>
+  <p class="banner">Protocol bytes are public (RFC 1928). The two resolvers' answers are a page model choice from the
+  documentation address ranges; the listener port and the allowed ports are illustrative design parameters. Nothing here
+  is a measurement.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <span class="lbl" id="cases-l">Preloaded cases</span>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <span class="lbl" id="scheme-l">Client proxy URL scheme</span>
+      <div class="radio" role="radiogroup" aria-labelledby="scheme-l">
+        <label><input type="radio" name="scheme" value="socks5h" checked> <code>socks5h://</code> (proxy resolves)</label>
+        <label><input type="radio" name="scheme" value="socks5"> <code>socks5://</code> (client resolves)</label>
+      </div>
+      <div class="hint">The <code>h</code> is a client convention that selects ATYP <code>0x03</code> (a name); the protocol is the same (curl docs, B1).</div>
+    </div>
+    <div class="ctrl">
+      <label for="dest">Destination host</label>
+      <select id="dest"></select>
+      <div class="hint">Names from RFC 2606, public addresses from the RFC 5737 / RFC 3849 documentation ranges.</div>
+    </div>
+    <div class="ctrl">
+      <label for="port">Destination port</label>
+      <select id="port"><option>443</option><option>80</option><option>22</option><option>8080</option></select>
+      <div class="hint">The phone allows only <span data-p="allowed_ports_illustrative"></span> in the first release (illustrative design parameter).</div>
+    </div>
+    <div class="ctrl">
+      <label for="cmd">SOCKS5 command (CMD)</label>
+      <select id="cmd"><option value="connect">CONNECT (0x01)</option><option value="bind">BIND (0x02)</option><option value="udp_associate">UDP ASSOCIATE (0x03)</option></select>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <figure id="seq" tabindex="0" aria-label="Sequence of SOCKS5 messages; use the left and right arrow keys to step">
+      <div class="stepbar">
+        <button id="prev" aria-label="Previous step">◀ Prev</button>
+        <input id="step" type="range" min="1" max="1" step="1" value="1" aria-label="Step">
+        <button id="next" aria-label="Next step">Next ▶</button>
+        <span class="val" id="step_v"></span>
+      </div>
+      <svg id="pic" viewBox="0 0 720 400" role="img" aria-labelledby="pic-t"><title id="pic-t">Sequence diagram of the SOCKS5 exchange so far</title></svg>
+      <div class="why stepnote">
+        <h3 id="st_title"></h3>
+        <div class="bytes" id="bytes" aria-label="Bytes of this step"></div>
+        <p id="st_note"></p>
+      </div>
+    </figure>
+    <div class="why">
+      <h3>What decides the outcome</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel sources" aria-label="Sources">
+  <h2>Parameters and sources</h2>
+  <p class="hint">Every number and code is loaded from the inlined params block (also shipped as <code>params.json</code>), copied
+  from <code>../constants.json</code>. <span class="tag pub">public</span> = an RFC value or arithmetic on one;
+  <span class="tag ill">illustrative</span> = a design parameter or page model choice, never a measurement.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Generated 2026-11-12 · Study aid for <em>socks5-over-quic-phone-egress</em> (rung 3). Sources: notes B1, A1, C1, C2 and
+  <code>constants.json</code> of this kit; RFC 1928; RFC 2606, RFC 5737, RFC 3849; curl docs on <code>socks5h://</code>;
+  OWASP SSRF Prevention Cheat Sheet. Numbers are from the listed sources or labelled illustrative.
+</footer>
+
+<script type="application/json" id="params" data-keys="socks5_version,socks5_methods,socks5_commands,socks5_atyp,socks5_reply_codes,socks5_domain_max_len,socks5_message_sizes,socks_listen_port_illustrative,allowed_ports_illustrative,blocked_ranges_ipv4,blocked_ranges_ipv6,metadata_address,metadata_address_encodings,documentation_addresses,quic_first_stream_ids,page_dns_answers_01">
+{
+ "socks5_version": {
+  "value": 5,
+  "unit": "VER byte (0x05)",
+  "class": "public",
+  "source": "RFC 1928 §3"
+ },
+ "socks5_methods": {
+  "value": {
+   "no_auth": "0x00",
+   "gssapi": "0x01",
+   "username_password": "0x02",
+   "no_acceptable_methods": "0xFF"
+  },
+  "unit": "METHOD byte",
+  "class": "public",
+  "source": "RFC 1928 §3"
+ },
+ "socks5_commands": {
+  "value": {
+   "connect": "0x01",
+   "bind": "0x02",
+   "udp_associate": "0x03"
+  },
+  "unit": "CMD byte",
+  "class": "public",
+  "source": "RFC 1928 §4"
+ },
+ "socks5_atyp": {
+  "value": {
+   "ipv4": "0x01",
+   "domain": "0x03",
+   "ipv6": "0x04"
+  },
+  "unit": "ATYP byte",
+  "class": "public",
+  "source": "RFC 1928 §4-5"
+ },
+ "socks5_reply_codes": {
+  "value": {
+   "0x00": "succeeded",
+   "0x01": "general SOCKS server failure",
+   "0x02": "connection not allowed by ruleset",
+   "0x03": "network unreachable",
+   "0x04": "host unreachable",
+   "0x05": "connection refused",
+   "0x06": "TTL expired",
+   "0x07": "command not supported",
+   "0x08": "address type not supported"
+  },
+  "unit": "REP byte",
+  "class": "public",
+  "source": "RFC 1928 §6"
+ },
+ "socks5_domain_max_len": {
+  "value": 255,
+  "unit": "octets",
+  "class": "public",
+  "source": "RFC 1928 §5: the domain name is prefixed by a one-octet length"
+ },
+ "socks5_message_sizes": {
+  "value": {
+   "method_request_one_method": 3,
+   "method_reply": 2,
+   "connect_ipv4": 10,
+   "connect_ipv6": 22,
+   "connect_domain": "7 + L (L = name length)",
+   "reply_ipv4": 10
+  },
+  "unit": "bytes",
+  "class": "public",
+  "source": "my arithmetic from the field layouts in RFC 1928 §3-6 (VER, CMD/REP, RSV, ATYP, address, 2-byte port)"
+ },
+ "socks_listen_port_illustrative": {
+  "value": 10080,
+  "unit": "TCP port bound to localhost",
+  "class": "illustrative",
+  "source": "design parameter; chosen away from socks5_conventional_port to avoid clashes with other software"
+ },
+ "allowed_ports_illustrative": {
+  "value": [
+   80,
+   443
+  ],
+  "unit": "destination TCP ports allowed by the phone filter",
+  "class": "illustrative",
+  "source": "design parameter: the HTTP and HTTPS well-known ports only (first release)"
+ },
+ "blocked_ranges_ipv4": {
+  "value": {
+   "10.0.0.0/8": "RFC 1918 private",
+   "172.16.0.0/12": "RFC 1918 private",
+   "192.168.0.0/16": "RFC 1918 private",
+   "100.64.0.0/10": "RFC 6598 shared (carrier-grade NAT) space",
+   "169.254.0.0/16": "RFC 3927 link-local",
+   "127.0.0.0/8": "loopback (RFC 1122)",
+   "0.0.0.0/8": "'this network' (RFC 6890)",
+   "240.0.0.0/4": "reserved (RFC 1112)"
+  },
+  "unit": "CIDR",
+  "class": "public",
+  "source": "the cited RFCs; IANA special-purpose address registry (RFC 6890)"
+ },
+ "blocked_ranges_ipv6": {
+  "value": {
+   "::1/128": "loopback (RFC 4291)",
+   "fe80::/10": "link-local (RFC 4291)",
+   "fc00::/7": "unique local (RFC 4193)",
+   "::ffff:0:0/96": "IPv4-mapped: apply the IPv4 rules to the embedded address (RFC 4291 §2.5.5.2)"
+  },
+  "unit": "CIDR",
+  "class": "public",
+  "source": "the cited RFCs"
+ },
+ "metadata_address": {
+  "value": "169.254.169.254",
+  "unit": "IPv4 address",
+  "class": "public",
+  "source": "link-local address used by the instance metadata services of several public clouds (provider documentation); inside RFC 3927 169.254.0.0/16"
+ },
+ "metadata_address_encodings": {
+  "value": {
+   "decimal": "2852039166",
+   "hex": "0xa9fea9fe",
+   "octal": "025177524776",
+   "dotted_octal": "0251.0376.0251.0376",
+   "dotted_hex": "0xa9.0xfe.0xa9.0xfe"
+  },
+  "unit": "alternative spellings accepted by inet_aton-style parsers",
+  "class": "public",
+  "source": "my arithmetic from metadata_address; the encodings are the classic SSRF filter bypasses listed in the OWASP SSRF Prevention Cheat Sheet"
+ },
+ "documentation_addresses": {
+  "value": {
+   "ipv4": [
+    "192.0.2.0/24",
+    "198.51.100.0/24",
+    "203.0.113.0/24"
+   ],
+   "ipv6": "2001:db8::/32"
+  },
+  "unit": "CIDR",
+  "class": "public",
+  "source": "RFC 5737; RFC 3849 (all example addresses in this kit come from these ranges)"
+ },
+ "quic_first_stream_ids": {
+  "value": {
+   "client_bidi": [
+    0,
+    4,
+    8
+   ],
+   "server_bidi": [
+    1,
+    5,
+    9
+   ]
+  },
+  "unit": "stream IDs",
+  "class": "public",
+  "source": "my arithmetic from RFC 9000 §2.1: IDs of one type increase by 4"
+ },
+ "page_dns_answers_01": {
+  "value": {
+   "www.example.com": {
+    "phone": "203.0.113.5",
+    "cloud": "198.51.100.7"
+   },
+   "rebind.example": {
+    "phone": "192.168.1.1",
+    "cloud": "192.168.1.1"
+   }
+  },
+  "unit": "address each resolver returns",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): names reserved by RFC 2606; public answers from the RFC 5737 documentation ranges (documentation_addresses). The phone's resolver picks a server near the user, the cloud's one near the cloud region. 192.168.1.1 is an RFC 1918 address standing in for a home router (DNS rebinding, C1)"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function(){
+  "use strict";
+  const hex2 = n => n.toString(16).padStart(2, "0");
+  const code = s => parseInt(s, 16);                      // "0x03" -> 3
+
+  // ---- addresses ----
+  function ipv4ToInt(s){
+    const m = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(s);
+    if (!m) return null;
+    const o = m.slice(1).map(Number);
+    if (o.some(x => x > 255)) return null;
+    return o[0] * 16777216 + o[1] * 65536 + o[2] * 256 + o[3];
+  }
+  const intToIpv4 = n => [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join(".");
+  // inet_aton-style parse: 1-4 parts, each decimal, 0x-hex or 0-octal; the last part fills the rest.
+  // These are the alternative spellings of C1 / OWASP. Returns a 32-bit integer or null.
+  function parse_inet_aton(s){
+    const parts = String(s).split(".");
+    if (parts.length < 1 || parts.length > 4) return null;
+    const vals = [];
+    for (const p of parts){
+      let v;
+      if (/^0x[0-9a-f]+$/i.test(p)) v = parseInt(p.slice(2), 16);
+      else if (/^0[0-7]*$/.test(p)) v = parseInt(p, 8);
+      else if (/^[1-9][0-9]*$/.test(p)) v = parseInt(p, 10);
+      else return null;
+      vals.push(v);
+    }
+    const n = vals.length;
+    for (let i = 0; i < n - 1; i++) if (vals[i] > 255) return null;
+    if (vals[n - 1] >= Math.pow(256, 5 - n)) return null;
+    let x = 0;
+    for (let i = 0; i < n - 1; i++) x += vals[i] * Math.pow(256, 3 - i);
+    return x + vals[n - 1];
+  }
+  function ipv6ToBig(s){
+    let str = String(s).toLowerCase();
+    let tail = [];
+    const m4 = /:(\d+\.\d+\.\d+\.\d+)$/.exec(str);
+    if (m4){ const v = ipv4ToInt(m4[1]); if (v === null) return null;
+      tail = [(v >>> 16).toString(16), (v & 65535).toString(16)]; str = str.slice(0, m4.index + 1) + "x"; }
+    const halves = str.split("::");
+    if (halves.length > 2) return null;
+    const grab = h => h === "" ? [] : h.split(":");
+    let left = grab(halves[0]), right = halves.length === 2 ? grab(halves[1]) : [];
+    const fix = a => a.flatMap(g => g === "x" ? tail : [g]);
+    left = fix(left); right = fix(right);
+    let groups;
+    if (halves.length === 2){ const fill = 8 - left.length - right.length; if (fill < 1) return null;
+      groups = [...left, ...Array(fill).fill("0"), ...right]; }
+    else groups = left;
+    if (groups.length !== 8 || groups.some(g => !/^[0-9a-f]{1,4}$/.test(g))) return null;
+    return groups.reduce((acc, g) => (acc << 16n) + BigInt(parseInt(g, 16)), 0n);
+  }
+  function inCidr4(n, cidr){ const [b, l] = cidr.split("/"); const base = ipv4ToInt(b), len = +l;
+    if (len === 0) return true; const size = Math.pow(2, 32 - len);
+    return Math.floor(n / size) === Math.floor(base / size); }
+  function inCidr6(x, cidr){ const [b, l] = cidr.split("/"); const base = ipv6ToBig(b), sh = BigInt(128 - +l);
+    return (x >> sh) === (base >> sh); }
+  const isIpv4Literal = s => ipv4ToInt(s) !== null;
+  const isIpv6Literal = s => String(s).includes(":") && ipv6ToBig(s) !== null;
+
+  // ---- RFC 1928 encoders (fields: {f: name, b: [bytes], k: kind}) ----
+  function encode_method_request_rfc1928_s3(P){
+    return [{f: "VER", b: [P.socks5_version.value]}, {f: "NMETHODS", b: [1]},
+            {f: "METHODS: no auth", b: [code(P.socks5_methods.value.no_auth)]}];
+  }
+  function encode_method_reply_rfc1928_s3(P){
+    return [{f: "VER", b: [P.socks5_version.value]}, {f: "METHOD: no auth", b: [code(P.socks5_methods.value.no_auth)]}];
+  }
+  function addrFields(P, atyp, addr){
+    const A = P.socks5_atyp.value;
+    if (atyp === "ipv4"){ const n = ipv4ToInt(addr);
+      return [{f: "ATYP: IPv4", b: [code(A.ipv4)]}, {f: "DST.ADDR " + addr, b: [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255], k: "addr"}]; }
+    if (atyp === "ipv6"){ let x = ipv6ToBig(addr); const bs = [];
+      for (let i = 0; i < 16; i++){ bs.unshift(Number(x & 255n)); x >>= 8n; }
+      return [{f: "ATYP: IPv6", b: [code(A.ipv6)]}, {f: "DST.ADDR " + addr, b: bs, k: "addr"}]; }
+    const chars = [...String(addr)].map(c => c.charCodeAt(0));
+    return [{f: "ATYP: domain", b: [code(A.domain)]}, {f: "LEN", b: [chars.length]},
+            {f: "DST.ADDR \"" + addr + "\"", b: chars, k: "addr"}];
+  }
+  const portBytes = p => [(p >> 8) & 255, p & 255];        // big-endian (RFC 1928 §4)
+  function encode_request_rfc1928_s4(P, cmd, atyp, addr, port){
+    return [{f: "VER", b: [P.socks5_version.value]}, {f: "CMD: " + cmd, b: [code(P.socks5_commands.value[cmd])]},
+            {f: "RSV", b: [0]}, ...addrFields(P, atyp, addr), {f: "DST.PORT " + port, b: portBytes(port)}];
+  }
+  // Reply with zero BND.ADDR / BND.PORT, as this design sends (B1).
+  function encode_reply_rfc1928_s6(P, rep){
+    return [{f: "VER", b: [P.socks5_version.value]}, {f: "REP: " + P.socks5_reply_codes.value[rep], b: [code(rep)], k: "rep"},
+            {f: "RSV", b: [0]}, {f: "ATYP: IPv4", b: [code(P.socks5_atyp.value.ipv4)]},
+            {f: "BND.ADDR 0.0.0.0", b: [0, 0, 0, 0]}, {f: "BND.PORT 0", b: [0, 0]}];
+  }
+  const size = fields => fields.reduce((s, f) => s + f.b.length, 0);
+  const hexOf = fields => fields.flatMap(f => f.b).map(hex2).join(" ");
+
+  // ---- filters (C1) ----
+  // Cloud-side listener check: a FIXED list (169.254/16, fe80::/10, the known metadata spellings). Short forms pass it (C1).
+  function cloud_metadata_check_C1(P, atyp, addr){
+    if (atyp === "ipv4") return inCidr4(ipv4ToInt(addr), "169.254.0.0/16") ? "IPv4 169.254/16 (link-local, metadata)" : null;
+    if (atyp === "ipv6") return inCidr6(ipv6ToBig(addr), "fe80::/10") ? "IPv6 fe80::/10 (link-local)" : null;
+    const spell = [P.metadata_address.value, ...Object.values(P.metadata_address_encodings.value)].map(s => s.toLowerCase());
+    return spell.includes(String(addr).toLowerCase()) ? "a known spelling of the metadata address" : null;
+  }
+  // Phone-side destination filter, applied AFTER resolution to the exact address it will connect to (C1).
+  function phone_filter_C1(P, family, addr, port){
+    if (!P.allowed_ports_illustrative.value.includes(port)) return "port " + port + " is not on the allowed list";
+    if (family === "ipv4"){ const n = ipv4ToInt(addr);
+      for (const [c, why] of Object.entries(P.blocked_ranges_ipv4.value)) if (inCidr4(n, c)) return addr + " is in " + c + " (" + why + ")";
+      return null; }
+    const x = ipv6ToBig(addr);
+    for (const [c, why] of Object.entries(P.blocked_ranges_ipv6.value)){
+      if (!inCidr6(x, c)) continue;
+      if (c.startsWith("::ffff:")){ const v4 = intToIpv4(Number(x & 0xffffffffn));
+        const r = phone_filter_C1(P, "ipv4", v4, port);
+        if (r) return "IPv4-mapped " + addr + " embeds " + v4 + "; " + r; continue; }
+      return addr + " is in " + c + " (" + why + ")";
+    }
+    return null;
+  }
+
+  // ---- resolvers (page model) ----
+  function resolve(P, who, name){
+    const n = parse_inet_aton(name);
+    if (n !== null) return {addr: intToIpv4(n), how: "numeric form, parsed without DNS"};
+    const e = P.page_dns_answers_01.value[String(name).toLowerCase()];
+    return e ? {addr: e[who], how: (who === "phone" ? "the phone's resolver" : "the cloud's resolver")} : null;
+  }
+
+  // ---- the trace (C2 step table, A1 steps) ----
+  // frame: {from, to, kind: msg|dns|check|tcp|relay, title, short, fields|null, note, bad}
+  function simulate_01(P, inp){
+    const {scheme, dest, port, cmd} = inp;
+    const F = [], add = fr => F.push(fr);
+    const R = P.socks5_reply_codes.value;
+    const S = {dnsAt: "none", atyp: null, rep: null, stream: false, siteSeesPhone: false, connectBytes: 0, refusedBy: null, siteAddr: null};
+    let atyp, addr;
+    if (isIpv4Literal(dest)){ atyp = "ipv4"; addr = dest; }
+    else if (isIpv6Literal(dest)){ atyp = "ipv6"; addr = dest; }
+    else if (scheme === "socks5"){
+      const r = resolve(P, "cloud", dest);
+      if (!r){ add({from: "tool", to: "tool", kind: "dns", title: "The client cannot resolve the name", short: "no answer",
+        fields: null, note: "With socks5:// the client must resolve the name itself. No answer, so it never contacts the proxy.", bad: true});
+        S.rep = "none"; return {frames: F, S}; }
+      atyp = "ipv4"; addr = r.addr; S.dnsAt = r.how.startsWith("numeric") ? "none (numeric form)" : "cloud";
+      add({from: "tool", to: "tool", kind: "dns", title: "The client resolves the name in the cloud", short: dest + " → " + addr,
+        fields: null, note: "socks5:// makes the client resolve \"" + dest + "\" itself (" + r.how + "): " + addr +
+        ". For a large site this is a server chosen for the cloud region, not for the user's location (B1)."});
+    } else { atyp = "domain"; addr = dest; }
+    S.atyp = atyp;
+
+    const mreq = encode_method_request_rfc1928_s3(P), mrep = encode_method_reply_rfc1928_s3(P);
+    add({from: "tool", to: "listener", kind: "msg", title: "Tool → listener: method request (" + size(mreq) + " bytes)", short: hexOf(mreq),
+      fields: mreq, note: "Exchange 1 of RFC 1928 §3. The tool offers one method, 0x00 (no authentication)."});
+    add({from: "listener", to: "tool", kind: "msg", title: "Listener → tool: method reply (" + size(mrep) + " bytes)", short: hexOf(mrep),
+      fields: mrep, note: "The listener answers this itself, because the phone always selects no authentication. The tool now waits for its CONNECT reply; that wait is what makes a later fallback invisible (C2)."});
+    const req = encode_request_rfc1928_s4(P, cmd, atyp, addr, port);
+    S.connectBytes = size(req);
+    add({from: "tool", to: "listener", kind: "msg", title: "Tool → listener: request (" + size(req) + " bytes)", short: hexOf(req).slice(0, 47) + (size(req) > 16 ? " …" : ""),
+      fields: req, note: atyp === "domain" ? "ATYP 0x03 carries the name itself: one length byte, then the characters. Nobody in the cloud resolves it." :
+      "ATYP " + (atyp === "ipv4" ? "0x01 carries 4 address bytes" : "0x04 carries 16 address bytes") + "; the name, if there was one, is gone."});
+    const reply = (from, rep, why) => {
+      const f = encode_reply_rfc1928_s6(P, rep);
+      add({from, to: from === "phone" ? "listener" : "tool", kind: "msg", title: (from === "phone" ? "Phone → listener" : "Listener → tool") + ": reply REP " + rep + " (" + R[rep] + ")",
+        short: hexOf(f), fields: f, note: why, bad: rep !== "0x00"});
+    };
+    if (cmd !== "connect"){
+      S.rep = "0x07"; S.refusedBy = "listener";
+      reply("listener", "0x07", "This design supports CONNECT only. BIND and UDP ASSOCIATE get REP 0x07 (command not supported) before any stream is opened (B1, C2 step 1–2).");
+      return {frames: F, S};
+    }
+    const cloudHit = cloud_metadata_check_C1(P, atyp, addr);
+    add({from: "listener", to: "listener", kind: "check", title: "Listener: cloud-side metadata check", short: cloudHit ? "refused" : "passes",
+      fields: null, bad: !!cloudHit, note: cloudHit ? "The destination is " + cloudHit + ". The listener refuses it before it opens any QUIC stream: defence in depth for the instance's metadata service (C1)." :
+      "The listener parses only the destination, against a fixed list: 169.254/16, fe80::/10 and the known spellings of the metadata address. It is not the authoritative filter (C1)."});
+    if (cloudHit){ S.rep = "0x02"; S.refusedBy = "listener";
+      reply("listener", "0x02", "REP 0x02: connection not allowed by ruleset. No byte reached the phone."); return {frames: F, S}; }
+
+    const sid = P.quic_first_stream_ids.value.server_bidi[0];
+    S.stream = true;
+    add({from: "listener", to: "phone", kind: "msg", title: "Listener opens QUIC stream " + sid + " and forwards the method request", short: "stream " + sid + ": " + hexOf(mreq),
+      fields: mreq, note: "A new server-initiated bidirectional stream (IDs 1, 5, 9 …, B2). Passthrough: the original bytes, unchanged (B1)."});
+    add({from: "phone", to: "listener", kind: "msg", title: "Phone → listener: method reply (consumed by the listener)", short: hexOf(mrep),
+      fields: mrep, note: "The listener already answered the tool, so it reads this reply and does not pass it on. A dead phone is caught here by a short deadline (C2 step 6)."});
+    add({from: "listener", to: "phone", kind: "msg", title: "Listener → phone: the same request bytes", short: hexOf(req).slice(0, 47) + (size(req) > 16 ? " …" : ""),
+      fields: req, note: "The phone runs the full SOCKS5 state machine; the cloud side never does (B1)."});
+
+    let family = atyp, target = addr;
+    if (atyp === "domain"){
+      const r = resolve(P, "phone", addr);
+      if (!r){ add({from: "phone", to: "phone", kind: "dns", title: "Phone: name resolution fails", short: "no answer", fields: null, bad: true,
+          note: "\"" + addr + "\" does not resolve. The phone answers REP 0x04."});
+        S.dnsAt = "phone"; S.rep = "0x04"; S.refusedBy = "phone";
+        reply("phone", "0x04", "Host unreachable: name resolution failed (B1).");
+        reply("listener", "0x04", "The listener passes the phone's reply to the tool unchanged.");
+        return {frames: F, S}; }
+      S.dnsAt = r.how.startsWith("numeric") ? "phone (numeric form, no DNS)" : "phone";
+      family = "ipv4"; target = r.addr;
+      add({from: "phone", to: "phone", kind: "dns", title: "Phone resolves the name locally", short: addr + " → " + target, fields: null,
+        note: "Remote DNS: " + r.how + " returns " + target + ", the answer a local user would get. That is geo-consistent resolution (B1)."});
+    }
+    const hit = phone_filter_C1(P, family, target, port);
+    add({from: "phone", to: "phone", kind: "check", title: "Phone: destination filter on the resolved address", short: hit ? "refused" : "passes", fields: null, bad: !!hit,
+      note: hit ? "Refused: " + hit + ". The filter runs after DNS and before connect, on the exact address it would dial, so a name that resolves to a private address is caught (C1)." :
+      target + ":" + port + " is outside every blocked range and the port is allowed (C1)."});
+    if (hit){ S.rep = "0x02"; S.refusedBy = "phone";
+      reply("phone", "0x02", "REP 0x02: connection not allowed by ruleset. This is the phone's own policy, not the site refusing (B1).");
+      reply("listener", "0x02", "The listener passes the phone's reply to the tool unchanged.");
+      return {frames: F, S}; }
+    S.siteAddr = target; S.siteSeesPhone = true;
+    add({from: "phone", to: "site", kind: "tcp", title: "Phone opens TCP to " + target + ":" + port, short: "TCP connect", fields: null,
+      note: "The connection leaves from the phone's own network, so the site sees the user's address (A1)."});
+    S.rep = "0x00";
+    reply("phone", "0x00", "Succeeded. BND.ADDR and BND.PORT are zeros in this design, so the reply is 10 bytes (B1).");
+    reply("listener", "0x00", "The listener passes the reply on. This is the commit point: from now on the tool's TLS session is bound to the phone's TCP connection, and a failure is a reset, not a fallback (C2).");
+    add({from: "tool", to: "site", kind: "relay", title: "Relay: the tool's TLS bytes flow through the stream", short: "TLS ClientHello …", fields: null,
+      note: "The proxy now copies bytes both ways. It sees TLS records, not the HTTPS content (B1)."});
+    return {frames: F, S};
+  }
+
+  const CASES = [
+    {name: "socks5h → a name (the design)", scheme: "socks5h", dest: "www.example.com", port: 443, cmd: "connect"},
+    {name: "socks5 → the same name", scheme: "socks5", dest: "www.example.com", port: 443, cmd: "connect"},
+    {name: "IPv6 literal", scheme: "socks5h", dest: "2001:db8::5", port: 443, cmd: "connect"},
+    {name: "name → home router (rebinding)", scheme: "socks5h", dest: "rebind.example", port: 443, cmd: "connect"},
+    {name: "IPv4-mapped private", scheme: "socks5h", dest: "::ffff:192.168.1.1", port: 443, cmd: "connect"},
+    {name: "metadata, hex spelling", scheme: "socks5h", dest: "0xa9fea9fe", port: 80, cmd: "connect"},
+    {name: "metadata, short form", scheme: "socks5h", dest: "169.254.43518", port: 80, cmd: "connect"},
+    {name: "port 22", scheme: "socks5h", dest: "www.example.com", port: 22, cmd: "connect"},
+    {name: "BIND", scheme: "socks5h", dest: "www.example.com", port: 443, cmd: "bind"},
+  ];
+  const DESTS = ["www.example.com", "rebind.example", "203.0.113.5", "2001:db8::5", "192.168.1.1", "::ffff:192.168.1.1",
+    "100.64.0.1", "169.254.169.254", "0xa9fea9fe", "2852039166", "169.254.43518", "fe80::1"];
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const t = (c, m) => { assert(c, m); if (c) passed++; else failed++; };
+    const MS = P.socks5_message_sizes.value;
+    t(size(encode_method_request_rfc1928_s3(P)) === MS.method_request_one_method, "method request size (socks5_message_sizes)");
+    t(size(encode_method_reply_rfc1928_s3(P)) === MS.method_reply, "method reply size");
+    t(size(encode_request_rfc1928_s4(P, "connect", "ipv4", "203.0.113.5", 443)) === MS.connect_ipv4, "CONNECT IPv4 = 10 bytes");
+    t(size(encode_request_rfc1928_s4(P, "connect", "ipv6", "2001:db8::5", 443)) === MS.connect_ipv6, "CONNECT IPv6 = 22 bytes");
+    t(size(encode_request_rfc1928_s4(P, "connect", "domain", "www.example.com", 443)) === 7 + "www.example.com".length, "CONNECT domain = 7 + L");
+    t(size(encode_reply_rfc1928_s6(P, "0x00")) === MS.reply_ipv4, "reply = 10 bytes");
+    t(portBytes(4433).map(hex2).join(" ") === "11 51", "port 4433 encodes as 0x11 0x51 (B1)");
+    for (const [k, s] of Object.entries(P.metadata_address_encodings.value))
+      t(intToIpv4(parse_inet_aton(s)) === P.metadata_address.value, "metadata encoding '" + k + "' decodes to metadata_address");
+    t(parse_inet_aton("999.1.1.1") === null, "999.1.1.1 is not an address (C1)");
+    t(phone_filter_C1(P, "ipv4", "192.168.1.1", 443) !== null, "192.168.1.1 blocked");
+    t(phone_filter_C1(P, "ipv6", "::ffff:192.168.1.1", 443) !== null, "IPv4-mapped private blocked");
+    t(phone_filter_C1(P, "ipv6", "fe80::1", 443) !== null, "fe80::1 blocked");
+    t(phone_filter_C1(P, "ipv4", "100.64.0.1", 443) !== null, "RFC 6598 shared space blocked");
+    t(phone_filter_C1(P, "ipv4", "203.0.113.5", 443) === null, "documentation address allowed");
+    t(phone_filter_C1(P, "ipv4", "203.0.113.5", 22) !== null, "port 22 blocked");
+    const run = c => simulate_01(P, c).S;
+    let s = run(CASES[0]); t(s.dnsAt === "phone" && s.atyp === "domain" && s.rep === "0x00" && s.siteSeesPhone, "socks5h: DNS on the phone, ATYP domain, success");
+    t(s.siteAddr === P.page_dns_answers_01.value["www.example.com"].phone, "socks5h connects to the phone's answer");
+    s = run(CASES[1]); t(s.dnsAt === "cloud" && s.atyp === "ipv4" && s.siteAddr === P.page_dns_answers_01.value["www.example.com"].cloud, "socks5: DNS in the cloud, cloud's answer");
+    s = run(CASES[3]); t(s.rep === "0x02" && s.refusedBy === "phone" && s.stream, "rebinding name refused by the phone after DNS");
+    s = run(Object.assign({}, CASES[3], {scheme: "socks5"})); t(s.rep === "0x02" && s.refusedBy === "phone", "rebinding via socks5 also refused on the phone");
+    s = run(CASES[5]); t(s.rep === "0x02" && s.refusedBy === "listener" && !s.stream, "hex metadata spelling refused in the cloud, no stream");
+    s = run(CASES[6]); t(s.rep === "0x02" && s.refusedBy === "phone" && s.stream, "short form passes the cloud list, phone filter catches it (C1)");
+    s = run(CASES[7]); t(s.rep === "0x02" && s.refusedBy === "phone", "port 22 refused by the phone");
+    s = run(CASES[8]); t(s.rep === "0x07" && !s.stream, "BIND gets 0x07 and no stream");
+    let one = true;
+    for (const sc of ["socks5", "socks5h"]) for (const d of DESTS) for (const p of [443, 80, 22]) for (const c of ["connect", "bind"]){
+      const fr = simulate_01(P, {scheme: sc, dest: d, port: p, cmd: c}).frames;
+      const toTool = fr.filter(f => f.to === "tool" && f.from === "listener" && f.fields && f.fields.some(x => x.k === "rep")).length;
+      if (toTool !== 1) one = false;
+    }
+    t(one, "every trace ends with exactly one reply to the tool");
+    return {passed, failed};
+  }
+  return {simulate_01, encode_method_request_rfc1928_s3, encode_request_rfc1928_s4, encode_reply_rfc1928_s6,
+    parse_inet_aton, phone_filter_C1, cloud_metadata_check_C1, CASES, DESTS, selfTest, size, hex2};
+})();
+/*MODEL-END*/
+if (typeof window !== "undefined") window.MODEL = MODEL;
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, est: {cls: "est", txt: "my estimate"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t){ return `<div class="metric"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : TAGS.ill;
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f || undefined)); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); })); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  const COLS = {tool: 66, listener: 292, phone: 470, site: 652};
+  const NAMES = {tool: ["Agent tool", "cloud"], listener: ["Listener", "cloud, localhost"], phone: ["Phone SOCKS5", "user's network"], site: ["Site", "internet"]};
+  let trace = null, cur = 1;
+
+  MODEL.DESTS.forEach(d => { const o = document.createElement("option"); o.textContent = d; $("dest").appendChild(o); });
+  MODEL.CASES.forEach((c, i) => { const b = document.createElement("button"); b.textContent = c.name; b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+
+  const inputs = () => ({scheme: document.querySelector("input[name=scheme]:checked").value, dest: $("dest").value, port: +$("port").value, cmd: $("cmd").value});
+  function applyCase(i, last = true){
+    const c = MODEL.CASES[i];
+    document.querySelector(`input[name=scheme][value=${c.scheme}]`).checked = true;
+    $("dest").value = c.dest; $("port").value = String(c.port); $("cmd").value = c.cmd;
+    rebuild(last); setPressed("cases", i);
+  }
+  function draw(){
+    const W = 720, top = 56, rowH = 30, n = trace.frames.length, H = top + n * rowH + 16;
+    $("pic").setAttribute("viewBox", `0 0 ${W} ${H}`);
+    let s = `<title id="pic-t">Sequence diagram of the SOCKS5 exchange, step ${cur} of ${n}</title>`;
+    s += `<rect x="4" y="4" width="370" height="${H - 8}" rx="8" fill="#5ec8ff" opacity="0.06"/>` +
+         `<rect x="380" y="4" width="336" height="${H - 8}" rx="8" fill="#c9a0ff" opacity="0.06"/>` +
+         `<text x="12" y="${H - 10}" font-size="11" fill="#aeb6c4">cloud instance</text>` +
+         `<text x="388" y="${H - 10}" font-size="11" fill="#aeb6c4">user's side</text>` +
+         `<text x="377" y="50" font-size="11" fill="#aeb6c4" text-anchor="middle">QUIC</text>`;
+    for (const [k, x] of Object.entries(COLS)){
+      s += `<text x="${x}" y="22" text-anchor="middle" font-size="13" font-weight="700">${NAMES[k][0]}</text>` +
+           `<text x="${x}" y="38" text-anchor="middle" font-size="11" fill="#aeb6c4">${NAMES[k][1]}</text>` +
+           `<line x1="${x}" y1="${top - 8}" x2="${x}" y2="${H - 24}" stroke="#3a3f4a"/>`;
+    }
+    trace.frames.forEach((f, i) => {
+      if (i >= cur) return;
+      const y = top + i * rowH + 16, on = i === cur - 1, op = on ? 1 : 0.75;
+      const col = f.bad ? "#ff7a7a" : (f.from === "phone" || f.to === "phone" || f.to === "site") ? "#c9a0ff" : "#5ec8ff";
+      const x1 = COLS[f.from], x2 = COLS[f.to];
+      // keep arrow labels inside the gap between the two lifelines (about 7 px per monospace character)
+      const room = f.from === f.to ? 40 : Math.floor(Math.abs(x2 - x1) / 7) - 2;
+      const txt = (on ? "▶ " : "") + f.short;
+      const lab = esc(txt.length > room ? txt.slice(0, room - 1) + "…" : txt);
+      if (f.from === f.to){
+        const kind = {dns: "DNS", check: "filter", tcp: "TCP"}[f.kind] || f.kind;
+        s += `<rect x="${x1 - 34}" y="${y - 11}" width="68" height="18" rx="4" fill="#12151c" stroke="${col}" stroke-width="${on ? 2 : 1}" opacity="${op}"/>` +
+             `<text x="${x1}" y="${y + 2}" text-anchor="middle" font-size="11" fill="${col}" opacity="${op}">${kind}</text>`;
+        const right = x1 < 600; const lx = right ? x1 + 40 : x1 - 40;
+        s += `<text x="${lx}" y="${y + 2}" font-size="11" text-anchor="${right ? "start" : "end"}" opacity="${op}" ${f.bad ? 'fill="#ff7a7a"' : ""}>${lab}</text>`;
+      } else {
+        const dir = x2 > x1 ? 1 : -1, dash = f.kind === "relay" ? ' stroke-dasharray="6 4"' : "";
+        s += `<line x1="${x1}" y1="${y}" x2="${x2 - dir * 6}" y2="${y}" stroke="${col}" stroke-width="${on ? 2.5 : 1.5}" opacity="${op}"${dash}/>` +
+             `<path d="M${x2} ${y} l${-dir * 8} -5 v10 z" fill="${col}" opacity="${op}"/>` +
+             `<text x="${(x1 + x2) / 2}" y="${y - 5}" text-anchor="middle" font-size="11" font-family="ui-monospace,Menlo,monospace" opacity="${op}" ${f.bad ? 'fill="#ff7a7a"' : ""}>${lab}</text>`;
+      }
+    });
+    $("pic").innerHTML = s;
+    const f = trace.frames[cur - 1];
+    $("st_title").textContent = `Step ${cur} of ${n}: ${f.title}`;
+    $("st_note").textContent = f.note;
+    $("bytes").innerHTML = f.fields ? f.fields.map(x => `<div class="fld ${x.k || ""}"><div class="hx">${x.b.map(MODEL.hex2).join(" ")}</div><div class="fn">${esc(x.f)}</div></div>`).join("") :
+      `<span class="hint">No SOCKS5 bytes in this step.</span>`;
+    $("step").max = n; $("step").value = cur; $("step_v").textContent = `step ${cur} / ${n}`;
+    window.Story.scenes.seq.n = n;
+  }
+  function show(k){ cur = Math.max(1, Math.min(trace.frames.length, k)); draw(); }
+  function rebuild(last){
+    const inp = inputs();
+    trace = MODEL.simulate_01(PARAMS, inp);
+    const S = trace.S, R = V("socks5_reply_codes");
+    $("headline").innerHTML =
+      metric("Name resolved at", S.dnsAt, TAGS.der) +
+      metric("ATYP sent", S.atyp ? `${V("socks5_atyp", S.atyp)} ${S.atyp}` : "—", TAGS.pub) +
+      metric("Request size", fmt(S.connectBytes) + " bytes", TAGS.pub) +
+      metric("Reply to the tool", S.rep && R[S.rep] ? `${S.rep} ${R[S.rep]}` : "no request sent", TAGS.pub) +
+      metric("QUIC stream opened", S.stream ? "yes" : "no", TAGS.der) +
+      metric("Site sees", S.siteSeesPhone ? "the phone's address" : "nothing", TAGS.der);
+    let why;
+    if (S.rep === "0x00") why = S.dnsAt === "cloud" ?
+      `The client resolved the name in the cloud and sent ATYP 0x01. The phone connects from the user's network, but to ${S.siteAddr}, the server the cloud's resolver picked for the cloud region. The site sees a user's address talking to a far-away server: the mismatch socks5h avoids (B1).` :
+      `The phone resolved the name (or received a literal) and connected from its own network to ${S.siteAddr}. Address and server choice agree with the user's location (B1).`;
+    else if (S.refusedBy === "listener") why = `The listener refused the request in the cloud, so no QUIC stream was opened and no byte reached the phone. The cloud check is a short fixed list; it is defence in depth, not the main filter (C1).`;
+    else if (S.refusedBy === "phone") why = `The phone refused the request after resolving it, on the exact address it would dial. That ordering is what defeats DNS rebinding and alternative spellings (C1).`;
+    else why = `The request never reached a SOCKS5 server.`;
+    $("why_text").textContent = why;
+    $("callout").innerHTML = `<strong>The commit point.</strong> Until the listener passes the phone's CONNECT reply to the tool, the tool has seen only the 2-byte method reply, so the listener could still switch to a direct cloud connection unnoticed. After it, the tool's TLS session belongs to the phone's TCP connection (C2).`;
+    $("live").textContent = `Resolved at ${S.dnsAt}; reply ${S.rep || "none"}; ${trace.frames.length} steps.`;
+    show(last ? trace.frames.length : 1);
+  }
+  document.querySelectorAll("input[name=scheme]").forEach(r => r.addEventListener("change", () => { setPressed("cases", -1); rebuild(true); }));
+  ["dest", "port", "cmd"].forEach(id => $(id).addEventListener("change", () => { setPressed("cases", -1); rebuild(true); }));
+  $("prev").addEventListener("click", () => show(cur - 1));
+  $("next").addEventListener("click", () => show(cur + 1));
+  $("step").addEventListener("input", () => show(+$("step").value));
+  $("seq").addEventListener("keydown", e => { if (e.key === "ArrowLeft"){ show(cur - 1); e.preventDefault(); } if (e.key === "ArrowRight"){ show(cur + 1); e.preventDefault(); } });
+  // shoot.py hook: scene "seq" steps the current trace, scene "out" applies each preloaded case.
+  window.Story = {scenes: {seq: {n: 1}, out: {n: MODEL.CASES.length}},
+    go: (id, k) => { if (id === "seq") show(k); if (id === "out") applyCase(k - 1); }};
+  fillDataP(); renderSources(); runSelfTests();
+  applyCase(0, false);
+})();
+</script>
+</body>
+</html>

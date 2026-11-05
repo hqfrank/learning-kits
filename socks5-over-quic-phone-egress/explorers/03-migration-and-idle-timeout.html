@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A QUIC tunnel survives a network switch only if the phone migrates before the idle timer runs out</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a;
+    --warn:#ffd36b; --phone:#c9a0ff; --cloud:#5ec8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 8px}
+  .sub{color:var(--muted);max-width:78ch;margin:4px 0}
+  .banner{border-left:3px solid var(--warn);padding:6px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0;max-width:78ch;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  label,.lbl{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{width:100%;background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .radio{display:flex;gap:14px;flex-wrap:wrap}
+  .radio label{font-weight:400;display:inline-flex;gap:5px;align-items:center}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.est{color:var(--phone);border-color:var(--phone)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:first-child code{overflow-wrap:normal;white-space:nowrap}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  .sources{margin:0 22px 18px}
+  @media(max-width:860px){.sources{margin:0 12px 12px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>The tunnel survives a Wi-Fi → cellular switch only if the phone migrates before the idle timer runs out</h1>
+  <p class="sub">The phone dials one QUIC connection to the cloud and keeps it alive with keepalive PINGs. Each side closes the
+  connection silently after <em>idle timeout</em> seconds without a packet (RFC 9000 §10.1). When the phone changes network,
+  a stack that supports connection migration moves the connection to the new path (RFC 9000 §9); a stack that does not leaves
+  it on the dead path until the idle timer kills it, and then reconnects with backoff. Move the timers and the outage and
+  watch the server's idle timer (notes B2, C2, C3).</p>
+  <p class="banner">An illustrative model, not a measurement. The design timers are illustrative design parameters; the NAT
+  and keepalive guidance is public (RFC 9308, RFC 4787, RFC 8085). When the switch happens and how long the phone has no
+  network are page choices. Round-trip and probe times are ignored except for the reconnect handshake, which counts
+  one round trip plus one for the Retry (B2, C1).</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <span class="lbl" id="cases-l">Preloaded cases</span>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <label for="idle">QUIC idle timeout (both ends) <span class="val" id="idle_v"></span></label>
+      <input id="idle" type="range" min="5" max="120" step="1">
+      <div class="hint">Design value <span data-p="conn_idle_timeout_illustrative"></span> s (illustrative). The effective value is the smaller of the two ends and at least <span data-p="quic_idle_timeout_min_pto_multiple"></span> × PTO (RFC 9000 §10.1).</div>
+    </div>
+    <div class="ctrl">
+      <label for="ka">Keepalive interval <span class="val" id="ka_v"></span></label>
+      <input id="ka" type="range" min="1" max="60" step="1">
+      <div class="hint">Design value <span data-p="keepalive_illustrative"></span> s (illustrative). RFC 8085 suggests no more often than every <span data-p="udp_keepalive_min"></span> s; more often costs phone power (RFC 9308 §3.2).</div>
+    </div>
+    <div class="ctrl">
+      <label for="nat">NAT binding timeout on the phone's network <span class="val" id="nat_v"></span></label>
+      <input id="nat" type="range" min="15" max="300" step="5">
+      <div class="hint">Assume <span data-p="udp_nat_idle_assumption"></span> s (RFC 9308 §3.2); RFC 4787 asks for at least 120 s, many NATs are shorter.</div>
+    </div>
+    <div class="ctrl">
+      <label for="ts">Phone leaves Wi-Fi at <span class="val" id="ts_v"></span></label>
+      <input id="ts" type="range" min="5" max="80" step="1">
+    </div>
+    <div class="ctrl">
+      <label for="gap">Seconds with no network before cellular is up <span class="val" id="gap_v"></span></label>
+      <input id="gap" type="range" min="0" max="60" step="1">
+      <div class="hint">0 = no outage. Page choices: <span data-p="page_timeline_03" data-f="short_gap"></span>, <span data-p="page_timeline_03" data-f="medium_gap"></span> and <span data-p="page_timeline_03" data-f="long_gap"></span> s.</div>
+    </div>
+    <div class="ctrl">
+      <span class="lbl">Phone stack and traffic</span>
+      <div class="radio" style="flex-direction:column;gap:4px">
+        <label><input type="checkbox" id="mig"> stack migrates the connection to the new network</label>
+        <label><input type="checkbox" id="act"> an active transfer is running (packets flow until the switch)</label>
+      </div>
+      <div class="hint">One phone stack migrates by its handover mode; on the other, migration was unverified (C3).</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="pic" viewBox="0 0 720 360" role="img" aria-labelledby="pic-t"><title id="pic-t">Timeline of network, keepalives, idle timer and tunnel state</title></svg>
+    <div class="why">
+      <h3>What decides the outcome</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel sources" aria-label="Sources">
+  <h2>Parameters and sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = an RFC value; <span class="tag ill">illustrative</span> = a
+  design parameter or page choice, never a measurement; <span class="tag der">derived</span> = computed by this page's model.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Generated 2026-11-12 · Study aid for <em>socks5-over-quic-phone-egress</em> (rung 3). Sources: notes B2, C2, C3, C5 and
+  <code>constants.json</code> of this kit; RFC 9000 §8.2, §9, §10.1; RFC 9308 §3.2; RFC 4787; RFC 8085 §3.5. Numbers are
+  from the listed sources or labelled illustrative or derived.
+</footer>
+
+<script type="application/json" id="params" data-keys="conn_idle_timeout_illustrative,keepalive_illustrative,udp_nat_idle_assumption,udp_keepalive_min,rfc4787_udp_mapping_timer,quic_idle_timeout_min_pto_multiple,quic_path_challenge_data,relay_idle_timeout_illustrative,stream_open_timeout_illustrative,backoff_illustrative,short_lived_threshold_illustrative,rtt_cloud_phone_illustrative,page_timeline_03">
+{
+ "conn_idle_timeout_illustrative": {
+  "value": 30,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter (QUIC max_idle_timeout on both ends)"
+ },
+ "keepalive_illustrative": {
+  "value": 10,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: below udp_nat_idle_assumption and below one third of conn_idle_timeout_illustrative"
+ },
+ "udp_nat_idle_assumption": {
+  "value": 30,
+  "unit": "s",
+  "class": "public",
+  "source": "RFC 9308 §3.2 (applications can assume a NAT binding may expire after 30 s of inactivity)"
+ },
+ "udp_keepalive_min": {
+  "value": 15,
+  "unit": "s",
+  "class": "public",
+  "source": "RFC 8085 §3.5, as summarised in RFC 9308 §3.2"
+ },
+ "rfc4787_udp_mapping_timer": {
+  "value": {
+   "must_not_expire_below": 120,
+   "recommended_default": 300
+  },
+  "unit": "s",
+  "class": "public",
+  "source": "RFC 4787 REQ-5 (many deployed NATs are shorter; that is why RFC 9308 assumes 30 s)"
+ },
+ "quic_idle_timeout_min_pto_multiple": {
+  "value": 3,
+  "unit": "x current PTO",
+  "class": "public",
+  "source": "RFC 9000 §10.1 (effective idle timeout is the minimum of both endpoints' values, and at least three PTOs)"
+ },
+ "quic_path_challenge_data": {
+  "value": 8,
+  "unit": "bytes",
+  "class": "public",
+  "source": "RFC 9000 §19.17"
+ },
+ "relay_idle_timeout_illustrative": {
+  "value": 120,
+  "unit": "s without a byte in either direction",
+  "class": "illustrative",
+  "source": "design parameter (per relayed TCP connection)"
+ },
+ "stream_open_timeout_illustrative": {
+  "value": 8,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: listener waits this long to open a stream to the phone"
+ },
+ "backoff_illustrative": {
+  "value": {
+   "initial": 1,
+   "factor": 2,
+   "cap": 32
+  },
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: phone reconnect schedule 1, 2, 4, 8, 16, 32, 32 ..."
+ },
+ "short_lived_threshold_illustrative": {
+  "value": 10,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter: a tunnel that dies sooner than this counts as a failure for backoff"
+ },
+ "rtt_cloud_phone_illustrative": {
+  "value": {
+   "wifi": 50,
+   "cellular": 120
+  },
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "round round-trip times between a cloud region and a phone"
+ },
+ "page_timeline_03": {
+  "value": {
+   "switch_at": 43,
+   "short_gap": 3,
+   "medium_gap": 28,
+   "long_gap": 45,
+   "horizon": 90
+  },
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): when the phone leaves Wi-Fi, how long it has no network, and the length of the drawn timeline"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function(){
+  "use strict";
+  // Time-stepped model of one phone-dialled QUIC connection across a network switch.
+  //  - The connection dies when no packet has arrived for idle seconds (RFC 9000 §10.1, silent close; both ends alike).
+  //  - Before the switch packets use the Wi-Fi path. During the outage nothing gets through. After it, a migrating stack
+  //    sends from the new network and the connection continues (connection ID, path validation, RFC 9000 §9, §8.2);
+  //    a non-migrating stack keeps sending on the dead path (C3).
+  //  - A NAT binding expires after nat seconds without an outbound packet. The phone's next packet then gets a new
+  //    mapping: NAT rebinding, which QUIC survives; until then the cloud cannot reach the phone (B2, B3).
+  //  - After a death the phone reconnects with the backoff of C2 once a network is up; the handshake costs
+  //    one RTT plus one Retry RTT (B2, C1).
+  const DT = 0.05;
+  function simulate_03(P, x){
+    const H = P.page_timeline_03.value.horizon, B = P.backoff_illustrative.value, R = P.rtt_cloud_phone_illustrative.value;
+    const shortLived = P.short_lived_threshold_illustrative.value;
+    const steps = Math.round(H / DT);
+    let alive = true, connStart = 0, lastRx = 0, lastSend = 0, natLast = 0, onNew = false, fails = 0, reconnectAt = null;
+    const ev = [], ka = [], saw = [], states = [];
+    let maxBlocked = 0, blockedRun = 0, firstDeath = null, staleTime = 0, downTime = 0;
+    for (let i = 0; i <= steps; i++){
+      const t = i * DT;
+      const outage = t >= x.tSwitch && t < x.tSwitch + x.gap;
+      const netUp = !outage;
+      let st;
+      if (alive){
+        let migrateNow = false;
+        if (t >= x.tSwitch + x.gap && !onNew && x.migration){ onNew = true; migrateNow = t >= x.tSwitch; }
+        const pathOk = netUp && (t < x.tSwitch || onNew);
+        const kaDue = t - lastSend >= x.ka - 1e-9;
+        const activeSend = x.active && pathOk && t < x.tSwitch;
+        if (activeSend || kaDue || migrateNow){
+          lastSend = t;
+          if (kaDue && !activeSend) ka.push({t, ok: pathOk});
+          if (pathOk){
+            if (migrateNow){ ev.push({t, k: "migrate"}); natLast = t; }
+            else if (t - natLast > x.nat + 1e-9){ ev.push({t, k: "rebind"}); natLast = t; }
+            else natLast = t;
+            lastRx = t;
+          }
+        }
+        const natLive = t - natLast <= x.nat + 1e-9;
+        if (!pathOk){ st = "stale"; staleTime += DT; blockedRun = 0; }
+        else if (!natLive){ st = "natx"; blockedRun += DT; maxBlocked = Math.max(maxBlocked, blockedRun); }
+        else { st = "up"; blockedRun = 0; }
+        if (i % 5 === 0) saw.push({t, v: t - lastRx});
+        if (t - lastRx >= x.idle - 1e-9){
+          alive = false; st = "down"; ev.push({t, k: "death"}); if (firstDeath === null) firstDeath = t;
+          const lived = t - connStart;
+          fails = lived < shortLived ? fails + 1 : 0;
+          const delay = Math.min(B.initial * Math.pow(B.factor, fails), B.cap);
+          let at = t + delay;
+          if (at >= x.tSwitch && at < x.tSwitch + x.gap) at = x.tSwitch + x.gap;
+          const rtt = (at >= x.tSwitch ? R.cellular : R.wifi) / 1000;
+          reconnectAt = at + 2 * rtt;
+          saw.push({t, v: null});
+        }
+      } else {
+        st = "down"; downTime += DT;
+        if (t >= reconnectAt - 1e-9 && netUp){
+          alive = true; connStart = lastRx = lastSend = natLast = t; onNew = t >= x.tSwitch; reconnectAt = null;
+          ev.push({t, k: "reconnect"}); st = "up";
+        }
+      }
+      states.push(st);
+    }
+    // merge state samples into segments for drawing
+    const seg = [];
+    states.forEach((s, i) => { const t = i * DT; const last = seg[seg.length - 1];
+      if (last && last.s === s) last.t1 = t + DT; else seg.push({s, t0: t, t1: t + DT}); });
+    const deaths = ev.filter(e => e.k === "death").length;
+    return {ev, ka, saw, seg, H,
+      summary: {deaths, survived: deaths === 0, firstDeath: firstDeath === null ? -1 : firstDeath,
+        reconnects: ev.filter(e => e.k === "reconnect").map(e => e.t),
+        rebinds: ev.filter(e => e.k === "rebind").length, migrated: ev.some(e => e.k === "migrate"),
+        maxBlocked, staleTime, downTime, kaPerMin: 60 / x.ka}};
+  }
+  function cases(P){
+    const T = P.page_timeline_03.value, I = P.conn_idle_timeout_illustrative.value, K = P.keepalive_illustrative.value,
+      N = P.udp_nat_idle_assumption.value;
+    const d = {idle: I, ka: K, nat: N, tSwitch: T.switch_at, gap: T.short_gap, migration: true, active: false};
+    const c = o => Object.assign({}, d, o);
+    return [
+      {name: "Migrating stack, short gap", x: c({})},
+      {name: "Non-migrating stack", x: c({migration: false})},
+      {name: "Long outage", x: c({gap: T.long_gap})},
+      {name: "Idle tunnel, medium gap", x: c({gap: T.medium_gap})},
+      {name: "Active transfer, medium gap", x: c({gap: T.medium_gap, active: true})},
+      {name: "Keepalive slower than the NAT", x: c({ka: 45, idle: 60, gap: 0})},
+      {name: "Keepalive ≥ idle timeout", x: c({ka: 40, gap: 0})},
+    ];
+  }
+  function sweep(P){
+    const out = [];
+    for (const idle of [5, 120]) for (const ka of [1, 60]) for (const nat of [15, 300]) for (const tSwitch of [5, 80])
+      for (const gap of [0, 60]) for (const migration of [false, true]) for (const active of [false, true])
+        out.push(simulate_03(P, {idle, ka, nat, tSwitch, gap, migration, active}).summary);
+    return out;
+  }
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const t = (c, m) => { assert(c, m); if (c) passed++; else failed++; };
+    const near = (a, b, e) => Math.abs(a - b) <= (e || 0.11);
+    const K = P.keepalive_illustrative.value, I = P.conn_idle_timeout_illustrative.value, N = P.udp_nat_idle_assumption.value;
+    const B = P.backoff_illustrative.value, R = P.rtt_cloud_phone_illustrative.value;
+    t(K < N, "design keepalive is below the RFC 9308 NAT assumption");
+    t(3 * K <= I, "design keepalive is at most one third of the idle timeout (equal at 10 / 30)");
+    const C = cases(P), S = i => simulate_03(P, C[i].x).summary;
+    let s = S(0); t(s.survived && s.migrated && s.rebinds === 0, "migrating stack, 3 s gap: survives, migrated");
+    s = S(1); t(s.deaths === 1 && near(s.firstDeath, 40 + I), "non-migrating: dies at the last keepalive (40 s) + idle timeout");
+    t(near(s.reconnects[0], 40 + I + B.initial + 2 * R.cellular / 1000), "reconnect = death + initial backoff + 2 RTT");
+    s = S(2); t(s.deaths === 1 && near(s.firstDeath, 40 + I), "long outage: dies inside the outage even with migration");
+    t(near(s.reconnects[0], 43 + 45 + 2 * R.cellular / 1000), "long outage: reconnects when cellular comes up");
+    s = S(3); t(!s.survived, "idle tunnel, 28 s gap: last packet at 40 s, 43 + 28 − 40 > 30, dies");
+    s = S(4); t(s.survived && s.migrated, "active transfer, same gap: last packet at the switch, survives");
+    s = S(5); t(s.survived && s.rebinds >= 1 && s.maxBlocked > P.stream_open_timeout_illustrative.value,
+      "keepalive 45 > NAT 30: survives by rebinding, but the cloud cannot reach the phone for longer than the stream-open timeout");
+    s = S(6); t(s.deaths >= 2 && near(s.firstDeath, I), "keepalive ≥ idle: the connection dies with no switch at all");
+    s = simulate_03(P, Object.assign({}, C[0].x, {gap: 0})).summary; t(s.survived && s.staleTime === 0, "no outage, migrating: never stale");
+    return {passed, failed};
+  }
+  return {simulate_03, cases, sweep, selfTest};
+})();
+/*MODEL-END*/
+if (typeof window !== "undefined") window.MODEL = MODEL;
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, est: {cls: "est", txt: "my estimate"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t){ return `<div class="metric"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : TAGS.ill;
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f || undefined)); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); })); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  const CASES = MODEL.cases(PARAMS);
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.textContent = c.name; b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  const IDS = {idle: "idle", ka: "ka", nat: "nat", tSwitch: "ts", gap: "gap"};
+  function applyCase(i){
+    const x = CASES[i].x;
+    for (const [k, id] of Object.entries(IDS)) $(id).value = x[k];
+    $("mig").checked = x.migration; $("act").checked = x.active;
+    update(); setPressed("cases", i);
+  }
+  const COL = {up: "#49d17a", natx: "#ffd36b", stale: "#8a93a3", down: "#ff7a7a"};
+  const LAB = {up: "up", natx: "NAT expired: cloud cannot reach phone", stale: "stale: no path, timer running", down: "down"};
+  function draw(x, r){
+    const W = 720, padL = 118, padR = 14, H = r.H, sx = t => padL + (W - padL - padR) * t / H;
+    let s = `<title id="pic-t">Timeline of network, keepalives, idle timer and tunnel state over ${H} s</title>`;
+    const lane = (y, name) => `<text x="${padL - 8}" y="${y + 13}" text-anchor="end" font-size="12">${name}</text>`;
+    s += `<defs><pattern id="hz" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#1a1d24"/><line x1="0" y1="0" x2="0" y2="6" stroke="#ff7a7a" stroke-width="2"/></pattern></defs>`;
+    // lane 1: network
+    let y = 14; s += lane(y, "phone network");
+    s += `<rect x="${sx(0)}" y="${y}" width="${sx(x.tSwitch) - sx(0)}" height="18" fill="#5ec8ff" opacity="0.5"/><text x="${sx(0) + 4}" y="${y + 13}" font-size="11">Wi-Fi</text>`;
+    if (x.gap > 0) s += `<rect x="${sx(x.tSwitch)}" y="${y}" width="${sx(Math.min(H, x.tSwitch + x.gap)) - sx(x.tSwitch)}" height="18" fill="url(#hz)"/>`;
+    if (x.tSwitch + x.gap < H) s += `<rect x="${sx(x.tSwitch + x.gap)}" y="${y}" width="${sx(H) - sx(x.tSwitch + x.gap)}" height="18" fill="#c9a0ff" opacity="0.5"/><text x="${sx(x.tSwitch + x.gap) + 4}" y="${y + 13}" font-size="11">cellular</text>`;
+    // lane 2: keepalives
+    y = 44; s += lane(y, "keepalives");
+    r.ka.forEach(k => { const cx = sx(k.t); s += k.ok ? `<circle cx="${cx}" cy="${y + 9}" r="4" fill="#49d17a"/>` : `<circle cx="${cx}" cy="${y + 9}" r="4" fill="none" stroke="#ff7a7a" stroke-width="1.5"/>`; });
+    // lane 3: idle timer sawtooth
+    y = 76; const hS = 110, vmax = x.idle * 1.15, sy = v => y + hS - hS * Math.min(v, vmax) / vmax;
+    s += `<text x="${padL - 8}" y="${y + 40}" text-anchor="end" font-size="12">server idle timer</text><text x="${padL - 8}" y="${y + 56}" text-anchor="end" font-size="11" fill="#aeb6c4">s since last packet</text>`;
+    s += `<rect x="${padL}" y="${y}" width="${W - padL - padR}" height="${hS}" fill="none" stroke="#3a3f4a"/>`;
+    s += `<line x1="${padL}" y1="${sy(x.idle)}" x2="${W - padR}" y2="${sy(x.idle)}" stroke="#ff7a7a" stroke-dasharray="5 4"/><text x="${W - padR - 4}" y="${sy(x.idle) - 4}" text-anchor="end" font-size="11" fill="#ff7a7a">idle timeout ${x.idle} s: close</text>`;
+    let path = "", pen = false;
+    r.saw.forEach(p => { if (p.v === null){ pen = false; return; } path += (pen ? "L" : "M") + sx(p.t).toFixed(1) + " " + sy(p.v).toFixed(1); pen = true; });
+    s += `<path d="${path}" fill="none" stroke="#5ec8ff" stroke-width="2"/>`;
+    // lane 4: tunnel state
+    y = 202; s += lane(y, "tunnel");
+    r.seg.forEach(g => { const w = sx(Math.min(g.t1, H)) - sx(g.t0); s += `<rect x="${sx(g.t0)}" y="${y}" width="${Math.max(w, 0.5)}" height="18" fill="${COL[g.s]}" ${g.s === "stale" ? 'opacity="0.7"' : ""}/>`; });
+    const SYM = {death: ["✕", "#ff7a7a"], reconnect: ["↻", "#49d17a"], migrate: ["⇄", "#c9a0ff"], rebind: ["↺", "#ffd36b"]};
+    r.ev.forEach(e => { const [c, col] = SYM[e.k]; s += `<text x="${sx(e.t)}" y="${y + 34}" text-anchor="middle" font-size="13" fill="${col}">${c}</text>`; });
+    // lane 5: the relayed stream
+    y = 244; s += lane(y, "relayed stream");
+    const fd = r.summary.firstDeath;
+    const end = fd < 0 ? H : fd;
+    s += `<rect x="${sx(0)}" y="${y}" width="${sx(end) - sx(0)}" height="18" fill="#49d17a" opacity="0.6"/>`;
+    if (fd >= 0) s += `<text x="${Math.min(sx(fd) + 4, W - 160)}" y="${y + 13}" font-size="11" fill="#ff7a7a">reset at ${fmt(fd, 1)} s; tool retries</text>`;
+    else s += `<text x="${sx(0) + 4}" y="${y + 13}" font-size="11" fill="#0f1115">survives the whole window</text>`;
+    // axis
+    y = 276; for (let t = 0; t <= H; t += 10){ s += `<line x1="${sx(t)}" y1="${y}" x2="${sx(t)}" y2="${y + 4}" stroke="#aeb6c4"/><text x="${sx(t)}" y="${y + 16}" text-anchor="middle" font-size="11" fill="#aeb6c4">${t}</text>`; }
+    s += `<text x="${W - padR}" y="${y + 30}" text-anchor="end" font-size="11" fill="#aeb6c4">time (s)</text>`;
+    // legend
+    let lx = 12; const ly = y + 50;
+    for (const k of ["up", "natx", "stale", "down"]){ s += `<rect x="${lx}" y="${ly - 10}" width="12" height="12" fill="${COL[k]}"/><text x="${lx + 16}" y="${ly}" font-size="11">${LAB[k]}</text>`; lx += k === "natx" ? 246 : k === "stale" ? 190 : 50; }
+    s += `<text x="12" y="${ly + 20}" font-size="11" fill="#aeb6c4">● keepalive delivered · ○ keepalive lost · ✕ silent close · ↻ reconnect · ⇄ migration · ↺ NAT rebinding</text>`;
+    $("pic").setAttribute("viewBox", `0 0 ${W} ${ly + 30}`);
+    $("pic").innerHTML = s;
+  }
+  function update(){
+    const x = {idle: +$("idle").value, ka: +$("ka").value, nat: +$("nat").value, tSwitch: +$("ts").value, gap: +$("gap").value,
+      migration: $("mig").checked, active: $("act").checked};
+    $("idle_v").textContent = x.idle + " s"; $("ka_v").textContent = x.ka + " s"; $("nat_v").textContent = x.nat + " s";
+    $("ts_v").textContent = x.tSwitch + " s"; $("gap_v").textContent = x.gap + " s";
+    const r = MODEL.simulate_03(PARAMS, x), S = r.summary;
+    $("headline").innerHTML =
+      metric("Connection", S.survived ? (S.migrated ? "survived, migrated" : "survived") : `closed ${S.deaths}×`, TAGS.der) +
+      metric("Relayed stream", S.firstDeath < 0 ? "survives" : `reset at ${fmt(S.firstDeath, 1)} s`, TAGS.der) +
+      metric("Time down", fmt(S.downTime, 1) + " s", TAGS.der) +
+      metric("Stale (server still believes up)", fmt(S.staleTime, 1) + " s", TAGS.der) +
+      metric("Longest NAT-expired stretch", fmt(S.maxBlocked, 1) + " s", TAGS.der) +
+      metric("Keepalives per minute", fmt(S.kaPerMin, 1), TAGS.der);
+    draw(x, r);
+    const SO = V("stream_open_timeout_illustrative");
+    let why;
+    if (x.ka >= x.idle) why = `The keepalive interval (${x.ka} s) is not shorter than the idle timeout (${x.idle} s), so an idle tunnel closes between two keepalives even without a network change. Keepalive must be well under the idle timeout; the design uses one third.`;
+    else if (S.survived && S.migrated && !S.rebinds) why = `The phone ${x.active ? "was sending until the switch" : `last sent a keepalive before the switch`} and its stack migrated as soon as cellular came up. The server's timer reached ${fmt(Math.max(...r.saw.filter(p => p.v !== null).map(p => p.v)), 1)} s, below the ${x.idle} s timeout, so the connection ID carried the connection to the new path and the relayed stream kept running (B2).`;
+    else if (S.survived) why = S.rebinds ? `No switch kills the connection, but the keepalive (${x.ka} s) is slower than the NAT binding (${x.nat} s). Each time the binding expires the cloud cannot open a stream to the phone until the next keepalive makes a new mapping; QUIC survives the rebinding (B2).` :
+      `Packets keep the idle timer and the NAT binding fresh, so nothing breaks.`;
+    else if (!x.migration && x.gap < x.idle) why = `The outage is short, but this stack does not migrate: it keeps sending on the dead Wi-Fi path. The server hears nothing, the timer runs to ${x.idle} s and the connection closes silently; then the phone reconnects with backoff and the relayed stream is lost (C3).`;
+    else why = `The phone had no path for longer than the idle timer allowed. Counting from its last delivered packet, the timer passed ${x.idle} s before cellular was up, so the connection closed silently during the outage. Migration cannot help a connection that is already closed; the phone reconnects (B2, C2).`;
+    $("why_text").textContent = why;
+    $("callout").innerHTML = S.maxBlocked > SO ?
+      `<strong>The reverse direction is the fragile one.</strong> The cloud opens the streams, so it needs the phone's NAT binding to be live. For ${fmt(S.maxBlocked, 1)} s it was not, longer than the ${SO} s stream-open timeout, so new tool connections in that stretch fall back to a direct cloud connection (C2). Keep the keepalive below the NAT timeout.` :
+      `<strong>Three timers, one order.</strong> keepalive (${x.ka} s) &lt; NAT binding (${x.nat} s) and keepalive well under the idle timeout (${x.idle} s). Migration then turns a network switch into a short pause, as long as the outage is shorter than the idle timeout minus the time since the last packet (my explanation of RFC 9000 §9, §10.1).`;
+    $("live").textContent = `${S.survived ? "Connection survives" : "Connection closes " + S.deaths + " time(s)"}; down ${fmt(S.downTime, 1)} s.`;
+  }
+  onInput(Object.values(IDS), () => { setPressed("cases", -1); update(); });
+  ["mig", "act"].forEach(id => $(id).addEventListener("change", () => { setPressed("cases", -1); update(); }));
+  window.Story = {scenes: {out: {n: CASES.length}}, go: (id, k) => { if (id === "out") applyCase(k - 1); }};
+  fillDataP(); renderSources(); runSelfTests();
+  applyCase(0);
+})();
+</script>
+</body>
+</html>
