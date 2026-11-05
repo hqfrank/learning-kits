@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A gated gaze policy holds still when unsure — gaze state-matrix explorer</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a; --warn:#ffd36b;
+    --p1:#5ec8ff; --p2:#ffb347; --p3:#c99bff; --p4:#7fe08a; --robot:#e6e9ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:78ch;margin:6px 0 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  .ctrl>label,.ctrl>.lab{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit}
+  .checks{display:flex;flex-wrap:wrap;gap:4px 14px}
+  .checks label{font-weight:400}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  .cases button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  .cases button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:120px;flex:1 1 120px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .metric.bad .v{color:var(--bad)} .metric.ok .v{color:var(--ok)}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-bottom:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:4px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td.on{outline:2px solid var(--warn);outline-offset:-2px;background:#2a2614}
+  .src{margin:0 22px 18px}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>A gaze policy that follows every label flickers; one that holds the addressee and gates each re-aim looks at fewer wrong people, less often</h1>
+  <p class="sub">Top-down view of a public demo stand: the robot at the bottom, one to four visitors in front of it. Pick who speaks
+  and whether the robot answers. Each tick, a cell of the gaze <strong>state matrix</strong> (reasoner state × who the label names)
+  says what the head wants; the <strong>gated policy</strong> then checks the gates of note B3 (self-speech suppression, slew hold,
+  deadband, dwell, contested) before it re-aims. Compare it with the first design (look at the nearest visitor) and with a policy that
+  follows every speaker label. Every head move is an eased glide with a peak-speed cap. Scene, script and scoring are a page model;
+  the timings are <span class="tag ill">illustrative</span> values from <code>../constants.json</code>. Nothing here is a measurement.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="lab" id="cases-l" style="font-weight:600;margin-bottom:4px">Preloaded cases</div>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <label for="policy">Gaze policy</label>
+      <select id="policy">
+        <option value="gated">gated state matrix (B3)</option>
+        <option value="naive">follow every speaker label</option>
+        <option value="nearest">nearest visitor (first design)</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label for="n">Visitors at the stand</label>
+      <select id="n"><option>1</option><option>2</option><option>3</option><option>4</option></select>
+    </div>
+    <div class="ctrl" role="group" aria-labelledby="spk-l">
+      <div class="lab" id="spk-l">Who speaks (they take turns)</div>
+      <div class="checks" id="spk"></div>
+      <label style="font-weight:400;margin-top:4px;display:block"><input type="checkbox" id="ra"> the robot answers after each visitor turn</label>
+    </div>
+    <div class="ctrl">
+      <label for="tl">Turn length <span class="val" id="tl_v"></span></label>
+      <input id="tl" type="range" min="0.6" max="6" step="0.1">
+      <div class="hint">Length of each visitor turn (and robot answer). Turns are separated by the typical
+        <span data-p="turn_gap_typical"></span> ms gap. Page input.</div>
+    </div>
+    <div class="ctrl">
+      <label for="dw">Hold time (dwell) <span class="val" id="dw_v"></span></label>
+      <input id="dw" type="range" min="0.2" max="5" step="0.1">
+      <div class="hint">No re-aim within this time of the last one; also the window for the contested test. Default:
+        <span data-p="gaze_dwell_illustrative"></span> s (<code>gaze_dwell_illustrative</code>). Gated policy only.</div>
+    </div>
+    <div class="ctrl">
+      <label for="cap">Glide speed cap <span class="val" id="cap_v"></span></label>
+      <input id="cap" type="range" min="0.3" max="6" step="0.1">
+      <div class="hint">Peak head speed of the smoothstep glide. Default: <span data-p="head_slew_cap_illustrative"></span> rad/s
+        (<code>head_slew_cap_illustrative</code>).</div>
+    </div>
+    <div class="ctrl">
+      <label for="nz">Label noise <span class="val" id="nz_v"></span></label>
+      <input id="nz" type="range" min="0" max="40" step="1">
+      <div class="hint">Share of label ticks that name the wrong person (a coarse bearing thrashing between neighbours, or the
+        robot's own voice while it speaks). Page input.</div>
+    </div>
+    <div class="ctrl">
+      <label for="ts">Picture time <span class="val" id="ts_v"></span></label>
+      <input id="ts" type="range" min="0" step="0.05">
+      <div class="hint">Moves the top-down picture and the cursor on the history.</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="scene" viewBox="0 0 720 300" role="img" aria-labelledby="scene-t"></svg>
+    <svg id="hist" viewBox="0 0 720 250" role="img" aria-labelledby="hist-t"></svg>
+    <div class="why">
+      <h3>What dominates right now</h3>
+      <p id="why_text"></p>
+      <div class="tablewrap"><table id="matrix" aria-label="Gaze state matrix; the active cell at the picture time is outlined"></table></div>
+      <div class="tablewrap"><table id="gates" aria-label="Decisions suppressed by each gate"></table></div>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel src" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters &amp; sources</h3>
+  <p class="hint">Loaded from the inlined params block (also shipped as <code>params.json</code>), copied verbatim from
+  <code>../constants.json</code>. <span class="tag ill">illustrative</span> = a round teaching number, never a measurement.
+  <span class="tag pub">public</span> = a cited public source. <span class="tag ill">page model</span> = a choice made only for this page.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Study aid for <em>public-robot-interaction-design</em> (rung 3), from note B3 (gaze) with B2 (labels) and B4 (turn gaps).
+  Numbers are from the listed sources or labelled illustrative; nothing here is a measurement from any robot or show.
+  Gaze shares: Argyle &amp; Ingham 1972; saccade main sequence: Carpenter 1988 (via <code>../constants.json</code>).
+</footer>
+
+<script type="application/json" id="params" data-keys="gaze_tick_illustrative,gaze_dwell_illustrative,gaze_deadband_illustrative,head_slew_cap_illustrative,self_speech_tail_illustrative,turn_gap_typical,head_yaw_limit_illustrative,service_arc_illustrative,saccade_duration_intercept,saccade_duration_slope,saccade_40deg_duration,head_ema_alpha_illustrative,head_ema_t95_illustrative,gaze_episode_mean_illustrative,lookaway_mean_illustrative,alternation_duty_illustrative,gaze_band_listening_illustrative,gaze_band_speaking_illustrative,gaze_listener_share,gaze_speaker_share,proxemics_personal,proxemics_social,page_gaze_horizon,page_gaze_lead_in,page_challenger_ticks,page_on_target_tol,page_scene_layouts">
+{
+  "gaze_tick_illustrative": {"value":20,"unit":"Hz","class":"illustrative","source":"illustrative gaze decision rate"},
+  "gaze_dwell_illustrative": {"value":2,"unit":"s","class":"illustrative","source":"illustrative minimum time between re-aims"},
+  "gaze_deadband_illustrative": {"value":0.05,"unit":"rad (about 3 deg)","class":"illustrative","source":"illustrative re-aim deadband"},
+  "head_slew_cap_illustrative": {"value":1.5,"unit":"rad/s (about 86 deg/s)","class":"illustrative","source":"illustrative peak head speed cap"},
+  "self_speech_tail_illustrative": {"value":400,"unit":"ms","class":"illustrative","source":"illustrative suppression tail after the robot stops speaking (reverberation decay + label latency)"},
+  "turn_gap_typical": {"value":200,"unit":"ms","class":"public","source":"Stivers et al., 'Universals and cultural variation in turn-taking in conversation', PNAS 106(26), 2009: offsets between turns cluster around a short gap of about 200 ms across 10 languages"},
+  "head_yaw_limit_illustrative": {"value":80,"unit":"degrees either side","class":"illustrative","source":"illustrative neck yaw limit"},
+  "service_arc_illustrative": {"value":60,"unit":"degrees either side","class":"illustrative","source":"illustrative arc where visitors stand"},
+  "saccade_duration_intercept": {"value":21,"unit":"ms","class":"public","source":"Carpenter, Movements of the Eyes, 1988: saccade duration ~ 21 ms + 2.2 ms per degree (main-sequence approximation; Bahill, Clark & Stark 1975)"},
+  "saccade_duration_slope": {"value":2.2,"unit":"ms per degree","class":"public","source":"Carpenter 1988"},
+  "saccade_40deg_duration": {"value":109,"unit":"ms","class":"public","source":"my arithmetic from saccade_duration_intercept and saccade_duration_slope at 40 degrees"},
+  "head_ema_alpha_illustrative": {"value":0.1,"unit":"per tick at 50 Hz","class":"illustrative","source":"illustrative exponential smoothing of a head setpoint"},
+  "head_ema_t95_illustrative": {"value":0.57,"unit":"s to 95 %","class":"illustrative","source":"my arithmetic: ln(0.05) / ln(1 - head_ema_alpha_illustrative) / 50 Hz"},
+  "gaze_episode_mean_illustrative": {"value":5,"unit":"s","class":"illustrative","source":"illustrative mean gaze episode"},
+  "lookaway_mean_illustrative": {"value":2,"unit":"s","class":"illustrative","source":"illustrative mean look-away"},
+  "alternation_duty_illustrative": {"value":0.71,"unit":"fraction","class":"illustrative","source":"my arithmetic: gaze_episode_mean_illustrative / (gaze_episode_mean_illustrative + lookaway_mean_illustrative); inside the listening band, outside the speaking band"},
+  "gaze_band_listening_illustrative": {"value":[0.65,0.85],"unit":"fraction of time looking at the addressee","class":"illustrative","source":"illustrative design band, bracketing gaze_listener_share"},
+  "gaze_band_speaking_illustrative": {"value":[0.35,0.55],"unit":"fraction of time looking at the addressee","class":"illustrative","source":"illustrative design band, bracketing gaze_speaker_share"},
+  "gaze_listener_share": {"value":0.75,"unit":"fraction of listening time spent looking at the speaker","class":"public","source":"Argyle & Ingham, 'Gaze, mutual gaze and proximity', Semiotica 6, 1972; summarised in Argyle & Cook, Gaze and Mutual Gaze, 1976 (commonly cited dyadic figures)"},
+  "gaze_speaker_share": {"value":0.41,"unit":"fraction of speaking time spent looking at the listener","class":"public","source":"Argyle & Ingham 1972; Argyle & Cook 1976"},
+  "proxemics_personal": {"value":[0.45,1.2],"unit":"m","class":"public","source":"Hall, The Hidden Dimension, 1966: personal distance zone"},
+  "proxemics_social": {"value":[1.2,3.6],"unit":"m","class":"public","source":"Hall 1966: social distance zone"},
+  "page_gaze_horizon": {"value":24,"unit":"s","class":"illustrative","source":"page model choice (not in constants.json); length of the simulated scene"},
+  "page_gaze_lead_in": {"value":1,"unit":"s","class":"illustrative","source":"page model choice (not in constants.json); quiet time before the first visitor speaks"},
+  "page_challenger_ticks": {"value":3,"unit":"consecutive gaze ticks","class":"illustrative","source":"page model choice (not in constants.json); a new speaker label becomes the gaze subject only after it wins this many consecutive evaluations (B2: 'a challenger must win several consecutive evaluations before the label switches')"},
+  "page_on_target_tol": {"value":5,"unit":"degrees","class":"illustrative","source":"page model choice (not in constants.json); head counts as 'on' a person when within this angle of their bearing; used only to score the policies on this page"},
+  "page_scene_layouts": {"value":{"1":[[0,1]],"2":[[-20,1],[25,1.6]],"3":[[-40,1.4],[5,1],[35,1.8]],"4":[[-50,1.6],[-18,1.1],[15,1.3],[45,2]]},"unit":"[bearing deg, distance m] per visitor, by number of visitors","class":"illustrative","source":"page model choice (not in constants.json); visitor positions; bearings inside service_arc_illustrative, distances inside Hall's personal and social zones (proxemics_personal, proxemics_social)"}
+}
+</script>
+
+<script>
+/*MODEL-START*/
+var MODEL = (function(){
+  "use strict";
+  const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  // seeded generator (mulberry32) so every run of a case is replayable, as the B3 scheduler logs its seed
+  function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+  // B3 "motion quality": eased glide s = 3t^2 - 2t^3
+  function glide_smoothstep_B3(s){ s = Math.min(1, Math.max(0, s)); return 3 * s * s - 2 * s * s * s; }
+  // B3: peak speed of the glide = 1.5 × distance / duration, capped -> duration = 1.5 × distance / cap
+  function glide_duration_B3(distRad, capRadS){ return 1.5 * Math.abs(distRad) / capRadS; }
+  // B3: human saccade duration ≈ intercept + slope × amplitude (Carpenter 1988)
+  function saccade_duration_B3(P, deg){ return P.saccade_duration_intercept.value + P.saccade_duration_slope.value * deg; }
+  // B3: exponential smoothing reaches 95 % after ln(0.05)/ln(1-α) ticks at 50 Hz
+  function ema_t95_B3(P){ return Math.log(0.05) / Math.log(1 - P.head_ema_alpha_illustrative.value) / 50; }
+  // B3: plain gaze / look-away alternation duty = gaze / (gaze + look-away)
+  function alternation_duty_B3(P){ const g = P.gaze_episode_mean_illustrative.value, l = P.lookaway_mean_illustrative.value; return g / (g + l); }
+
+  function layout(P, n){ return P.page_scene_layouts.value[String(n)].map(([b, r], i) => ({id: i, b, r})); }
+
+  // The visit script: chosen speakers take turns in order; optionally the robot answers each one.
+  function script(P, inp){
+    const gap = P.turn_gap_typical.value / 1000, T = P.page_gaze_horizon.value, turns = [];
+    const sp = inp.speakers.map((on, i) => on && i < inp.n ? i : -1).filter(i => i >= 0);
+    let t = P.page_gaze_lead_in.value, k = 0;
+    if (!sp.length) return turns;
+    while (t < T){
+      const who = sp[k % sp.length]; k++;
+      turns.push({who, t0: t, t1: Math.min(T, t + inp.turnLen)}); t += inp.turnLen + gap;
+      if (inp.robotAnswers && t < T){ turns.push({who: "R", addr: who, t0: t, t1: Math.min(T, t + inp.turnLen)}); t += inp.turnLen + gap; }
+    }
+    return turns;
+  }
+
+  // One run of a policy over the scripted scene. Pure: inputs in, trace + counts out.
+  function simulate_gaze(P, inp){
+    const dt = 1 / P.gaze_tick_illustrative.value, T = P.page_gaze_horizon.value;
+    const people = layout(P, inp.n), turns = script(P, inp), rnd = rng(inp.seed || 1);
+    const tol = P.page_on_target_tol.value, lim = P.head_yaw_limit_illustrative.value;
+    const tail = P.self_speech_tail_illustrative.value / 1000, deadDeg = P.gaze_deadband_illustrative.value * R2D;
+    const nearest = people.reduce((a, p) => p.r < a.r ? p : a, people[0]).id;
+    const bearing = tgt => tgt === "C" ? 0 : people[tgt].b;
+    const need = P.page_challenger_ticks.value;
+    let head = 0, glide = null, aim = null, lastAim = -1e9, addressee = null, lastRobotEnd = -1e9, lastUserEnd = -1e9;
+    let subject = null, chal = null, chalN = 0;          // gated: the stable label (challenger must win `need` ticks in a row)
+    const changes = [], trace = [], sup = {self: 0, slew: 0, deadband: 0, dwell: 0, contested: 0};
+    let switches = 0, scored = 0, onT = 0, transit = 0, ti = 0;
+    const N = Math.round(T / dt);
+    for (let k = 0; k <= N; k++){
+      const t = k * dt;
+      // B3: the reasoner's verdict, not vision, decides the addressee: a turn the robot answers was accepted.
+      // Speech the robot does not answer (visitors talking to each other) was ignored and changes nothing.
+      while (ti < turns.length && turns[ti].t1 <= t){ const u = turns[ti]; if (u.who === "R") lastRobotEnd = u.t1; else { lastUserEnd = u.t1; if (inp.robotAnswers) addressee = u.who; } ti++; }
+      const turn = ti < turns.length && turns[ti].t0 <= t ? turns[ti] : null;
+      // between turns the reasoner is still triaging for one hold time after a visitor stops (B3 cell: hold)
+      const state = turn ? (turn.who === "R" ? "robot" : "user") : (t - lastUserEnd < inp.dwell ? "triage" : "idle");
+      const speaker = state === "user" ? turn.who : null;
+      // the label: who the attribution names this tick (may be wrong with probability 'noise')
+      let label = null;
+      const wrong = () => { const o = people.filter(p => p.id !== speaker && p.id !== addressee); return o.length ? o[Math.floor(rnd() * o.length)].id : null; };
+      if (state === "user") label = (people.length > 1 && rnd() < inp.noise) ? wrong() : speaker;
+      else if (state === "robot" && people.length > 1 && rnd() < inp.noise) label = wrong();   // DoA pointing at the robot's own voice
+      // gated policy: smooth the raw label into a subject; record subject changes for the contested test
+      if (state === "user"){
+        if (label === subject){ chal = null; chalN = 0; }
+        else if (label === chal){ if (++chalN >= need){ subject = label; chal = null; chalN = 0; changes.push(t); } }
+        else { chal = label; chalN = 1; if (need <= 1){ subject = label; chal = null; chalN = 0; changes.push(t); } }
+      } else { chal = null; chalN = 0; }
+      // head motion along the current glide
+      if (glide){ const s = (t - glide.t0) / glide.T; head = glide.from + (glide.to - glide.from) * glide_smoothstep_B3(s); if (s >= 1){ head = glide.to; glide = null; } }
+      // state-matrix cell -> desired target
+      let desired = null, cell;
+      const lab = inp.policy === "gated" ? (state === "user" ? subject : null) : label;
+      if (state === "robot"){ cell = "robot:addr"; desired = inp.policy === "naive" && label !== null ? label : addressee;
+        if (inp.policy === "gated" && label !== null && label !== addressee) sup.self++; }   // the cell discards a label while the robot speaks
+      else if (state === "user"){ cell = lab === null ? "user:none" : lab === addressee ? "user:addr" : "user:other"; desired = lab; }
+      else if (state === "triage"){ cell = "triage"; desired = inp.policy === "gated" ? aim : (addressee !== null ? addressee : null); }
+      else { cell = addressee !== null ? "idle:addr" : "idle:none"; desired = addressee !== null ? addressee : (inp.policy === "naive" ? null : "C"); }
+      if (inp.policy === "nearest") desired = nearest;
+      let why = "";
+      if (desired !== null && desired !== aim && Math.abs(bearing(desired) - head) < deadDeg && !glide){
+        aim = desired; if (inp.policy === "gated") sup.deadband++;   // deadband: already pointing there, adopt without moving
+      } else if (desired !== null && desired !== aim){
+        let ok = true;
+        if (inp.policy === "gated"){
+          const fromLabel = state === "user";
+          const inSelf = state === "robot" || (t - lastRobotEnd) < tail;
+          if (inSelf && desired !== addressee && addressee !== null){ ok = false; why = "self"; }
+          else if (glide){ ok = false; why = "slew"; }
+          else if (t - lastAim < inp.dwell){ ok = false; why = "dwell"; }
+          // contested: the subject changed at least twice within the last two hold times -> hold, never average
+          else if (fromLabel && changes.filter(c => c > t - 2 * inp.dwell).length >= 2){ ok = false; why = "contested"; }
+          if (!ok) sup[why]++;
+        }
+        if (ok){
+          const to = Math.max(-lim, Math.min(lim, bearing(desired)));
+          const Tg = Math.max(dt, glide_duration_B3((to - head) * D2R, inp.cap));
+          if (aim !== null) switches++;
+          glide = {from: head, to, t0: t, T: Tg}; aim = desired; lastAim = t;
+        }
+      }
+      // scoring: the person the robot should face now (speaker while a visitor talks, the addressee otherwise)
+      const correct = state === "user" ? speaker : addressee;
+      if (correct !== null){ scored++; if (Math.abs(head - people[correct].b) <= tol) onT++; if (glide) transit++; }
+      trace.push({t, head, state, speaker, label, cell, aim, addressee, gliding: !!glide, why});
+    }
+    const minutes = T / 60;
+    return {people, turns, trace, nearest, switches, flickerPerMin: switches / minutes,
+      onTarget: scored ? onT / scored : 0, inTransit: scored ? transit / scored : 0, scored, suppressed: sup};
+  }
+
+  function cases(P){
+    const d = {policy: "gated", turnLen: 3, dwell: P.gaze_dwell_illustrative.value, cap: P.head_slew_cap_illustrative.value, noise: 0.1, seed: 7};
+    return [
+      {name: "Three visitors, robot answers", x: {...d, n: 3, speakers: [true, false, true, false], robotAnswers: true}},
+      {name: "Two friends talk to each other", x: {...d, n: 2, speakers: [true, true, false, false], robotAnswers: false, turnLen: 1.2, noise: 0}},
+      {name: "The far visitor asks", x: {...d, n: 2, speakers: [false, true, false, false], robotAnswers: true, noise: 0}},
+      {name: "Group of four, noisy labels", x: {...d, n: 4, speakers: [true, true, true, true], robotAnswers: true, turnLen: 2.5, noise: 0.3}},
+      {name: "One visitor, quiet room", x: {...d, n: 1, speakers: [true, false, false, false], robotAnswers: true, noise: 0}}
+    ];
+  }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const near = (a, b, tol) => Math.abs(a - b) <= tol;
+    // reproduce the note's own numbers at their printed precision
+    ok(near(saccade_duration_B3(P, 40), P.saccade_40deg_duration.value, 0.5), "saccade 40 deg = 109 ms (B3)");
+    ok(near(ema_t95_B3(P), P.head_ema_t95_illustrative.value, 0.005), "EMA t95 = 0.57 s (B3)");
+    ok(near(alternation_duty_B3(P), P.alternation_duty_illustrative.value, 0.005), "alternation duty = 0.71 (B3)");
+    const dut = alternation_duty_B3(P), Lb = P.gaze_band_listening_illustrative.value, Sb = P.gaze_band_speaking_illustrative.value;
+    ok(dut >= Lb[0] && dut <= Lb[1] && !(dut >= Sb[0] && dut <= Sb[1]), "alternation lands inside listening band, outside speaking band");
+    ok(Lb[0] <= P.gaze_listener_share.value && P.gaze_listener_share.value <= Lb[1], "listening band brackets the public 75 %");
+    ok(Sb[0] <= P.gaze_speaker_share.value && P.gaze_speaker_share.value <= Sb[1], "speaking band brackets the public 41 %");
+    ok(near(P.gaze_deadband_illustrative.value * R2D, 3, 0.2), "deadband 0.05 rad is about 3 deg");
+    // glide identities: peak slope of smoothstep is 1.5 (at s = 0.5), so peak speed = 1.5·d/T = cap
+    let mx = 0; for (let i = 1; i <= 1000; i++){ mx = Math.max(mx, (glide_smoothstep_B3(i / 1000) - glide_smoothstep_B3((i - 1) / 1000)) * 1000); }
+    ok(near(mx, 1.5, 0.01), "smoothstep peak slope = 1.5");
+    ok(glide_smoothstep_B3(0) === 0 && glide_smoothstep_B3(1) === 1, "glide starts and ends at rest positions");
+    ok(near(glide_duration_B3(40 * D2R, P.head_slew_cap_illustrative.value), 0.698, 0.002), "40 deg glide at 1.5 rad/s takes 0.70 s");
+    // geometry inside the sourced arcs
+    for (const n of [1, 2, 3, 4]) for (const p of layout(P, n)){
+      ok(Math.abs(p.b) <= P.service_arc_illustrative.value, `visitor ${p.id + 1} of ${n} inside the service arc`);
+      ok(p.r >= P.proxemics_personal.value[0] && p.r <= P.proxemics_social.value[1], `visitor ${p.id + 1} of ${n} inside Hall's zones`);
+    }
+    ok(P.head_yaw_limit_illustrative.value >= P.service_arc_illustrative.value, "yaw limit covers the service arc (no torso motion)");
+    // the page's claims, per case
+    const C = cases(P), run = (x, policy) => simulate_gaze(P, {...x, policy});
+    const rally = C[1].x, g = run(rally, "gated"), nv = run(rally, "naive");
+    ok(nv.switches >= 3 * Math.max(1, g.switches), "rally: following every label re-aims at least 3x as often as the gated policy");
+    ok(g.suppressed.contested > 0, "rally: the contested gate fires");
+    const far = C[2].x, gf = run(far, "gated"), nf = run(far, "nearest");
+    ok(nf.onTarget < 0.2 && gf.onTarget > 0.8, "far visitor asks: nearest misses, gated faces the asker");
+    const grp = C[3].x, gg = run(grp, "gated"), gn = run(grp, "naive");
+    ok(gn.flickerPerMin > 2 * gg.flickerPerMin, "noisy group: naive flickers more than twice as often");
+    ok(gg.onTarget > gn.onTarget, "noisy group: gated is on target more of the time");
+    ok(gg.suppressed.self > 0, "noisy group: self-speech suppression holds the addressee while the robot speaks");
+    const one = run(C[4].x, "gated");
+    ok(one.switches === 0 && one.suppressed.deadband > 0, "single visitor at 0 deg: deadband absorbs the centre/visitor difference");
+    const a = run(C[0].x, "gated"), b = run(C[0].x, "gated");
+    ok(JSON.stringify(a.trace) === JSON.stringify(b.trace), "same seed, same run (replayable)");
+    for (const x of C.map(c => c.x)) for (const pol of ["gated", "naive", "nearest"]){
+      const r = run(x, pol);
+      ok(r.trace.every(s => Math.abs(s.head) <= P.head_yaw_limit_illustrative.value + 1e-9), `head within yaw limit (${pol})`);
+    }
+    return {passed, failed};
+  }
+
+  // node NaN sweep: every selector option × each slider extreme
+  function nanSweep(P){
+    let checked = 0, bad = 0;
+    const ext = {turnLen: [0.6, 6], dwell: [0.2, 5], cap: [0.3, 6], noise: [0, 0.4]};
+    for (const policy of ["gated", "naive", "nearest"]) for (const n of [1, 2, 3, 4]) for (const ra of [false, true])
+      for (const spk of [[false, false, false, false], [true, true, true, true], [true, false, false, false]])
+        for (const [k, vs] of Object.entries(ext)) for (const v of vs){
+          const x = {policy, n, robotAnswers: ra, speakers: spk, turnLen: 3, dwell: 2, cap: 1.5, noise: 0.1, seed: 3, [k]: v};
+          const r = simulate_gaze(P, x);
+          for (const val of [r.flickerPerMin, r.onTarget, r.inTransit, ...r.trace.map(s => s.head)]){ checked++; if (!isFinite(val)) bad++; }
+        }
+    return {checked, bad};
+  }
+
+  return {simulate_gaze, script, layout, cases, selfTest, nanSweep, glide_duration_B3, saccade_duration_B3, ema_t95_B3, alternation_duty_B3, D2R, R2D};
+})();
+if (typeof module !== "undefined") module.exports = MODEL;
+/*MODEL-END*/
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, pg: {cls: "ill", txt: "page model"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t, cls){ return `<div class="metric ${cls || ""}"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : (k.startsWith("page_") ? TAGS.pg : TAGS.ill);
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f === undefined ? undefined : Number(el.dataset.f))); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => { const el = $(id); const ev = (el.type === "checkbox" || el.tagName === "SELECT") ? "change" : "input";
+    el.addEventListener(ev, () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); }); }); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+// shoot.py steps window.Story scenes; here a "scene" step = a preloaded case applied to the output panel.
+function exposeStory(figId, n, apply){ window.Story = {scenes: {[figId]: {n}}, go(id, k){ if (id === figId) apply(k - 1); }}; }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  window.Story = window.Story || {scenes: {}, go(){}};
+  const CASES = MODEL.cases(PARAMS);
+  const COL = ["var(--p1)", "var(--p2)", "var(--p3)", "var(--p4)"];
+  const HEX = ["#5ec8ff", "#ffb347", "#c99bff", "#7fe08a"];
+  for (let i = 0; i < 4; i++){ const l = document.createElement("label");
+    l.innerHTML = `<input type="checkbox" id="s${i}"> <span style="color:${COL[i]}">P${i + 1}</span>`; $("spk").appendChild(l); }
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+    b.setAttribute("aria-pressed", "false"); b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  $("ts").max = V("page_gaze_horizon");
+  function applyCase(i){
+    const x = CASES[i].x;
+    $("policy").value = x.policy; $("n").value = String(x.n); $("ra").checked = x.robotAnswers;
+    x.speakers.forEach((on, k) => $("s" + k).checked = on);
+    $("tl").value = x.turnLen; $("dw").value = x.dwell; $("cap").value = x.cap; $("nz").value = Math.round(x.noise * 100);
+    $("ts").value = 12; setPressed("cases", i); update();
+  }
+  function inputs(){
+    return {policy: $("policy").value, n: +$("n").value, robotAnswers: $("ra").checked,
+      speakers: [0, 1, 2, 3].map(k => $("s" + k).checked), turnLen: +$("tl").value, dwell: +$("dw").value,
+      cap: +$("cap").value, noise: +$("nz").value / 100, seed: 7};
+  }
+  const name = id => id === null || id === undefined ? "nobody" : id === "C" ? "centre" : "P" + (id + 1);
+
+  function drawScene(r, s){
+    const W = 720, H = 300, ox = 360, oy = 278, sc = 120;      // 1 m = 120 px
+    const xy = (b, d) => [ox + sc * d * Math.sin(b * MODEL.D2R), oy - sc * d * Math.cos(b * MODEL.D2R)];
+    let g = `<title id="scene-t">Top-down stand at t = ${fmt(s.t, 2)} s: the robot's head points at ${fmt(s.head, 0)} degrees; ` +
+      `${s.state === "user" ? name(s.speaker) + " is speaking" : s.state === "robot" ? "the robot is speaking to " + name(s.addressee) : "nobody is speaking"}.</title>`;
+    const arc = V("service_arc_illustrative"), [ax0, ay0] = xy(-arc, 2.3), [ax1, ay1] = xy(arc, 2.3);
+    g += `<path d="M${ox},${oy} L${ax0},${ay0} A${2.3 * sc},${2.3 * sc} 0 0 1 ${ax1},${ay1} Z" fill="#1d2230" stroke="#3a3f4a"/>`;
+    g += `<text x="${ax1 - 4}" y="${ay1 + 16}" font-size="11" text-anchor="end" fill="#aeb6c4">service arc ±${arc}°</text>`;
+    for (const p of r.people){
+      const [x, y] = xy(p.b, p.r), spk = s.speaker === p.id, lab = s.label === p.id && s.label !== s.speaker;
+      g += `<circle cx="${x}" cy="${y}" r="15" fill="${HEX[p.id]}" fill-opacity="0.85"/>`;
+      if (spk) g += `<circle cx="${x}" cy="${y}" r="22" fill="none" stroke="${HEX[p.id]}" stroke-width="3" stroke-dasharray="4 3"/>`;
+      if (lab) g += `<circle cx="${x}" cy="${y}" r="27" fill="none" stroke="#ff7a7a" stroke-width="2"/>`;
+      g += `<text x="${x}" y="${y + 4}" font-size="12" text-anchor="middle" fill="#0f1115" font-weight="700">P${p.id + 1}</text>`;
+      const tags = [spk ? "speaking" : "", s.addressee === p.id ? "addressee" : "", p.id === r.nearest ? "nearest" : "", lab ? "wrong label" : ""].filter(Boolean).join(" · ");
+      g += `<text x="${x}" y="${y - 30}" font-size="11" text-anchor="middle" fill="#aeb6c4">${fmt(p.b, 0)}° · ${fmt(p.r, 1)} m${tags ? " · " + tags : ""}</text>`;
+    }
+    const [hx, hy] = xy(s.head, 2.25);
+    g += `<line x1="${ox}" y1="${oy}" x2="${hx}" y2="${hy}" stroke="#eef1f6" stroke-width="2.5"/>`;
+    g += `<rect x="${ox - 22}" y="${oy - 10}" width="44" height="22" rx="8" fill="#e6e9ef"/>`;
+    g += `<text x="${ox}" y="${oy + 5}" font-size="11" text-anchor="middle" fill="#0f1115" font-weight="700">robot</text>`;
+    if (s.state === "robot") g += `<text x="${ox + 30}" y="${oy + 4}" font-size="12" fill="#ffd36b">speaking…</text>`;
+    g += `<text x="12" y="20" font-size="12">t = ${fmt(s.t, 2)} s · head ${fmt(s.head, 0)}° · aim: ${name(s.aim)}${s.gliding ? " (gliding)" : ""}</text>`;
+    g += `<text x="12" y="38" font-size="11" fill="#aeb6c4">dashed ring = speaking · red ring = the label names someone else · white line = head direction</text>`;
+    $("scene").innerHTML = g;
+  }
+
+  function drawHist(r, tNow){
+    const W = 720, H = 250, pl = 46, pr = 12, pt = 30, pb = 30, T = V("page_gaze_horizon");
+    const sx = t => pl + (W - pl - pr) * t / T, sy = d => pt + (H - pt - pb) * (70 - d) / 140;
+    let g = `<title id="hist-t">Head yaw over ${T} s with each visitor's bearing as a dashed line, turn bands along the top, and ${r.switches} re-aims marked.</title>`;
+    for (const u of r.turns){
+      const c = u.who === "R" ? "#e6e9ef" : HEX[u.who];
+      g += `<rect x="${sx(u.t0)}" y="${pt - 16}" width="${Math.max(1, sx(u.t1) - sx(u.t0))}" height="10" fill="${c}" fill-opacity="${u.who === "R" ? 0.45 : 0.9}"/>`;
+    }
+    g += `<text x="${pl}" y="11" font-size="11" fill="#aeb6c4">turns (colour = visitor, grey = robot answering)</text>`;
+    for (const d of [-60, -30, 0, 30, 60]){ g += `<line x1="${pl}" x2="${W - pr}" y1="${sy(d)}" y2="${sy(d)}" stroke="#262b35"/>` +
+      `<text x="${pl - 6}" y="${sy(d) + 4}" font-size="11" text-anchor="end" fill="#aeb6c4">${d}°</text>`; }
+    for (const p of r.people) g += `<line x1="${pl}" x2="${W - pr}" y1="${sy(p.b)}" y2="${sy(p.b)}" stroke="${HEX[p.id]}" stroke-dasharray="5 4"/>` +
+      `<text x="${W - pr - 2}" y="${sy(p.b) - 3}" font-size="11" text-anchor="end" fill="${HEX[p.id]}">P${p.id + 1}</text>`;
+    g += `<polyline fill="none" stroke="#eef1f6" stroke-width="2" points="${r.trace.map(s => sx(s.t).toFixed(1) + "," + sy(s.head).toFixed(1)).join(" ")}"/>`;
+    let prev = null;
+    for (const s of r.trace){ if (s.aim !== prev && prev !== null) g += `<path d="M${sx(s.t)},${H - pb + 2} l-4,8 h8 z" fill="#ffd36b"/>`; prev = s.aim; }
+    for (let t = 0; t <= T; t += 4) g += `<text x="${sx(t)}" y="${H - 6}" font-size="11" text-anchor="middle" fill="#aeb6c4">${t} s</text>`;
+    g += `<line x1="${sx(tNow)}" x2="${sx(tNow)}" y1="${pt - 18}" y2="${H - pb}" stroke="#ffd36b" stroke-width="1.5"/>`;
+    g += `<text x="${pl + 4}" y="${pt + 12}" font-size="11" fill="#aeb6c4">white = head yaw · ▲ = a re-aim</text>`;
+    $("hist").innerHTML = g;
+  }
+
+  const CELLS = {
+    "idle:none": "release: face ahead", "idle:addr": "hold the last aim (addressee)",
+    "user:addr": "lock on the addressee, pursue", "user:other": "aim at the speaker if the gates pass", "user:none": "hold",
+    "robot:addr": "hold the addressee, suppress retargeting"};
+  function drawMatrix(cell){
+    const rows = [["idle", "idle (nobody speaking)"], ["user", "a visitor speaking"], ["triage", "triaging (just after a visitor turn)"], ["robot", "the robot speaking"]];
+    const cols = [["addr", "label = addressee"], ["other", "label = another visitor"], ["none", "no label"]];
+    let h = `<caption style="text-align:left;color:#aeb6c4;font-size:12px">State matrix (simplified from B3). Outlined = the cell at the picture time.</caption>` +
+      `<thead><tr><th>reasoner state</th>${cols.map(c => `<th>${c[1]}</th>`).join("")}</tr></thead><tbody>`;
+    for (const [r, rn] of rows){
+      h += `<tr><th scope="row">${rn}</th>`;
+      for (const [c] of cols){
+        let key = r + ":" + c;
+        if (r === "idle") key = c === "none" ? "idle:none" : "idle:addr";
+        if (r === "robot") key = "robot:addr";
+        if (r === "triage"){ h += `<td class="${cell === "triage" ? "on" : ""}" colspan="3">hold: the verdict is not in yet</td>`; break; }
+        const txt = r === "idle" && c !== "none" ? "—" : r === "robot" && c !== "addr" ? (c === "other" ? "suppress (may be own voice)" : "hold the addressee") : CELLS[key];
+        const on = (r === "idle" && c === "none" && (cell === "idle:none" || cell === "idle:addr")) ||
+          (r === "user" && cell === key) || (r === "robot" && cell === "robot:addr" && c === "addr");
+        h += `<td class="${on ? "on" : ""}">${r === "idle" && c === "none" ? "hold the addressee if there is one, else release" : txt}</td>`;
+      }
+      h += `</tr>`;
+    }
+    $("matrix").innerHTML = h + "</tbody>";
+  }
+
+  function update(){
+    const x = inputs();
+    for (let k = 0; k < 4; k++){ $("s" + k).disabled = k >= x.n; }
+    $("tl_v").textContent = fmt(x.turnLen, 1) + " s"; $("dw_v").textContent = fmt(x.dwell, 1) + " s";
+    $("cap_v").textContent = fmt(x.cap, 1) + " rad/s (" + fmt(x.cap * MODEL.R2D, 0) + "°/s)"; $("nz_v").textContent = fmt(x.noise * 100, 0) + " %";
+    const r = MODEL.simulate_gaze(PARAMS, x);
+    const tNow = +$("ts").value; $("ts_v").textContent = fmt(tNow, 2) + " s";
+    const s = r.trace[Math.min(r.trace.length - 1, Math.round(tNow * V("gaze_tick_illustrative")))];
+    const g40 = MODEL.glide_duration_B3(40 * MODEL.D2R, x.cap), sac = MODEL.saccade_duration_B3(PARAMS, 40);
+    $("headline").innerHTML =
+      metric("on the right person", r.scored ? fmt(r.onTarget * 100, 0) + " %" : "no one to face", TAGS.der, r.onTarget >= 0.7 ? "ok" : r.scored ? "bad" : "") +
+      metric("re-aims per minute", fmt(r.flickerPerMin, 1), TAGS.der, r.flickerPerMin > 15 ? "bad" : "") +
+      metric("time in transit", fmt(r.inTransit * 100, 0) + " %", TAGS.der) +
+      metric("40° glide / 40° saccade", fmt(g40, 2) + " s / " + fmt(sac / 1000, 2) + " s", TAGS.der);
+    drawScene(r, s); drawHist(r, tNow); drawMatrix(s.cell);
+    const sp = r.suppressed, tot = Object.values(sp).reduce((a, b) => a + b, 0);
+    $("gates").innerHTML = `<caption style="text-align:left;color:#aeb6c4;font-size:12px">Ticks on which a wanted re-aim was suppressed, by the first gate that refused it (gated policy only; B3 logs every suppressed decision).</caption>` +
+      `<thead><tr><th>self-speech</th><th>slew hold</th><th>deadband</th><th>dwell</th><th>contested</th></tr></thead>` +
+      `<tbody><tr>${["self", "slew", "deadband", "dwell", "contested"].map(k => `<td>${x.policy === "gated" ? sp[k] : "—"}</td>`).join("")}</tr></tbody>`;
+    let why;
+    if (x.policy === "nearest") why = `The first design points at the nearest body (${name(r.nearest)}) and never moves. At a stand the normal case is a group, and the nearest person is often not the one talking, so it faces the right person only ${fmt(r.onTarget * 100, 0)} % of the time.`;
+    else if (x.policy === "naive") why = `Every new label starts a new glide. With ${fmt(x.noise * 100, 0)} % wrong labels and ${fmt(x.turnLen, 1)} s turns the head re-aims ${fmt(r.flickerPerMin, 1)} times a minute and spends ${fmt(r.inTransit * 100, 0)} % of the scored time moving: the "head following a rally" defect. A confident wrong turn tells the group the robot is talking to someone else.`;
+    else {
+      const top = Object.entries(sp).sort((a, b) => b[1] - a[1])[0];
+      why = tot ? `The gates refused ${tot} wanted re-aims; the busiest was <strong>${top[0]}</strong> (${top[1]}). ` : `No gate had to refuse anything: the labels are clean and the turns are long. `;
+      why += x.robotAnswers ? `While the robot speaks, the cell "hold the addressee" applies, so a label that points elsewhere (perhaps the robot's own voice) is ignored. ` :
+        `Nobody is answered, so the head stays with whoever the gates last allowed. `;
+      if (sp.contested) why += `Labels alternated faster than the ${fmt(x.dwell, 1)} s hold, so the policy held rather than average two speakers: a head pointed between two people addresses neither.`;
+    }
+    $("why_text").innerHTML = why;
+    $("callout").innerHTML = `Motion quality: a human saccade of 40° takes about ${fmt(sac, 0)} ms (Carpenter 1988). The robot glides instead: at ` +
+      `${fmt(x.cap, 1)} rad/s a 40° move takes ${fmt(g40, 2)} s, with zero speed at both ends. The note's alternative, exponential smoothing, reaches 95 % in ` +
+      `${fmt(MODEL.ema_t95_B3(PARAMS), 2)} s but never finishes cleanly. A slow cap reads as sluggish and raises time in transit; a high cap snaps.`;
+    $("live").textContent = `${x.policy} policy: on the right person ${fmt(r.onTarget * 100, 0)} %, ${fmt(r.flickerPerMin, 1)} re-aims per minute.`;
+  }
+  onInput(["policy", "n", "ra", "s0", "s1", "s2", "s3", "tl", "dw", "cap", "nz", "ts"], update);
+  fillDataP(); renderSources(); runSelfTests();
+  exposeStory("out", CASES.length, applyCase);
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

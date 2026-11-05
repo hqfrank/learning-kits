@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Whether an experience can run is decided at start-up from the catalogs, and switching is a full restart: switching explorer</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a;
+    --warn:#ffd36b; --phone:#c9a0ff; --cloud:#5ec8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 8px}
+  .sub{color:var(--muted);max-width:78ch;margin:4px 0}
+  .banner{border-left:3px solid var(--warn);padding:6px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0;max-width:78ch;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  label,.lbl{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{width:100%;background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .radio{display:flex;gap:14px;flex-wrap:wrap}
+  .radio label{font-weight:400;display:inline-flex;gap:5px;align-items:center}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.est{color:var(--phone);border-color:var(--phone)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:first-child code{overflow-wrap:normal;white-space:nowrap}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  .sources{margin:0 22px 18px}
+  @media(max-width:860px){.sources{margin:0 12px 12px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+  .box{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;min-width:0}
+  .box h4{margin:0 0 5px;font-size:12.5px;color:var(--muted);font-weight:600}
+  .box dl{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:0}
+  .box dt{color:var(--muted)} .box dd{margin:0;overflow-wrap:anywhere}
+  .box ul{margin:0;padding-left:18px}
+  tr.cur td{background:#20263a}
+  .okc{color:var(--ok)} .badc{color:var(--bad)} .warnc{color:var(--warn)} .mutc{color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .row select{width:auto;flex:1 1 120px}
+  .checks label{font-weight:400;display:flex;gap:6px;align-items:flex-start;margin:3px 0}
+  #log td:first-child,#log th:first-child{white-space:nowrap}
+  #rules td:first-child,#rules td:last-child{white-space:nowrap}
+  #rules td:nth-child(4){white-space:nowrap}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>Whether an experience can run here is decided at start-up from the catalogs, and switching to another is a full restart</h1>
+  <p class="sub">An experience does not list its capabilities. They are <em>derived</em> from the primitives and inputs it declares,
+  through the primitive catalog and the input catalog, and every catalog entry names its <em>targets</em> (simulation, physical),
+  each with its own adapter or producer contract (B5). Readiness fails unless every required input has a healthy producer and every
+  primitive a healthy adapter <em>on this target</em>; a missing optional input may only select a declared degraded branch. Switch
+  producers off and change the target to see which of three experiences is eligible. Then plan a switch: it is stop, clean, restart,
+  never a hot swap during a visit (B5).</p>
+  <p class="banner">An illustrative model, not a measurement. The three experiences (a greeting, a chat, a wave) are the first-registry
+  experiences of note C2; which inputs and primitives each declares, and the wave's optional speech input, are page choices that
+  follow notes B3 and B5. The timings are illustrative design parameters from <code>constants.json</code> or page choices. The notes
+  give no restart time for the physical robot, so the switch timeline uses the simulation host lifecycle (C1).</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <span class="lbl" id="cases-l">Preloaded cases</span>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <label for="target">Deployment target</label>
+      <select id="target"><option value="sim">simulation target</option><option value="physical">physical target (the robot)</option></select>
+    </div>
+    <div class="ctrl checks">
+      <span class="lbl">Cross-target status</span>
+      <label><input type="checkbox" id="xt"> cross-target milestone passed (hardware-in-the-loop with equivalent evidence, C2)</label>
+    </div>
+    <div class="ctrl checks" id="health_box">
+      <span class="lbl">Producers and adapters healthy on this target</span>
+      <div id="health"></div>
+    </div>
+    <div class="ctrl">
+      <label for="from">Switch from</label>
+      <select id="from"></select>
+      <label for="to" style="margin-top:6px">to</label>
+      <select id="to"></select>
+    </div>
+    <div class="ctrl checks">
+      <label><input type="checkbox" id="visit"> a visit is in progress when the switch is requested</label>
+    </div>
+    <div class="ctrl">
+      <label for="cln">Cleanup of that visit takes <span class="val" id="cln_v"></span></label>
+      <input id="cln" type="range" min="0.5" max="15" step="0.5">
+      <div class="hint">The cleanup deadline is <span data-p="cleanup_ack_timeout_ms_illustrative"></span> ms (illustrative); past it the kernel enters recovery (B2).</div>
+    </div>
+    <div class="ctrl">
+      <label for="ret">Retiring the simulation instance takes <span class="val" id="ret_v"></span></label>
+      <input id="ret" type="range" min="30" max="600" step="10">
+      <div class="hint">Bound <span data-p="sim_retire_timeout_s_illustrative"></span> s (illustrative design parameter, C1).</div>
+    </div>
+    <div class="ctrl">
+      <label for="cold">Simulator cold start to a healthy scene <span class="val" id="cold_v"></span></label>
+      <input id="cold" type="range" min="60" max="1800" step="20">
+      <div class="hint">Of the order of <span data-p="sim_cold_start_s_illustrative"></span> s (illustrative, not a measurement); launch is bounded by <span data-p="sim_launch_timeout_s_illustrative"></span> s.</div>
+    </div>
+    <div class="ctrl">
+      <label for="runs">Profile matrix: scenario run per profile <span class="val" id="runs_v"></span></label>
+      <input id="runs" type="range" min="60" max="600" step="10">
+      <label for="np" style="margin-top:6px">profiles in the serial matrix <span class="val" id="np_v"></span></label>
+      <input id="np" type="range" min="1" max="8" step="1">
+      <div class="hint">Illustrative <span data-p="matrix_run_s_illustrative"></span> s per run and <span data-p="matrix_profiles_illustrative"></span> profiles (B5).</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="pic" viewBox="0 0 720 420" role="img" aria-labelledby="pic-t"><title id="pic-t">Eligibility matrix and switch timeline</title></svg>
+    <div class="why">
+      <h3>What decides eligibility and the switch</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+    <h2 style="margin-top:14px">What a switch does to state</h2>
+    <div class="tablewrap"><table id="state"><thead><tr><th>Field</th><th>Before the switch</th><th>After stop–clean–restart</th><th>What a hot swap (rejected) would have to prove</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+
+<section class="panel sources" aria-label="Sources">
+  <h2>Parameters and sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = a cited public value; <span class="tag ill">illustrative</span> = a
+  design parameter or page choice, never a measurement; <span class="tag der">derived</span> = computed by this page's model (my arithmetic).</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Generated 2026-11-14 · Study aid for <em>hri-experience-platform</em> (rung 3). Sources: notes B2, B3, B5, C1, C2 and
+  <code>constants.json</code> of this kit; Cockburn, "Hexagonal architecture" (catalogs as ports, per-target contracts as adapters).
+  Numbers are from the listed sources or labelled illustrative or derived. This is a study aid.
+</footer>
+
+<script type="application/json" id="params" data-keys="sim_cold_start_s_illustrative,sim_launch_timeout_s_illustrative,sim_retire_timeout_s_illustrative,matrix_profiles_illustrative,matrix_run_s_illustrative,cleanup_ack_timeout_ms_illustrative,page_switch_02">
+{
+ "sim_cold_start_s_illustrative": {
+  "value": 600,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative order of magnitude of a physics-simulator cold start to a healthy scene; not a measurement"
+ },
+ "sim_launch_timeout_s_illustrative": {
+  "value": 1200,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter; launch bound, chosen larger than the cold start"
+ },
+ "sim_retire_timeout_s_illustrative": {
+  "value": 300,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter; bound on stopping and retiring one simulation instance"
+ },
+ "matrix_profiles_illustrative": {
+  "value": 5,
+  "unit": "profiles",
+  "class": "illustrative",
+  "source": "illustrative number of experience profiles validated by the serial profile-matrix runner"
+ },
+ "matrix_run_s_illustrative": {
+  "value": 300,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative scenario run time per profile in the serial matrix"
+ },
+ "cleanup_ack_timeout_ms_illustrative": {
+  "value": 10000,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; kernel cleanup acknowledgement deadline. Every settle bound must be strictly shorter"
+ },
+ "page_switch_02": {
+  "value": {
+   "stores_proof_s": 5,
+   "readiness_s": 30,
+   "cleanup_typical_s": 3
+  },
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): time to prove every store clean, time to rerun readiness and qualification, and a typical cleanup of an active visit"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function(){
+  "use strict";
+  // Catalog entries (B3, B5). Each names its targets; a missing producer on a target is an explicit deferred record.
+  const INPUTS = {
+    presence: {name: "visitor presence", ingress: "normalised event", prod: {sim: "browser perception via the gateway", physical: "camera-derived perception"}},
+    speech:   {name: "visitor speech", ingress: "authorised stream", prod: {sim: "browser microphone via the gateway", physical: "robot microphone"}},
+    gesture:  {name: "visitor gesture", ingress: "normalised event", prod: {sim: "scenario driver only", physical: null},
+      deferred: "deferred record: no gesture detector exists; separate perception work (B5)"},
+  };
+  const PRIMS = {
+    greeting: {name: "greeting", kind: "session service"},
+    turn:     {name: "conversation turn", kind: "session service"},
+    gaze:     {name: "gaze lease", kind: "gaze lease"},
+    wave:     {name: "wave", kind: "physical action"},
+  };
+  // Definitions declare inputs and primitives only; capabilities are derived from them (B1, B5). Page choices.
+  const EXPS = {
+    greeting: {name: "greeting", req: ["presence"], opt: [], prims: ["greeting", "gaze"]},
+    chat:     {name: "chat", req: ["presence", "speech"], opt: [], prims: ["greeting", "turn", "gaze"]},
+    wave:     {name: "wave", req: ["presence", "gesture"], opt: ["speech"], prims: ["greeting", "wave"], degraded: "declared degraded branch: no reply turn to speech"},
+  };
+  const capKeys = () => [...Object.keys(INPUTS).map(k => "in:" + k), ...Object.keys(PRIMS).map(k => "pr:" + k)];
+  function allHealthy(){ const h = {}; capKeys().forEach(k => h[k] = true); return h; }
+  // Capability matching (B5): required set derived from declared inputs and primitives, checked per target.
+  function eligibility_B5(id, target, health, xt){
+    const E = EXPS[id], reasons = [], degraded = [];
+    if (target === "physical" && !xt) reasons.push("physical execution stays disabled until the cross-target milestone (C2)");
+    for (const k of E.req){ const I = INPUTS[k];
+      if (!I.prod[target]) reasons.push(`required input "${I.name}": ${I.deferred}`);
+      else if (!health["in:" + k]) reasons.push(`required input "${I.name}": producer unhealthy`); }
+    for (const k of E.opt){ const I = INPUTS[k];
+      if (!I.prod[target] || !health["in:" + k]) degraded.push(`optional input "${I.name}" missing → ${E.degraded}`); }
+    for (const k of E.prims) if (!health["pr:" + k]) reasons.push(`primitive "${PRIMS[k].name}": adapter unhealthy`);
+    return {status: reasons.length ? "not eligible" : degraded.length ? "degraded" : "eligible", reasons, degraded,
+      derived: [...E.req, ...E.opt].map(k => INPUTS[k].name).concat(E.prims.map(k => PRIMS[k].name))};
+  }
+  // Switching (B5): stop admission, retire the session through cleanup, prove stores clean, stop, start the new profile, readiness.
+  function switch_B5(P, x){
+    const S = P.page_switch_02.value, CL = P.cleanup_ack_timeout_ms_illustrative.value / 1000;
+    const RT = P.sim_retire_timeout_s_illustrative.value, LT = P.sim_launch_timeout_s_illustrative.value;
+    const steps = []; let fail = null;
+    const add = (name, d, bound) => { steps.push({name, d, bound}); };
+    add("stop admission", 0);
+    if (x.visit){ add("retire the session through cleanup", x.cleanup_s, CL);
+      if (x.cleanup_s > CL) fail = {step: 1, why: `cleanup could not prove quiescence within ${CL} s: the kernel enters recovery and only operator recovery leaves it (B2)`}; }
+    else add("retire the session through cleanup (no visit)", 0, CL);
+    if (!fail){ add("prove every store clean", S.stores_proof_s);
+      add("stop and retire the simulation instance", x.retire_s, RT);
+      if (x.retire_s > RT) fail = {step: 3, why: `retirement passed its ${RT} s bound: the matrix runner fails closed (B5)`}; }
+    if (!fail){ add("start with the new pinned profile (cold start)", x.cold_s, LT);
+      if (x.cold_s > LT) fail = {step: 4, why: `cold start passed the ${LT} s launch bound: launch fails closed (C1)`}; }
+    if (!fail){ add("rerun readiness and qualification", S.readiness_s);
+      if (!x.toEligible) fail = {step: 5, why: "readiness fails for the new profile: the robot stays not ready and admits no visitor"}; }
+    const total = steps.reduce((a, s) => a + s.d, 0);
+    return {steps, fail, total, ok: !fail};
+  }
+  // Serial profile matrix (B5): per profile cold start + run + retirement, worst case at the bound (my arithmetic).
+  function matrix_B5(n, cold, run, retire){ const cycle = cold + run + retire; return {cycle, total: n * cycle}; }
+  function cases(P){
+    const S = P.page_switch_02.value, d = {target: "sim", xt: false, health: allHealthy(), from: "greeting", to: "chat", visit: false,
+      cleanup_s: S.cleanup_typical_s, retire_s: P.sim_retire_timeout_s_illustrative.value, cold_s: P.sim_cold_start_s_illustrative.value,
+      run_s: P.matrix_run_s_illustrative.value, n: P.matrix_profiles_illustrative.value};
+    const c = o => Object.assign({}, d, o, {health: Object.assign(allHealthy(), o.health || {})});
+    return [
+      {name: "Simulation, all healthy", x: c({})},
+      {name: "Switch during a visit", x: c({from: "wave", to: "chat", visit: true})},
+      {name: "Browser microphone down", x: c({health: {"in:speech": false}, from: "greeting", to: "wave"})},
+      {name: "Physical, before the milestone", x: c({target: "physical", from: "greeting", to: "chat"})},
+      {name: "Physical, after the milestone", x: c({target: "physical", xt: true, from: "chat", to: "wave"})},
+      {name: "Stuck cleanup blocks the switch", x: c({visit: true, cleanup_s: 12, from: "chat", to: "greeting"})},
+      {name: "Slow cold start", x: c({cold_s: 1400})},
+    ];
+  }
+  function evaluate(P, x){
+    const elig = {}; for (const id of Object.keys(EXPS)) elig[id] = eligibility_B5(id, x.target, x.health, x.xt);
+    const sw = switch_B5(P, Object.assign({}, x, {toEligible: elig[x.to].status !== "not eligible"}));
+    const m = matrix_B5(x.n, x.cold_s, x.run_s, x.retire_s);
+    return {elig, sw, m, nEligible: Object.values(elig).filter(e => e.status !== "not eligible").length};
+  }
+  function sweep(P){
+    const out = [], base = cases(P)[0].x, off = {}; capKeys().forEach(k => off[k] = false);
+    for (const target of ["sim", "physical"]) for (const xt of [false, true]) for (const health of [allHealthy(), off])
+      for (const visit of [false, true]) for (const cleanup_s of [0.5, 15]) for (const retire_s of [30, 600]) for (const cold_s of [60, 1800])
+        for (const run_s of [60, 600]) for (const n of [1, 8]) for (const to of ["greeting", "wave"]){
+          const r = evaluate(P, Object.assign({}, base, {target, xt, health, visit, cleanup_s, retire_s, cold_s, run_s, n, to}));
+          out.push({total: r.sw.total, cycle: r.m.cycle, mt: r.m.total, ne: r.nEligible});
+        }
+    return out;
+  }
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const t = (c, m) => { assert(c, m); if (c) passed++; else failed++; };
+    const C = cases(P), ev = i => evaluate(P, C[i].x);
+    const cold = P.sim_cold_start_s_illustrative.value, run = P.matrix_run_s_illustrative.value, ret = P.sim_retire_timeout_s_illustrative.value;
+    t(P.sim_launch_timeout_s_illustrative.value > cold, "launch bound is larger than the cold start (C1)");
+    const m = matrix_B5(P.matrix_profiles_illustrative.value, cold, run, ret);
+    t(m.cycle === 1200, "one profile cycle is up to 600 + 300 + 300 = 1 200 s (B5, my arithmetic)");
+    t(m.total / 60 === 100, "5 profiles take up to about 100 min (B5, my arithmetic)");
+    let r = ev(0);
+    t(r.nEligible === 3 && r.sw.ok, "simulation, all healthy: all three eligible; the switch succeeds");
+    t(r.sw.total === P.page_switch_02.value.stores_proof_s + ret + cold + P.page_switch_02.value.readiness_s, "switch without a visit = proof + retire + cold start + readiness");
+    r = ev(1);
+    t(r.sw.ok && r.sw.steps[1].d === P.page_switch_02.value.cleanup_typical_s, "a visit in progress is retired through normal cleanup first");
+    r = ev(2);
+    t(r.elig.chat.status === "not eligible" && r.elig.wave.status === "degraded" && r.elig.greeting.status === "eligible", "microphone down: chat not eligible, wave degraded (optional input), greeting eligible");
+    r = ev(3);
+    t(r.nEligible === 0 && !r.sw.ok && r.sw.fail.step === 5, "physical before the cross-target milestone: nothing eligible, readiness fails");
+    r = ev(4);
+    t(r.elig.greeting.status === "eligible" && r.elig.chat.status === "eligible" && r.elig.wave.status === "not eligible" &&
+      r.elig.wave.reasons.some(s => /deferred record/.test(s)), "physical after the milestone: the wave stays not eligible because the gesture input is deferred");
+    r = ev(5);
+    t(!r.sw.ok && r.sw.fail.step === 1 && /recovery/.test(r.sw.fail.why), "cleanup past the deadline: recovery blocks the switch");
+    r = ev(6);
+    t(!r.sw.ok && r.sw.fail.step === 4, "cold start past the launch bound: launch fails closed");
+    t(eligibility_B5("wave", "sim", allHealthy(), false).derived.length === 5, "the wave's capabilities are derived from 3 inputs and 2 primitives, not listed again");
+    return {passed, failed};
+  }
+  return {INPUTS, PRIMS, EXPS, capKeys, allHealthy, eligibility_B5, switch_B5, matrix_B5, cases, evaluate, sweep, selfTest};
+})();
+/*MODEL-END*/
+if (typeof window !== "undefined") window.MODEL = MODEL;
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, est: {cls: "est", txt: "my estimate"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t){ return `<div class="metric"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : TAGS.ill;
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f || undefined)); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); })); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  const CASES = MODEL.cases(PARAMS);
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.textContent = c.name; b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  for (const id of ["from", "to"]) for (const [k, e] of Object.entries(MODEL.EXPS)){ const o = document.createElement("option"); o.value = k; o.textContent = e.name + " experience"; $(id).appendChild(o); }
+  const keyName = k => k.startsWith("in:") ? `input: ${MODEL.INPUTS[k.slice(3)].name}` : `primitive: ${MODEL.PRIMS[k.slice(3)].name}`;
+  MODEL.capKeys().forEach(k => { const l = document.createElement("label"); const id = "h_" + k.replace(":", "_");
+    l.innerHTML = `<input type="checkbox" id="${id}"> <span id="${id}_t">${esc(keyName(k))}</span>`; $("health").appendChild(l); });
+  const SL = {cleanup_s: "cln", retire_s: "ret", cold_s: "cold", run_s: "runs", n: "np"};
+  function applyCase(i){
+    const x = CASES[i].x;
+    $("target").value = x.target; $("xt").checked = x.xt; $("from").value = x.from; $("to").value = x.to; $("visit").checked = x.visit;
+    MODEL.capKeys().forEach(k => { $("h_" + k.replace(":", "_")).checked = x.health[k]; });
+    for (const [k, id] of Object.entries(SL)) $(id).value = x[k];
+    update(); setPressed("cases", i);
+  }
+  function read(){
+    const health = {}; MODEL.capKeys().forEach(k => health[k] = $("h_" + k.replace(":", "_")).checked);
+    return {target: $("target").value, xt: $("xt").checked, health, from: $("from").value, to: $("to").value, visit: $("visit").checked,
+      cleanup_s: +$("cln").value, retire_s: +$("ret").value, cold_s: +$("cold").value, run_s: +$("runs").value, n: +$("np").value};
+  }
+  const SCOL = {"eligible": "#49d17a", "degraded": "#ffd36b", "not eligible": "#ff7a7a"};
+  function draw(x, r){
+    const W = 720, keys = MODEL.capKeys(), padL = 150, cw = (W - padL - 14) / keys.length;
+    let s = `<title id="pic-t">Eligibility of three experiences on the ${x.target === "sim" ? "simulation" : "physical"} target, and the switch timeline</title>`;
+    keys.forEach((k, j) => { const cx = padL + cw * j + cw / 2, nm = k.startsWith("in:") ? MODEL.INPUTS[k.slice(3)].name : MODEL.PRIMS[k.slice(3)].name;
+      const words = nm.split(" ");
+      s += `<text x="${cx}" y="16" text-anchor="middle" font-size="11" fill="#aeb6c4">${k.startsWith("in:") ? "input" : "primitive"}</text>`;
+      words.forEach((w, i) => s += `<text x="${cx}" y="${31 + i * 13}" text-anchor="middle" font-size="11">${esc(w)}</text>`);
+      const I = k.startsWith("in:") ? MODEL.INPUTS[k.slice(3)] : null, deferred = I && !I.prod[x.target];
+      const st = deferred ? "deferred" : x.health[k] ? "healthy" : "unhealthy";
+      s += `<text x="${cx}" y="70" text-anchor="middle" font-size="11" fill="${st === "healthy" ? "#49d17a" : st === "deferred" ? "#c9a0ff" : "#ff7a7a"}">${st}</text>`; });
+    Object.entries(MODEL.EXPS).forEach(([id, E], i) => { const y = 84 + i * 40, e = r.elig[id];
+      s += `<text x="10" y="${y + 17}" font-size="13">${E.name}</text><text x="10" y="${y + 31}" font-size="11" fill="${SCOL[e.status]}">${e.status}</text>`;
+      keys.forEach((k, j) => { const x0 = padL + cw * j + 4, kk = k.slice(3);
+        const req = k.startsWith("in:") ? E.req.includes(kk) : E.prims.includes(kk), opt = k.startsWith("in:") && E.opt.includes(kk);
+        s += `<rect x="${x0}" y="${y}" width="${cw - 8}" height="32" rx="4" fill="#1a1d24" stroke="#3a3f4a"/>`;
+        if (req || opt){ const I = k.startsWith("in:") ? MODEL.INPUTS[kk] : null, okk = x.health[k] && !(I && !I.prod[x.target]);
+          const col = okk ? "#49d17a" : opt ? "#ffd36b" : "#ff7a7a";
+          s += `<rect x="${x0 + 2}" y="${y + 2}" width="${cw - 12}" height="28" rx="3" fill="${col}" opacity="${opt ? 0.35 : 0.6}"/>`;
+          s += `<text x="${x0 + (cw - 8) / 2}" y="${y + 20}" text-anchor="middle" font-size="11" fill="#eef1f6">${opt ? "optional" : "required"} ${okk ? "✓" : "✕"}</text>`; } }); });
+    // switch timeline
+    const y0 = 220, sw = r.sw, tot = Math.max(sw.total, 1), bw = W - 24;
+    s += `<text x="12" y="${y0}" font-size="13">Switch ${esc(MODEL.EXPS[x.from].name)} → ${esc(MODEL.EXPS[x.to].name)}: ${sw.ok ? "admits visitors after " + fmt(sw.total / 60, 1) + " min" : "fails at step " + (sw.fail.step + 1)}</text>`;
+    const SC = ["#8a93a3", "#ffd36b", "#5ec8ff", "#c9a0ff", "#ff9f5e", "#49d17a"];
+    let xx = 12;
+    sw.steps.forEach((st, i) => { const w = bw * st.d / tot; if (w > 0) s += `<rect x="${xx}" y="${y0 + 10}" width="${Math.max(w, 1)}" height="22" fill="${SC[i]}" opacity="0.8"/>`;
+      if (sw.fail && sw.fail.step === i) s += `<text x="${Math.min(xx + w + 4, W - 20)}" y="${y0 + 26}" font-size="14" fill="#ff7a7a">✕</text>`; xx += w; });
+    sw.steps.forEach((st, i) => { const ly = y0 + 52 + i * 17; s += `<rect x="12" y="${ly - 10}" width="12" height="12" fill="${SC[i]}"/>` +
+      `<text x="30" y="${ly}" font-size="11">${i + 1}. ${esc(st.name)}: ${fmt(st.d, st.d < 10 ? 1 : 0)} s${st.bound !== undefined ? ` (bound ${fmt(st.bound, 0)} s)` : ""}</text>`; });
+    const my = y0 + 52 + 6 * 17 + 8;
+    s += `<text x="12" y="${my}" font-size="11" fill="#aeb6c4">Serial profile matrix: ${x.n} × (${fmt(x.cold_s)} + ${fmt(x.run_s)} + ${fmt(x.retire_s)}) s = up to ${fmt(r.m.total / 60, 0)} min (my arithmetic); one profile with authority at a time.</text>`;
+    $("pic").setAttribute("viewBox", `0 0 ${W} ${my + 12}`); $("pic").innerHTML = s;
+  }
+  function update(){
+    const x = read();
+    MODEL.capKeys().forEach(k => { if (!k.startsWith("in:")) return; const I = MODEL.INPUTS[k.slice(3)], id = "h_" + k.replace(":", "_");
+      const d = !I.prod[x.target]; $(id).disabled = d; $(id + "_t").textContent = keyName(k) + (d ? " — deferred on this target" : ` — producer: ${I.prod[x.target]}`); });
+    $("cln_v").textContent = fmt(x.cleanup_s, 1) + " s"; $("ret_v").textContent = x.retire_s + " s"; $("cold_v").textContent = x.cold_s + " s";
+    $("runs_v").textContent = x.run_s + " s"; $("np_v").textContent = String(x.n);
+    const r = MODEL.evaluate(PARAMS, x), sw = r.sw;
+    $("headline").innerHTML =
+      metric("Eligible on this target", `${r.nEligible} of 3`, TAGS.der) +
+      metric(`"${MODEL.EXPS[x.to].name}" after the switch`, `<span class="${sw.ok ? "okc" : "badc"}">${sw.ok ? "ready" : "not ready"}</span>`, TAGS.der) +
+      metric("Switch downtime", sw.ok ? fmt(sw.total / 60, 1) + " min" : "blocked", TAGS.der) +
+      metric("Profile matrix", "up to " + fmt(r.m.total / 60, 0) + " min", TAGS.der);
+    draw(x, r);
+    const lines = Object.values(MODEL.EXPS).map(E => { const e = r.elig[Object.keys(MODEL.EXPS).find(k => MODEL.EXPS[k] === E)];
+      return `${E.name}: ${e.status}${e.reasons.length ? " (" + e.reasons[0] + ")" : e.degraded.length ? " (" + e.degraded[0] + ")" : ""}`; });
+    $("why_text").textContent = lines.join(". ") + ". " + (sw.ok ? `The switch reuses the cleanup proof that already exists, at the cost of downtime that the cold start dominates (${fmt(100 * x.cold_s / sw.total, 0)} % of it, my arithmetic).` : `The switch stops: ${sw.fail.why}.`);
+    $("callout").innerHTML = x.target === "physical" && !x.xt ? `<strong>Simulation-only until proven.</strong> Until the same experiences pass hardware-in-the-loop with equivalent evidence, every profile is simulation-only and physical execution stays disabled (C2). The question "can this robot run this here today?" is answered at start-up, before a visitor arrives (B5).` :
+      x.target === "physical" ? `<strong>A simulation producer says nothing about the robot.</strong> The gesture input has a simulation producer (the scenario driver) and an explicit deferred record on the physical target, so the wave fails readiness on the robot rather than at run time (B5).` :
+      `<strong>No hot switching.</strong> A switch mid-visit would need proof that one story's leases, timers and gestures are gone while another starts. The full cycle — stop admission, clean up, prove stores clean, stop, start, readiness — reuses that proof (B5).`;
+    const ex = MODEL.EXPS[x.from], tx = MODEL.EXPS[x.to];
+    const rows = [
+      ["selected experience and revision", `${ex.name}, pinned in the running profile`, `${tx.name}, from a new pinned profile`, "a second definition admitted alongside the first, which one profile may not do (B2)"],
+      ["lifecycle phase", x.visit ? "in story" : "ready", sw.ok ? "ready (after readiness)" : sw.fail.step === 1 ? "recovery" : "not ready", "a phase change with a story still running"],
+      ["session and participant", x.visit ? "active session, participant locked" : "none", "none until the next visitor; a new session", "that the old participant binding cannot leak into the new story"],
+      ["leases, permits, timers, commands", x.visit ? "held by the old story" : "none", x.visit ? (sw.fail && sw.fail.step === 1 ? "kept, unresolved, in evidence (recovery)" : "released after quiescence proof") : "none", "that every claim of the old story is quiet while the new one starts"],
+      ["local story state", x.visit ? `${ex.name}'s private state` : "none", `discarded; ${tx.name} starts from its initial state at the next visit`, "a translation between two private state types the kernel cannot see"],
+    ];
+    const tb = $("state").querySelector("tbody"); tb.innerHTML = "";
+    rows.forEach(rw => { const tr = document.createElement("tr"); tr.innerHTML = rw.map(c => `<td>${esc(c)}</td>`).join(""); tb.appendChild(tr); });
+    $("live").textContent = `${r.nEligible} of 3 eligible; switch ${sw.ok ? "succeeds after " + fmt(sw.total / 60, 1) + " min" : "fails at step " + (sw.fail.step + 1)}.`;
+  }
+  onInput(Object.values(SL), () => { setPressed("cases", -1); update(); });
+  ["target", "xt", "from", "to", "visit", ...MODEL.capKeys().map(k => "h_" + k.replace(":", "_"))].forEach(id => $(id).addEventListener("change", () => { setPressed("cases", -1); update(); }));
+  window.Story = {scenes: {out: {n: CASES.length}}, go: (id, k) => { if (id === "out") applyCase(k - 1); }};
+  fillDataP(); renderSources(); runSelfTests();
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

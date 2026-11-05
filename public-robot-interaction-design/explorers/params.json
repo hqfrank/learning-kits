@@ -1,0 +1,605 @@
+{
+ "actuator_lift_processed_illustrative": {
+  "value": 20,
+  "unit": "dB (processed channel, head moving vs holding)",
+  "class": "illustrative",
+  "source": "illustrative; larger than actuator_lift_raw_illustrative because automatic gain control winds up"
+ },
+ "alternation_duty_illustrative": {
+  "value": 0.71,
+  "unit": "fraction",
+  "class": "illustrative",
+  "source": "my arithmetic: gaze_episode_mean_illustrative / (gaze_episode_mean_illustrative + lookaway_mean_illustrative); inside the listening band, outside the speaking band"
+ },
+ "barge_in_debounce_illustrative": {
+  "value": 0.4,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative debounce between a 'speech started' event and abandoning the robot's turn"
+ },
+ "beat_celebrate_illustrative": {
+  "value": 8,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "beat_converse_illustrative": {
+  "value": 35,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative conversation beat (a few turns)"
+ },
+ "beat_goodbye_illustrative": {
+  "value": 4,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "beat_greet_illustrative": {
+  "value": 6,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative beat length"
+ },
+ "beat_offer_illustrative": {
+  "value": 15,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative self-serve gift offer including the take timer"
+ },
+ "beat_reply_window_illustrative": {
+  "value": 12,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative listening-armed window after the greeting"
+ },
+ "consecutive_cycles_gate_illustrative": {
+  "value": 150,
+  "unit": "visitor cycles without intervention",
+  "class": "illustrative",
+  "source": "illustrative launch gate"
+ },
+ "cycle_illustrative": {
+  "value": 100,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "my arithmetic: interaction_typical_illustrative + reset_turnover_illustrative"
+ },
+ "doa_bin_illustrative": {
+  "value": 45,
+  "unit": "degrees per direction bin (8 bins)",
+  "class": "illustrative",
+  "source": "illustrative coarse on-chip direction-of-arrival quantisation"
+ },
+ "doa_effective_window_illustrative": {
+  "value": 40,
+  "unit": "degrees either side (gate widened by bin uncertainty)",
+  "class": "illustrative",
+  "source": "my arithmetic, rounded: doa_face_gate_illustrative + half of doa_bin_illustrative"
+ },
+ "doa_face_gate_illustrative": {
+  "value": 15,
+  "unit": "degrees (nominal gate between a bearing and a face)",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "gaze_band_listening_illustrative": {
+  "value": [
+   0.65,
+   0.85
+  ],
+  "unit": "fraction of time looking at the addressee",
+  "class": "illustrative",
+  "source": "illustrative design band, bracketing gaze_listener_share"
+ },
+ "gaze_band_speaking_illustrative": {
+  "value": [
+   0.35,
+   0.55
+  ],
+  "unit": "fraction of time looking at the addressee",
+  "class": "illustrative",
+  "source": "illustrative design band, bracketing gaze_speaker_share"
+ },
+ "gaze_deadband_illustrative": {
+  "value": 0.05,
+  "unit": "rad (about 3 deg)",
+  "class": "illustrative",
+  "source": "illustrative re-aim deadband"
+ },
+ "gaze_dwell_illustrative": {
+  "value": 2,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative minimum time between re-aims"
+ },
+ "gaze_episode_mean_illustrative": {
+  "value": 5,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative mean gaze episode"
+ },
+ "gaze_listener_share": {
+  "value": 0.75,
+  "unit": "fraction of listening time spent looking at the speaker",
+  "class": "public",
+  "source": "Argyle & Ingham, 'Gaze, mutual gaze and proximity', Semiotica 6, 1972; summarised in Argyle & Cook, Gaze and Mutual Gaze, 1976 (commonly cited dyadic figures)"
+ },
+ "gaze_speaker_share": {
+  "value": 0.41,
+  "unit": "fraction of speaking time spent looking at the listener",
+  "class": "public",
+  "source": "Argyle & Ingham 1972; Argyle & Cook 1976"
+ },
+ "gaze_tick_illustrative": {
+  "value": 20,
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative gaze decision rate"
+ },
+ "guard_onset_grace_illustrative": {
+  "value": 2,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative 'self-hearing grace' after robot speech onset"
+ },
+ "guard_phantom_max_illustrative": {
+  "value": 3,
+  "unit": "dB",
+  "class": "illustrative",
+  "source": "illustrative highest score of motor-noise onsets in a fitted set"
+ },
+ "guard_real_min_illustrative": {
+  "value": 8,
+  "unit": "dB",
+  "class": "illustrative",
+  "source": "illustrative lowest score of real speech onsets in a fitted set"
+ },
+ "guard_speech_band_illustrative": {
+  "value": [
+   400,
+   3000
+  ],
+  "unit": "Hz",
+  "class": "illustrative",
+  "source": "illustrative speech band"
+ },
+ "guard_subwindow_illustrative": {
+  "value": 200,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative sub-window of the spectral barge-in guard"
+ },
+ "guard_tail_illustrative": {
+  "value": 2,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative motion tail after robot speech in which the guard is still consulted"
+ },
+ "guard_threshold_illustrative": {
+  "value": 5,
+  "unit": "dB",
+  "class": "illustrative",
+  "source": "illustrative decision threshold on the max sub-window speech-to-rumble ratio"
+ },
+ "head_ema_alpha_illustrative": {
+  "value": 0.1,
+  "unit": "per tick at 50 Hz",
+  "class": "illustrative",
+  "source": "illustrative exponential smoothing of a head setpoint"
+ },
+ "head_ema_t95_illustrative": {
+  "value": 0.57,
+  "unit": "s to 95 %",
+  "class": "illustrative",
+  "source": "my arithmetic: ln(0.05) / ln(1 - head_ema_alpha_illustrative) / 50 Hz"
+ },
+ "head_slew_cap_illustrative": {
+  "value": 1.5,
+  "unit": "rad/s (about 86 deg/s)",
+  "class": "illustrative",
+  "source": "illustrative peak head speed cap"
+ },
+ "head_yaw_limit_illustrative": {
+  "value": 80,
+  "unit": "degrees either side",
+  "class": "illustrative",
+  "source": "illustrative neck yaw limit"
+ },
+ "interaction_cap_illustrative": {
+  "value": 150,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative 'chatty visitor' cap and session-lease maximum"
+ },
+ "interaction_typical_illustrative": {
+  "value": 80,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "my arithmetic: sum of the six beat_*_illustrative values"
+ },
+ "lookaway_mean_illustrative": {
+  "value": 2,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative mean look-away"
+ },
+ "motion_over_speech_processed_illustrative": {
+  "value": 3,
+  "unit": "dB (robot's own motion louder than a nearby talker on the processed channel)",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "noise_only_transcripts_illustrative": {
+  "value": [
+   5,
+   5
+  ],
+  "unit": "[attempts producing words, attempts]",
+  "class": "illustrative",
+  "source": "illustrative: every noise-only clip sent to a transcription model came back as words"
+ },
+ "one_sample_angle_10cm_16k": {
+  "value": 12.4,
+  "unit": "degrees near broadside",
+  "class": "public",
+  "source": "my arithmetic: asin(sample_path_16k / 10 cm); why integer-lag cross-correlation is coarse and sub-sample interpolation (GCC-PHAT peak interpolation) is used"
+ },
+ "page_arrivals_default": {
+  "value": 30,
+  "unit": "visitors per hour who want a turn",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); default arrival rate, chosen between throughput_realistic_illustrative and throughput_theoretical_illustrative so the first screen shows a queue that grows"
+ },
+ "page_challenger_ticks": {
+  "value": 3,
+  "unit": "consecutive gaze ticks",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); a new speaker label becomes the gaze subject only after it wins this many consecutive evaluations (B2: 'a challenger must win several consecutive evaluations before the label switches')"
+ },
+ "page_face_distance": {
+  "value": 1.5,
+  "unit": "m",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); drawing distance of the talker and faces in the top-down picture (far field assumed by the model)"
+ },
+ "page_gaze_horizon": {
+  "value": 24,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); length of the simulated scene"
+ },
+ "page_gaze_lead_in": {
+  "value": 1,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); quiet time before the first visitor speaks"
+ },
+ "page_leak_default": {
+  "value": 0.8,
+  "unit": "s after robot sound onset",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); default time at which the array's self-voice suppression engages: the late end of self_hearing_leak_window_illustrative"
+ },
+ "page_mc_trials": {
+  "value": 400,
+  "unit": "trials",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); Monte Carlo trials per RMS-error estimate (seeded)"
+ },
+ "page_on_target_tol": {
+  "value": 5,
+  "unit": "degrees",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); head counts as 'on' a person when within this angle of their bearing; used only to score the policies on this page"
+ },
+ "page_scene_layouts": {
+  "value": {
+   "1": [
+    [
+     0,
+     1
+    ]
+   ],
+   "2": [
+    [
+     -20,
+     1
+    ],
+    [
+     25,
+     1.6
+    ]
+   ],
+   "3": [
+    [
+     -40,
+     1.4
+    ],
+    [
+     5,
+     1
+    ],
+    [
+     35,
+     1.8
+    ]
+   ],
+   "4": [
+    [
+     -50,
+     1.6
+    ],
+    [
+     -18,
+     1.1
+    ],
+    [
+     15,
+     1.3
+    ],
+    [
+     45,
+     2
+    ]
+   ]
+  },
+  "unit": "[bearing deg, distance m] per visitor, by number of visitors",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); visitor positions; bearings inside service_arc_illustrative, distances inside Hall's personal and social zones (proxemics_personal, proxemics_social)"
+ },
+ "page_tt_horizon": {
+  "value": 18,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); length of the scripted visit"
+ },
+ "page_tt_script": {
+  "value": {
+   "robot": [
+    [
+     0,
+     "greet"
+    ],
+    [
+     5,
+     13
+    ],
+    [
+     15,
+     17
+    ]
+   ],
+   "motion": [
+    [
+     3.6,
+     4.2,
+     "head turn while idle"
+    ],
+    [
+     6,
+     6.25,
+     "nod"
+    ],
+    [
+     8,
+     8.8,
+     "arm gesture"
+    ],
+    [
+     10.5,
+     10.75,
+     "nod"
+    ],
+    [
+     15.5,
+     15.75,
+     "nod"
+    ]
+   ],
+   "visitor": [
+    [
+     "reply",
+     1.5,
+     "reply to the greeting"
+    ],
+    [
+     9.5,
+     9.85,
+     "short interjection"
+    ],
+    [
+     11.5,
+     13,
+     "real barge-in"
+    ]
+   ]
+  },
+  "unit": "s (start, end); 'greet' = proactive_greeting_illustrative long; 'reply' starts turn_gap_typical after the greeting ends and lasts the given seconds",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); one scripted visit used on every case of the turn-taking explorer"
+ },
+ "page_vad_threshold_default": {
+  "value": 16,
+  "unit": "dB above the room floor (processed channel)",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json); default VAD onset threshold: above the leaked self-voice (self_hearing_lift_illustrative) and below the derived talker level; the note says the threshold was 'already near maximum'"
+ },
+ "preroll_bytes_1p5s_16k": {
+  "value": 48000,
+  "unit": "bytes",
+  "class": "public",
+  "source": "my arithmetic: preroll_illustrative (1.5 s) x 16 000 samples/s x 2 bytes (16-bit mono)"
+ },
+ "preroll_illustrative": {
+  "value": 1.5,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative wake-word pre-roll ring buffer"
+ },
+ "proactive_greeting_illustrative": {
+  "value": 1.5,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative length of a perception-triggered greeting; shorter than guard_onset_grace_illustrative"
+ },
+ "proxemics_personal": {
+  "value": [
+   0.45,
+   1.2
+  ],
+  "unit": "m",
+  "class": "public",
+  "source": "Hall, The Hidden Dimension, 1966: personal distance zone"
+ },
+ "proxemics_social": {
+  "value": [
+   1.2,
+   3.6
+  ],
+  "unit": "m",
+  "class": "public",
+  "source": "Hall 1966: social distance zone"
+ },
+ "queue_friction_factor_illustrative": {
+  "value": 0.7,
+  "unit": "dimensionless",
+  "class": "illustrative",
+  "source": "illustrative discount for crowd and queue friction"
+ },
+ "reset_turnover_illustrative": {
+  "value": 20,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative time to reset and let the next visitor step up"
+ },
+ "response_limit_flow": {
+  "value": 1,
+  "unit": "s",
+  "class": "public",
+  "source": "Nielsen, Usability Engineering, 1993, ch. 5: about 1 s is the limit for the user's flow of thought to stay uninterrupted; 0.1 s feels instantaneous; 10 s loses attention"
+ },
+ "saccade_40deg_duration": {
+  "value": 109,
+  "unit": "ms",
+  "class": "public",
+  "source": "my arithmetic from saccade_duration_intercept and saccade_duration_slope at 40 degrees"
+ },
+ "saccade_duration_intercept": {
+  "value": 21,
+  "unit": "ms",
+  "class": "public",
+  "source": "Carpenter, Movements of the Eyes, 1988: saccade duration ~ 21 ms + 2.2 ms per degree (main-sequence approximation; Bahill, Clark & Stark 1975)"
+ },
+ "saccade_duration_slope": {
+  "value": 2.2,
+  "unit": "ms per degree",
+  "class": "public",
+  "source": "Carpenter 1988"
+ },
+ "sample_path_16k": {
+  "value": 2.1,
+  "unit": "cm of path difference per sample",
+  "class": "public",
+  "source": "my arithmetic: speed_of_sound_20c x sample_period_16k"
+ },
+ "sample_period_16k": {
+  "value": 62.5,
+  "unit": "us",
+  "class": "public",
+  "source": "my arithmetic: 1 / 16 000 Hz"
+ },
+ "self_hearing_leak_window_illustrative": {
+  "value": [
+   0.2,
+   0.8
+  ],
+  "unit": "s after robot sound onset",
+  "class": "illustrative",
+  "source": "illustrative window before late self-sound suppression engages"
+ },
+ "self_hearing_lift_illustrative": {
+  "value": 15,
+  "unit": "dB above the room floor on the processed channel during robot speech",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "self_hearing_suppressed_drop_illustrative": {
+  "value": 20,
+  "unit": "dB",
+  "class": "illustrative",
+  "source": "illustrative drop of the processed channel once suppression engages"
+ },
+ "self_speech_tail_illustrative": {
+  "value": 400,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative suppression tail after the robot stops speaking (reverberation decay + label latency)"
+ },
+ "service_arc_illustrative": {
+  "value": 60,
+  "unit": "degrees either side",
+  "class": "illustrative",
+  "source": "illustrative arc where visitors stand"
+ },
+ "show_day_illustrative": {
+  "value": 6,
+  "unit": "h",
+  "class": "illustrative",
+  "source": "illustrative show day"
+ },
+ "spatial_alias_10cm": {
+  "value": 1.7,
+  "unit": "kHz",
+  "class": "public",
+  "source": "my arithmetic: f < c / (2 d) with d = 10 cm"
+ },
+ "spatial_alias_5cm": {
+  "value": 3.4,
+  "unit": "kHz",
+  "class": "public",
+  "source": "my arithmetic: f < c / (2 d) with d = 5 cm; above this a pair's phase difference wraps (spatial aliasing)"
+ },
+ "speed_of_sound_20c": {
+  "value": 343,
+  "unit": "m/s",
+  "class": "public",
+  "source": "dry air at 20 degrees C (standard physics value)"
+ },
+ "tdoa_max_10cm": {
+  "value": 292,
+  "unit": "us",
+  "class": "public",
+  "source": "my arithmetic: 0.10 m / speed_of_sound_20c, the largest delay between two microphones 10 cm apart (sound arriving along the axis)"
+ },
+ "tdoa_max_5cm": {
+  "value": 146,
+  "unit": "us",
+  "class": "public",
+  "source": "my arithmetic: 0.05 m / speed_of_sound_20c"
+ },
+ "throughput_realistic_illustrative": {
+  "value": 25,
+  "unit": "visitors per hour",
+  "class": "illustrative",
+  "source": "my arithmetic: throughput_theoretical_illustrative x queue_friction_factor_illustrative, rounded"
+ },
+ "throughput_theoretical_illustrative": {
+  "value": 36,
+  "unit": "visitors per hour",
+  "class": "illustrative",
+  "source": "my arithmetic: 3600 s / cycle_illustrative"
+ },
+ "turn_gap_typical": {
+  "value": 200,
+  "unit": "ms",
+  "class": "public",
+  "source": "Stivers et al., 'Universals and cultural variation in turn-taking in conversation', PNAS 106(26), 2009: offsets between turns cluster around a short gap of about 200 ms across 10 languages"
+ },
+ "visits_per_day_illustrative": {
+  "value": 150,
+  "unit": "visits",
+  "class": "illustrative",
+  "source": "my arithmetic: throughput_realistic_illustrative x show_day_illustrative"
+ }
+}

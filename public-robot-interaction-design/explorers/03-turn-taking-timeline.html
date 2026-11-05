@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Every guard against phantom turns is also a way to miss a real visitor — turn-taking explorer</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a; --warn:#ffd36b;
+    --p1:#5ec8ff; --p2:#ffb347; --p3:#c99bff; --p4:#7fe08a; --robot:#e6e9ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:78ch;margin:6px 0 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  .ctrl>label,.ctrl>.lab{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit}
+  .checks{display:flex;flex-wrap:wrap;gap:4px 14px}
+  .checks label{font-weight:400}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  .cases button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  .cases button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:120px;flex:1 1 120px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .metric.bad .v{color:var(--bad)} .metric.ok .v{color:var(--ok)}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-bottom:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:4px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td.on{outline:2px solid var(--warn);outline-offset:-2px;background:#2a2614}
+  .src{margin:0 22px 18px}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>On the processed channel the robot's own motors are louder than a nearby talker, so no VAD threshold removes phantom barge-ins without losing a visitor; every guard moves the error somewhere else</h1>
+  <p class="sub">One scripted visit: the robot greets, the visitor replies at once, the robot gives a long answer with nods and an arm gesture,
+  the visitor interjects briefly and then really interrupts. The microphone hears the visitor, the robot's own voice (until the array's
+  suppression engages) and the robot's motors. Move the <strong>VAD threshold</strong> and the <strong>barge-in debounce</strong>, switch the
+  <strong>spectral guard</strong> and its <strong>onset grace</strong>, and count both failure directions: phantom turns caused, and real turns
+  lost (note B4). Levels and timings are <span class="tag ill">illustrative</span> values from <code>../constants.json</code>; the script is a
+  page model. Nothing here is a measurement.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="lab" id="cases-l" style="font-weight:600;margin-bottom:4px">Preloaded cases</div>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <label for="thr">VAD onset threshold <span class="val" id="thr_v"></span></label>
+      <input id="thr" type="range" min="8" max="24" step="0.5">
+      <div class="hint">dB above the room floor on the processed channel. Default <span data-p="page_vad_threshold_default"></span> dB (page model).</div>
+    </div>
+    <div class="ctrl">
+      <label for="deb">Barge-in debounce <span class="val" id="deb_v"></span></label>
+      <input id="deb" type="range" min="0" max="1.2" step="0.05">
+      <div class="hint">How long "speech started" must last before the robot abandons its turn. Default
+        <span data-p="barge_in_debounce_illustrative"></span> s (<code>barge_in_debounce_illustrative</code>).</div>
+    </div>
+    <div class="ctrl">
+      <label for="leak">Self-voice suppression engages after <span class="val" id="leak_v"></span></label>
+      <input id="leak" type="range" min="0" max="1.5" step="0.05">
+      <div class="hint">The array's own suppression is late: it engaged an illustrative <span data-p="self_hearing_leak_window_illustrative" data-f="0"></span>–<span data-p="self_hearing_leak_window_illustrative" data-f="1"></span> s after each robot sound onset (<code>self_hearing_leak_window_illustrative</code>).</div>
+    </div>
+    <div class="ctrl checks" role="group" aria-label="Guard switches">
+      <label><input type="checkbox" id="guard"> spectral barge-in guard</label>
+      <label><input type="checkbox" id="grace"> onset grace (<span data-p="guard_onset_grace_illustrative"></span> s)</label>
+    </div>
+    <div class="hint">The guard is consulted only while the robot speaks or within <span data-p="guard_tail_illustrative"></span> s after; it
+      rejects an onset whose best 200 ms sub-window has a speech-to-rumble ratio below <span data-p="guard_threshold_illustrative"></span> dB. The grace
+      rejects any onset within <span data-p="guard_onset_grace_illustrative"></span> s of robot speech onset.</div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="tl" viewBox="0 0 720 348" role="img" aria-labelledby="tl-t"></svg>
+    <svg id="sw" viewBox="0 0 720 210" role="img" aria-labelledby="sw-t"></svg>
+    <div class="why">
+      <h3>What dominates right now</h3>
+      <p id="why_text"></p>
+      <div class="tablewrap"><table id="events" aria-label="Decision log"></table></div>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel src" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters &amp; sources</h3>
+  <p class="hint">Loaded from the inlined params block (also shipped as <code>params.json</code>), copied verbatim from
+  <code>../constants.json</code>. <span class="tag ill">illustrative</span> = a round teaching number, never a measurement.
+  <span class="tag pub">public</span> = a cited public source. <span class="tag ill">page model</span> = a choice made only for this page.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Study aid for <em>public-robot-interaction-design</em> (rung 3), from note B4 (turn-taking and self-hearing). Model: each source has a
+  fixed level on the processed channel (dB above the room floor); levels add as powers; the VAD opens when the sum reaches the threshold;
+  the guard scores an onset by the best of its active sources (one good vowel is enough). The visitor's level is my arithmetic:
+  <code>actuator_lift_processed_illustrative</code> − <code>motion_over_speech_processed_illustrative</code>. End-of-turn silence,
+  transcription and the reasoner are not modelled. Turn gap: Stivers et al. 2009. Nothing here is a measurement.
+</footer>
+
+<script type="application/json" id="params" data-keys="barge_in_debounce_illustrative,proactive_greeting_illustrative,turn_gap_typical,self_hearing_lift_illustrative,self_hearing_leak_window_illustrative,self_hearing_suppressed_drop_illustrative,actuator_lift_processed_illustrative,motion_over_speech_processed_illustrative,guard_threshold_illustrative,guard_phantom_max_illustrative,guard_real_min_illustrative,guard_tail_illustrative,guard_onset_grace_illustrative,guard_subwindow_illustrative,noise_only_transcripts_illustrative,response_limit_flow,preroll_illustrative,preroll_bytes_1p5s_16k,page_tt_script,page_tt_horizon,page_vad_threshold_default,page_leak_default">
+{
+  "barge_in_debounce_illustrative": {"value":0.4,"unit":"s","class":"illustrative","source":"illustrative debounce between a 'speech started' event and abandoning the robot's turn"},
+  "proactive_greeting_illustrative": {"value":1.5,"unit":"s","class":"illustrative","source":"illustrative length of a perception-triggered greeting; shorter than guard_onset_grace_illustrative"},
+  "turn_gap_typical": {"value":200,"unit":"ms","class":"public","source":"Stivers et al., 'Universals and cultural variation in turn-taking in conversation', PNAS 106(26), 2009: offsets between turns cluster around a short gap of about 200 ms across 10 languages"},
+  "self_hearing_lift_illustrative": {"value":15,"unit":"dB above the room floor on the processed channel during robot speech","class":"illustrative","source":"illustrative"},
+  "self_hearing_leak_window_illustrative": {"value":[0.2,0.8],"unit":"s after robot sound onset","class":"illustrative","source":"illustrative window before late self-sound suppression engages"},
+  "self_hearing_suppressed_drop_illustrative": {"value":20,"unit":"dB","class":"illustrative","source":"illustrative drop of the processed channel once suppression engages"},
+  "actuator_lift_processed_illustrative": {"value":20,"unit":"dB (processed channel, head moving vs holding)","class":"illustrative","source":"illustrative; larger than actuator_lift_raw_illustrative because automatic gain control winds up"},
+  "motion_over_speech_processed_illustrative": {"value":3,"unit":"dB (robot's own motion louder than a nearby talker on the processed channel)","class":"illustrative","source":"illustrative"},
+  "guard_threshold_illustrative": {"value":5,"unit":"dB","class":"illustrative","source":"illustrative decision threshold on the max sub-window speech-to-rumble ratio"},
+  "guard_phantom_max_illustrative": {"value":3,"unit":"dB","class":"illustrative","source":"illustrative highest score of motor-noise onsets in a fitted set"},
+  "guard_real_min_illustrative": {"value":8,"unit":"dB","class":"illustrative","source":"illustrative lowest score of real speech onsets in a fitted set"},
+  "guard_tail_illustrative": {"value":2,"unit":"s","class":"illustrative","source":"illustrative motion tail after robot speech in which the guard is still consulted"},
+  "guard_onset_grace_illustrative": {"value":2,"unit":"s","class":"illustrative","source":"illustrative 'self-hearing grace' after robot speech onset"},
+  "guard_subwindow_illustrative": {"value":200,"unit":"ms","class":"illustrative","source":"illustrative sub-window of the spectral barge-in guard"},
+  "noise_only_transcripts_illustrative": {"value":[5,5],"unit":"[attempts producing words, attempts]","class":"illustrative","source":"illustrative: every noise-only clip sent to a transcription model came back as words"},
+  "response_limit_flow": {"value":1,"unit":"s","class":"public","source":"Nielsen, Usability Engineering, 1993, ch. 5: about 1 s is the limit for the user's flow of thought to stay uninterrupted; 0.1 s feels instantaneous; 10 s loses attention"},
+  "preroll_illustrative": {"value":1.5,"unit":"s","class":"illustrative","source":"illustrative wake-word pre-roll ring buffer"},
+  "preroll_bytes_1p5s_16k": {"value":48000,"unit":"bytes","class":"public","source":"my arithmetic: preroll_illustrative (1.5 s) x 16 000 samples/s x 2 bytes (16-bit mono)"},
+  "page_tt_script": {"value":{"robot":[[0,"greet"],[5,13],[15,17]],"motion":[[3.6,4.2,"head turn while idle"],[6,6.25,"nod"],[8,8.8,"arm gesture"],[10.5,10.75,"nod"],[15.5,15.75,"nod"]],"visitor":[["reply",1.5,"reply to the greeting"],[9.5,9.85,"short interjection"],[11.5,13,"real barge-in"]]},"unit":"s (start, end); 'greet' = proactive_greeting_illustrative long; 'reply' starts turn_gap_typical after the greeting ends and lasts the given seconds","class":"illustrative","source":"page model choice (not in constants.json); one scripted visit used on every case of the turn-taking explorer"},
+  "page_tt_horizon": {"value":18,"unit":"s","class":"illustrative","source":"page model choice (not in constants.json); length of the scripted visit"},
+  "page_vad_threshold_default": {"value":16,"unit":"dB above the room floor (processed channel)","class":"illustrative","source":"page model choice (not in constants.json); default VAD onset threshold: above the leaked self-voice (self_hearing_lift_illustrative) and below the derived talker level; the note says the threshold was 'already near maximum'"},
+  "page_leak_default": {"value":0.8,"unit":"s after robot sound onset","class":"illustrative","source":"page model choice (not in constants.json); default time at which the array's self-voice suppression engages: the late end of self_hearing_leak_window_illustrative"}
+}
+</script>
+
+<script>
+/*MODEL-START*/
+var MODEL = (function(){
+  "use strict";
+  // B4 (my arithmetic): on the processed channel the robot's motion is louder than a nearby talker by motion_over_speech
+  function talker_level_B4(P){ return P.actuator_lift_processed_illustrative.value - P.motion_over_speech_processed_illustrative.value; }
+  // power sum of sources over a 0 dB room floor
+  function level_sum(ls){ return 10 * Math.log10(1 + ls.reduce((a, l) => a + Math.pow(10, l / 10), 0)); }
+
+  function build_script(P){
+    const S = P.page_tt_script.value, g = P.proactive_greeting_illustrative.value, gap = P.turn_gap_typical.value / 1000;
+    const robot = S.robot.map(([a, b], i) => b === "greet" ? {i, t0: a, t1: a + g, greet: true} : {i, t0: a, t1: b});
+    const greetEnd = robot.find(r => r.greet).t1;
+    const visitor = S.visitor.map((v, i) => v[0] === "reply" ? {i, t0: greetEnd + gap, t1: greetEnd + gap + v[1], name: v[2], reply: true} : {i, t0: v[0], t1: v[1], name: v[2]});
+    const motion = S.motion.map(([a, b, n], i) => ({i, t0: a, t1: b, name: n, owner: robot.findIndex(r => a >= r.t0 && a < r.t1)}));
+    return {robot, visitor, motion};
+  }
+
+  // One run of the visit. Pure; 10 ms ticks.
+  function simulate_turns(P, x){
+    const dt = 0.01, T = P.page_tt_horizon.value, S = build_script(P);
+    const Lv = talker_level_B4(P), Lm = P.actuator_lift_processed_illustrative.value, Ls = P.self_hearing_lift_illustrative.value;
+    const Lsup = Ls - P.self_hearing_suppressed_drop_illustrative.value;
+    const scoreVoice = P.guard_real_min_illustrative.value, scoreMotor = P.guard_phantom_max_illustrative.value;
+    const gThr = P.guard_threshold_illustrative.value, tail = P.guard_tail_illustrative.value, grace = P.guard_onset_grace_illustrative.value;
+    const cut = S.robot.map(() => Infinity);                      // time each robot utterance was cut off
+    const heard = S.visitor.map(() => false), lostWhy = S.visitor.map(() => "below threshold");
+    const ev = [], lanes = [];
+    let mode = "none", ts = 0, origin = null, prevVad = false, stall = null, lastOnset = -1e9, lastEnd = -1e9;
+    const N = Math.round(T / dt);
+    for (let k = 0; k <= N; k++){
+      const t = +(k * dt).toFixed(4);
+      if (stall !== null && t > stall) break;
+      const rIdx = S.robot.findIndex((r, i) => t >= r.t0 && t < Math.min(r.t1, cut[i]));
+      const rob = rIdx >= 0 ? S.robot[rIdx] : null;
+      if (rob && t - rob.t0 < dt / 2) lastOnset = t;
+      S.robot.forEach((r, i) => { const e = Math.min(r.t1, cut[i]); if (e <= t && e > lastEnd) lastEnd = e; });
+      const mot = S.motion.find(m => t >= m.t0 && t < m.t1 && (m.owner < 0 || Math.min(S.robot[m.owner].t1, cut[m.owner]) > m.t0));
+      const vis = S.visitor.find(v => t >= v.t0 && t < v.t1);
+      const leak = rob && (t - rob.t0) < x.leak;
+      const src = [];
+      if (vis) src.push({k: "visitor", L: Lv, s: scoreVoice, v: vis.i});
+      if (rob) src.push({k: "self", L: leak ? Ls : Lsup, s: scoreVoice});
+      if (mot) src.push({k: "motor", L: Lm, s: scoreMotor});
+      const level = level_sum(src.map(s => s.L)), vad = level >= x.thr;
+      const loud = src.filter(s => s.L >= Lsup + 1e-9 && !(s.k === "self" && !leak));
+      // who opened the VAD: a visitor if one is talking, else the loudest robot source (motors are louder than the leaked voice)
+      const attr = vis ? "visitor" : mot ? "motor" : leak && rob ? "self" : "none";
+      const score = loud.length ? Math.max(...loud.map(s => s.s)) : -Infinity;
+      if (!vad){
+        if (mode === "debounce") ev.push({t, type: "filtered", origin, note: "VAD closed before the debounce"});
+        mode = "none";
+      } else if (!prevVad){
+        origin = {attr, v: vis ? vis.i : null, t, viaSelf: false};
+        const inScope = !!rob || (t - lastEnd) <= tail;
+        let rej = null;
+        if (x.guard && inScope){
+          if (x.grace && t - lastOnset <= grace) rej = "onset grace";
+          else if (score < gThr) rej = "spectral guard";
+        }
+        const viaSelf = x.guard && inScope && !rej && attr === "motor" && leak;
+        if (rej){ mode = "rejected"; ev.push({t, type: "rejected", origin, note: rej}); if (vis) lostWhy[vis.i] = "rejected by the " + rej; }
+        else if (rob){ mode = "debounce"; ts = t; origin.viaSelf = viaSelf; }
+        else { mode = "turn"; ev.push({t, type: attr === "visitor" ? "turn" : "ghost", origin}); }
+      }
+      if (mode === "debounce" && vad){
+        if (!rob){ mode = "turn"; ev.push({t, type: origin.attr === "visitor" ? "turn" : "ghost", origin, note: "robot finished before the debounce"}); }
+        else if (t - ts >= x.deb - 1e-9){ cut[rIdx] = t; mode = "turn";
+          ev.push({t, type: origin.attr === "visitor" ? "barge-in" : "phantom barge-in", origin, latency: origin.v !== null ? t - S.visitor[origin.v].t0 : null,
+            note: origin.viaSelf ? "the guard passed it: the robot's own leaked voice supplied a vowel" : ""}); }
+      }
+      if (vis && mode === "turn") heard[vis.i] = true;
+      if (vis && mode === "debounce") lostWhy[vis.i] = "shorter than the debounce";
+      // a reply to the greeting that is never heard leaves the reasoner holding an unanswered greeting: the visit stalls
+      const rep = S.visitor.find(v => v.reply);
+      if (!x.noStall && stall === null && rep && t >= rep.t1 - dt / 2 && !heard[rep.i]) stall = t;
+      lanes.push({t, level, vad, rob: !!rob, leak: !!leak, mot: !!mot, vis: vis ? vis.i : null});
+      prevVad = vad;
+    }
+    const phantomBarge = ev.filter(e => e.type === "phantom barge-in").length, ghosts = ev.filter(e => e.type === "ghost").length;
+    const reached = S.visitor.map(v => stall === null || v.t0 < stall);
+    const lost = S.visitor.filter((v, i) => reached[i] && !heard[i]).length;
+    const honoured = ev.filter(e => e.type === "barge-in");
+    return {S, ev, lanes, cut, heard, lostWhy, reached, stall, phantomBarge, ghosts, phantoms: phantomBarge + ghosts, lost,
+      latency: honoured.length ? Math.max(...honoured.map(e => e.latency)) : null, Lv, Lm, Ls};
+  }
+  // the sweep plays the whole script (no stall) so both failure directions are counted; a stall is flagged separately
+  function threshold_sweep(P, x){ const out = []; for (let thr = 8; thr <= 24.001; thr += 0.5){
+    const r = simulate_turns(P, {...x, thr, noStall: true}), st = simulate_turns(P, {...x, thr}).stall !== null;
+    out.push({thr, phantoms: r.phantoms, lost: r.lost, stall: st}); } return out; }
+
+  function cases(P){
+    const d = {thr: P.page_vad_threshold_default.value, deb: P.barge_in_debounce_illustrative.value, leak: P.page_leak_default.value, guard: false, grace: false};
+    return [
+      {name: "No guard", x: {...d}},
+      {name: "Guard with onset grace", x: {...d, guard: true, grace: true}},
+      {name: "Guard, no grace", x: {...d, guard: true}},
+      {name: "Guard, lower threshold", x: {...d, guard: true, thr: 14}},
+      {name: "Raise the threshold", x: {...d, thr: 18}},
+      {name: "Long debounce", x: {...d, deb: 0.9}}
+    ];
+  }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const C = cases(P), run = i => simulate_turns(P, C[i].x);
+    ok(talker_level_B4(P) === 17, "talker level = 20 - 3 = 17 dB (my arithmetic, B4)");
+    ok(P.actuator_lift_processed_illustrative.value > talker_level_B4(P), "motion is louder than the talker on the processed channel");
+    ok(P.guard_phantom_max_illustrative.value < P.guard_threshold_illustrative.value && P.guard_threshold_illustrative.value < P.guard_real_min_illustrative.value, "guard threshold sits between the fitted classes (3 < 5 < 8 dB)");
+    ok(P.proactive_greeting_illustrative.value + P.turn_gap_typical.value / 1000 < P.guard_onset_grace_illustrative.value, "a prompt reply to the greeting lands inside the onset grace (B4)");
+    const lw = P.self_hearing_leak_window_illustrative.value;
+    ok(P.page_leak_default.value >= lw[0] && P.page_leak_default.value <= lw[1], "default suppression time inside the leak window");
+    ok(Math.abs(P.preroll_illustrative.value * 16000 * 2 - P.preroll_bytes_1p5s_16k.value) < 1e-9, "pre-roll 1.5 s at 16 kHz 16-bit = 48 000 bytes");
+    const a = run(0); ok(a.phantomBarge >= 1 && a.ev.some(e => e.type === "phantom barge-in" && e.origin.attr === "motor"), "no guard: the arm gesture causes a phantom barge-in");
+    ok(a.ghosts >= 1, "no guard: the idle head turn starts a ghost turn");
+    const b = run(1); ok(b.stall !== null && b.lostWhy[0].includes("onset grace"), "grace: the reply to the greeting is rejected and the visit stalls");
+    const c = run(2); ok(c.phantomBarge === 0 && c.stall === null, "guard without grace: no phantom barge-in, the visit continues");
+    ok(c.ghosts >= 1, "guard without grace: the idle head turn (outside the guard's scope) still starts a ghost turn");
+    ok(c.ev.some(e => e.type === "barge-in" && Math.abs(e.latency - C[2].x.deb) < 0.015), "a real barge-in is honoured after one debounce");
+    const d = run(3); ok(d.ev.some(e => e.type === "phantom barge-in" && e.origin.attr === "self"), "lower threshold: the guard passes the robot's own leaked voice (it is speech)");
+    const e = run(4), e2 = simulate_turns(P, {...C[4].x, noStall: true});
+    ok(e.stall !== null, "threshold above the talker: the reply is never heard and the visit stalls");
+    ok(e2.phantoms >= 1 && e2.lost === 3, "threshold above the talker, whole script: every visitor utterance lost, motors still trip");
+    const f = run(5); ok(f.phantomBarge === 0 && f.lostWhy[1] === "shorter than the debounce", "long debounce: no phantom barge-in, the short interjection is lost");
+    // the headline claim: without the guard, no threshold has zero phantoms AND zero lost visitor utterances
+    for (const deb of [0.2, 0.4, 0.6]){ const sw = threshold_sweep(P, {...C[0].x, deb});
+      ok(sw.every(s => s.phantoms + s.lost >= 1), `no guard, debounce ${deb} s: every threshold has a phantom or a loss`); }
+    const g0 = simulate_turns(P, {...C[2].x, deb: 0});
+    ok(g0.ev.filter(e => e.type === "rejected" && e.origin.attr === "motor").length === 2, "guard, zero debounce: both motor onsets before the interjection are rejected (the interjection then ends the answer)");
+    ok(g0.ev.some(e => e.type === "phantom barge-in" && e.origin.viaSelf), "guard, zero debounce: a nod during the leaked self-voice gets through (the leak supplies a vowel)");
+    const n0 = simulate_turns(P, {...C[0].x, deb: 0});
+    ok(n0.ev.find(e => e.type === "phantom barge-in").t === P.page_tt_script.value.motion[1][0], "no guard, zero debounce: the first nod of the answer cuts the robot off");
+    return {passed, failed};
+  }
+  function nanSweep(P){
+    let checked = 0, bad = 0;
+    for (const thr of [8, 24]) for (const deb of [0, 1.2]) for (const leak of [0, 1.5]) for (const guard of [false, true]) for (const grace of [false, true]){
+      const r = simulate_turns(P, {thr, deb, leak, guard, grace});
+      [r.phantoms, r.lost, r.latency === null ? 0 : r.latency, ...r.lanes.map(l => l.level)].forEach(v => { checked++; if (!isFinite(v)) bad++; });
+      if (thr === 8 && deb === 0) threshold_sweep(P, {thr, deb, leak, guard, grace}).forEach(s => { checked++; if (!isFinite(s.phantoms + s.lost)) bad++; });
+    }
+    return {checked, bad};
+  }
+  return {simulate_turns, threshold_sweep, build_script, cases, selfTest, nanSweep, talker_level_B4};
+})();
+if (typeof module !== "undefined") module.exports = MODEL;
+/*MODEL-END*/
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, pg: {cls: "ill", txt: "page model"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t, cls){ return `<div class="metric ${cls || ""}"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : (k.startsWith("page_") ? TAGS.pg : TAGS.ill);
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f === undefined ? undefined : Number(el.dataset.f))); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => { const el = $(id); const ev = (el.type === "checkbox" || el.tagName === "SELECT") ? "change" : "input";
+    el.addEventListener(ev, () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); }); }); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+// shoot.py steps window.Story scenes; here a "scene" step = a preloaded case applied to the output panel.
+function exposeStory(figId, n, apply){ window.Story = {scenes: {[figId]: {n}}, go(id, k){ if (id === figId) apply(k - 1); }}; }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  window.Story = window.Story || {scenes: {}, go(){}};
+  const CASES = MODEL.cases(PARAMS);
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+    b.setAttribute("aria-pressed", "false"); b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  function applyCase(i){ const x = CASES[i].x; $("thr").value = x.thr; $("deb").value = x.deb; $("leak").value = x.leak;
+    $("guard").checked = x.guard; $("grace").checked = x.grace; setPressed("cases", i); update(); }
+  function inputs(){ return {thr: +$("thr").value, deb: +$("deb").value, leak: +$("leak").value, guard: $("guard").checked, grace: $("grace").checked && $("guard").checked}; }
+  const MARK = {"phantom barge-in": ["✂", "#ff7a7a"], "ghost": ["◆", "#ff7a7a"], "barge-in": ["✓", "#49d17a"], "turn": ["✓", "#49d17a"],
+    "rejected": ["⊘", "#ffd36b"], "filtered": ["○", "#aeb6c4"]};
+
+  function drawTL(x, r){
+    const W = 720, H = 348, pl = 92, pr = 12, T = V("page_tt_horizon"), sx = t => pl + (W - pl - pr) * t / T;
+    let g = `<title id="tl-t">Timeline of the scripted visit: robot speech, robot motion, visitor speech, processed-channel level against the VAD threshold, and each decision.</title>`;
+    const lane = (y, txt) => g += `<text x="${pl - 8}" y="${y + 12}" font-size="12" text-anchor="end">${txt}</text>`;
+    lane(14, "robot speaks"); lane(44, "robot moves"); lane(74, "visitor speaks"); lane(150, "mic level"); lane(270, "decisions");
+    r.S.robot.forEach((u, i) => { const e = Math.min(u.t1, r.cut[i]); const reached = r.stall === null || u.t0 < r.stall; if (!reached) return;
+      g += `<rect x="${sx(u.t0)}" y="14" width="${Math.max(1, sx(Math.min(e, r.stall ?? e)) - sx(u.t0))}" height="16" fill="#e6e9ef" fill-opacity="0.55"/>`;
+      g += `<rect x="${sx(u.t0)}" y="14" width="${Math.max(0, sx(Math.min(e, u.t0 + x.leak)) - sx(u.t0))}" height="16" fill="#ffd36b" fill-opacity="0.7"/>`;
+      if (e < u.t1) g += `<rect x="${sx(e)}" y="14" width="${sx(u.t1) - sx(e)}" height="16" fill="none" stroke="#e6e9ef" stroke-dasharray="3 3"/>` +
+        `<text x="${sx(e) + 3}" y="27" font-size="12" fill="#ff7a7a">✂ cut</text>`; });
+    r.S.motion.forEach(m => { const own = m.owner >= 0 ? Math.min(r.S.robot[m.owner].t1, r.cut[m.owner]) > m.t0 : true;
+      if (own && (r.stall === null || m.t0 < r.stall)) g += `<rect x="${sx(m.t0)}" y="44" width="${Math.max(2, sx(m.t1) - sx(m.t0))}" height="16" fill="#c99bff" fill-opacity="0.8"/>`; });
+    r.S.visitor.forEach((v, i) => { const c = !r.reached[i] ? "#3a3f4a" : r.heard[i] ? "#49d17a" : "#ff7a7a";
+      g += `<rect x="${sx(v.t0)}" y="74" width="${Math.max(2, sx(v.t1) - sx(v.t0))}" height="16" fill="${c}"/>` +
+        (r.reached[i] ? `<text x="${sx(v.t0)}" y="104" font-size="11" fill="${c}">${r.heard[i] ? "heard" : "lost"}</text>` : ""); });
+    const y0 = 230, y1 = 116, sy = L => y0 - (y0 - y1) * Math.min(25, L) / 25;
+    for (const L of [0, 10, 20]) g += `<line x1="${pl}" x2="${W - pr}" y1="${sy(L)}" y2="${sy(L)}" stroke="#262b35"/><text x="${pl + 2}" y="${sy(L) - 2}" font-size="10" fill="#aeb6c4">${L} dB</text>`;
+    g += `<polyline fill="none" stroke="#5ec8ff" stroke-width="1.5" points="${r.lanes.filter((l, i) => i % 2 === 0).map(l => sx(l.t).toFixed(1) + "," + sy(l.level).toFixed(1)).join(" ")}"/>`;
+    g += `<line x1="${pl}" x2="${W - pr}" y1="${sy(x.thr)}" y2="${sy(x.thr)}" stroke="#ffd36b" stroke-dasharray="6 4"/>` +
+      `<text x="${W - pr - 2}" y="${sy(x.thr) - 4}" font-size="11" text-anchor="end" fill="#ffd36b">VAD threshold ${fmt(x.thr, 1)} dB</text>`;
+    for (const e of r.ev){ const [m, c] = MARK[e.type]; g += `<text x="${sx(e.t)}" y="${280}" font-size="15" text-anchor="middle" fill="${c}">${m}</text>`; }
+    if (r.stall !== null) g += `<rect x="${sx(r.stall)}" y="8" width="${sx(T) - sx(r.stall)}" height="290" fill="#0f1115" fill-opacity="0.7"/>` +
+      `<text x="${Math.min(sx(r.stall) + 8, W - 250)}" y="200" font-size="13" fill="#ff7a7a">visit stalled: the reply was never heard</text>` +
+      `<text x="${Math.min(sx(r.stall) + 8, W - 250)}" y="218" font-size="11" fill="#aeb6c4">later script events never happen</text>`;
+    for (let t = 0; t <= T; t += 2) g += `<text x="${sx(t)}" y="${H - 36}" font-size="11" text-anchor="middle" fill="#aeb6c4">${t} s</text>`;
+    g += `<text x="${pl}" y="${H - 18}" font-size="11" fill="#aeb6c4">yellow = the robot's own voice leaking before suppression engages · purple = motors · green = heard, red = lost</text>` +
+      `<text x="${pl}" y="${H - 4}" font-size="11" fill="#aeb6c4">✂ phantom barge-in · ◆ ghost turn · ✓ heard · ⊘ rejected by the guard · ○ filtered by the debounce</text>`;
+    $("tl").innerHTML = g;
+  }
+  function drawSweep(x, r){
+    const sw = MODEL.threshold_sweep(PARAMS, x), W = 720, H = 210, pl = 52, pr = 14, pt = 36, pb = 34;
+    const ymax = Math.max(3, ...sw.map(s => Math.max(s.phantoms, s.lost))) + 0.5;
+    const sx = t => pl + (W - pl - pr) * (t - 8) / 16, sy = v => pt + (H - pt - pb) * (1 - v / ymax);
+    let g = `<title id="sw-t">Phantom turns and lost visitor utterances against the VAD threshold, with the current settings.</title>`;
+    for (let v = 0; v <= ymax; v++) g += `<line x1="${pl}" x2="${W - pr}" y1="${sy(v)}" y2="${sy(v)}" stroke="#262b35"/><text x="${pl - 6}" y="${sy(v) + 4}" font-size="11" text-anchor="end" fill="#aeb6c4">${v}</text>`;
+    for (let t = 8; t <= 24; t += 2) g += `<text x="${sx(t)}" y="${H - 16}" font-size="11" text-anchor="middle" fill="#aeb6c4">${t}</text>`;
+    g += `<text x="${(pl + W) / 2}" y="${H - 2}" font-size="11" text-anchor="middle" fill="#aeb6c4">VAD threshold (dB above the room floor)</text>`;
+    const line = (k, c, dash) => `<polyline fill="none" stroke="${c}" stroke-width="2" ${dash ? 'stroke-dasharray="6 4"' : ""} points="${sw.map(s => sx(s.thr).toFixed(1) + "," + sy(s[k]).toFixed(1)).join(" ")}"/>`;
+    g += line("phantoms", "#ff7a7a", false) + line("lost", "#5ec8ff", true);
+    sw.filter(s => s.stall).forEach(s => g += `<rect x="${sx(s.thr) - 3}" y="${pt - 8}" width="6" height="5" fill="#ff7a7a"/>`);
+    for (const [L, nm] of [[r.Ls, "self-voice"], [r.Lv, "talker"], [r.Lm, "motors"]]) g += `<line x1="${sx(L)}" x2="${sx(L)}" y1="${pt}" y2="${H - pb}" stroke="#aeb6c4" stroke-dasharray="2 3"/><text x="${sx(L) + 3}" y="${H - pb - 4}" font-size="10" fill="#aeb6c4">${nm} ${L}</text>`;
+    g += `<line x1="${sx(x.thr)}" x2="${sx(x.thr)}" y1="${pt}" y2="${H - pb}" stroke="#ffd36b"/>`;
+    g += `<text x="${pl}" y="14" font-size="12">red = phantom turns caused · blue dashed = visitor utterances lost · small red squares = visit stalls</text>`;
+    $("sw").innerHTML = g;
+  }
+  function update(){
+    const x = inputs(); $("grace").disabled = !$("guard").checked;
+    $("thr_v").textContent = fmt(x.thr, 1) + " dB"; $("deb_v").textContent = fmt(x.deb, 2) + " s"; $("leak_v").textContent = fmt(x.leak, 2) + " s";
+    const r = MODEL.simulate_turns(PARAMS, x), nV = r.S.visitor.length;
+    $("headline").innerHTML =
+      metric("phantom barge-ins", fmt(r.phantomBarge), TAGS.der, r.phantomBarge ? "bad" : "ok") +
+      metric("ghost turns", fmt(r.ghosts), TAGS.der, r.ghosts ? "bad" : "ok") +
+      metric("visitor utterances heard", `${r.heard.filter(Boolean).length} of ${r.reached.filter(Boolean).length}` + (r.reached.every(Boolean) ? "" : ` (${r.reached.filter(z => !z).length} never reached)`), TAGS.der, r.lost || r.stall !== null ? "bad" : "ok") +
+      metric("barge-in latency", r.latency === null ? "none honoured" : fmt(r.latency, 2) + " s", TAGS.der, r.latency !== null && r.latency >= V("response_limit_flow") ? "bad" : "") +
+      metric("visit", r.stall === null ? "continues" : "stalls at " + fmt(r.stall, 1) + " s", TAGS.der, r.stall === null ? "ok" : "bad");
+    drawTL(x, r); drawSweep(x, r);
+    const desc = e => e.origin.attr === "visitor" ? "visitor: " + r.S.visitor[e.origin.v].name : e.origin.attr === "self" ? "the robot's own voice" : e.origin.attr === "motor" ? "the robot's motors" : "?";
+    $("events").innerHTML = `<thead><tr><th>t (s)</th><th>decision</th><th>what the microphone heard</th><th>note</th></tr></thead><tbody>` +
+      r.ev.map(e => `<tr><td>${fmt(e.t, 2)}</td><td>${MARK[e.type][0]} ${e.type}</td><td>${desc(e)}</td><td>${e.note || ""}</td></tr>`).join("") + "</tbody>";
+    const lostTxt = r.S.visitor.map((v, i) => r.reached[i] && !r.heard[i] ? `${v.name} (${r.lostWhy[i]})` : null).filter(Boolean);
+    let why = "";
+    if (r.stall !== null) why += `<strong>One rejection ended the visit.</strong> The reply to the greeting was ${r.lostWhy[0]}; the reasoner keeps waiting for an answer to its greeting and the robot goes idle. `;
+    if (r.phantomBarge) why += `The robot cut itself off ${r.phantomBarge} time(s): ${r.ev.filter(e => e.type === "phantom barge-in").map(desc).join(", ")} held the VAD open for longer than the ${fmt(x.deb, 2)} s debounce. `;
+    if (r.ghosts) why += `${r.ghosts} ghost turn(s) started while the robot was quiet; a transcription model turns noise into words (an illustrative ${V("noise_only_transcripts_illustrative", 0)} of ${V("noise_only_transcripts_illustrative", 1)} noise clips came back as words). `;
+    if (lostTxt.length && r.stall === null) why += `Lost: ${lostTxt.join("; ")}. `;
+    if (!why) why = "This combination neither caused a phantom turn nor lost a visitor utterance on this script. That is one favourable sample on one script, not evidence of a fix.";
+    $("why_text").innerHTML = why;
+    $("callout").innerHTML = `On the processed channel: the robot's own voice ${r.Ls} dB, a nearby talker ${r.Lv} dB, the robot's motors ${r.Lm} dB above the room floor. ` +
+      `A threshold below the talker also passes the motors, so level alone cannot separate them. The spectral guard separates motors (≤ ${V("guard_phantom_max_illustrative")} dB) from voices (≥ ${V("guard_real_min_illustrative")} dB) but cannot tell the robot's own voice from a visitor's. ` +
+      `The onset grace can, but it cannot tell self-hearing from a prompt reply to a ${V("proactive_greeting_illustrative")} s greeting. B4 gives two reasons the guard was flipped back off: a platform audio update removed most of the self-hearing, and a new short greeting moved the common case into the grace's blind spot.`;
+    $("live").textContent = `${r.phantoms} phantom turns, ${r.heard.filter(Boolean).length} of ${nV} visitor utterances heard, visit ${r.stall === null ? "continues" : "stalls"}.`;
+  }
+  onInput(["thr", "deb", "leak", "guard", "grace"], update);
+  fillDataP(); renderSources(); runSelfTests();
+  exposeStory("out", CASES.length, applyCase);
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

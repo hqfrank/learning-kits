@@ -1,0 +1,31 @@
+{
+ "_about": "Numbers cited by the hri-experience-platform kit. Every entry has class 'public' (a cited public document, value as published) or 'illustrative' (a round design parameter or example invented to keep the shape of a design rule; never a measurement). No number here is copied from any internal source. Derived values in the notes are labelled 'my arithmetic'. Load this file; do not retype the numbers.",
+
+ "ros2_default_history_depth": {"value": 10, "unit": "samples", "class": "public", "source": "ROS 2 documentation, 'Quality of Service settings', section 'QoS profiles' (default for publishers and subscriptions: keep last, queue size 10, reliable, volatile). https://docs.ros.org/en/kilted/Concepts/Intermediate/About-Quality-of-Service-Settings.html", "used_in": ["C5"]},
+
+ "cancel_settle_target_ms_illustrative": {"value": 1500, "unit": "ms", "class": "illustrative", "source": "design parameter; one target adapter's bound for positive proof that a cancelled primitive is quiet. Must be <= cancel_settle_ceiling_ms_illustrative and < cleanup_ack_timeout_ms_illustrative", "used_in": ["B3", "C3"]},
+ "cancel_settle_ceiling_ms_illustrative": {"value": 2000, "unit": "ms", "class": "illustrative", "source": "design parameter; catalog-wide ceiling pinned in the deployment profile, shared by every target", "used_in": ["B3"]},
+ "cleanup_ack_timeout_ms_illustrative": {"value": 10000, "unit": "ms", "class": "illustrative", "source": "design parameter; kernel cleanup acknowledgement deadline. Every settle bound must be strictly shorter", "used_in": ["B2", "B3"]},
+
+ "gesture_wait_timeout_s_illustrative": {"value": 10, "unit": "s", "class": "illustrative", "source": "design parameter; experience-policy timer for the 'await wave' local state of the example wave experience", "used_in": ["B1", "B5"]},
+ "chat_turns_illustrative": {"value": 3, "unit": "turns", "class": "illustrative", "source": "design parameter; bounded number of conversation turns in the example chat experience", "used_in": ["B6"]},
+ "chat_turn_budget_s_illustrative": {"value": 8, "unit": "s", "class": "illustrative", "source": "design parameter; per-turn time budget for one conversation turn", "used_in": ["B6"]},
+ "chat_session_bound_s_illustrative": {"value": 60, "unit": "s", "class": "illustrative", "source": "design parameter; upper bound on one kernel-owned conversation session", "used_in": ["B6"]},
+ "same_visit_absence_s_illustrative": {"value": 8, "unit": "s", "class": "illustrative", "source": "design parameter; how long a visitor may leave view and still be the same visit in the earlier single-tracker design", "used_in": ["C5"]},
+ "decline_limit_illustrative": {"value": 3, "unit": "consecutive declines", "class": "illustrative", "source": "design parameter; consecutive explicit declines after which the earlier single-tracker design stops proactive offers", "used_in": ["C5"]},
+ "transition_stream_depth_illustrative": {"value": 50, "unit": "samples", "class": "illustrative", "source": "design parameter; bounded history depth of the transition stream in the earlier single-tracker design", "used_in": ["C5"]},
+
+ "old_effect_kinds_illustrative": {"value": 30, "unit": "effect kinds", "class": "illustrative", "source": "illustrative order of magnitude of a story-specific effect vocabulary in a single-experience coordinator, before the generic vocabulary replaced it", "used_in": ["A0", "B3"]},
+ "baseline_local_states_illustrative": {"value": 12, "unit": "local states", "class": "illustrative", "source": "illustrative size of the story of the richest earlier experience, used in the regeneration example", "used_in": ["C3"]},
+
+ "sim_cold_start_s_illustrative": {"value": 600, "unit": "s", "class": "illustrative", "source": "illustrative order of magnitude of a physics-simulator cold start to a healthy scene; not a measurement", "used_in": ["B5", "C1"]},
+ "sim_launch_timeout_s_illustrative": {"value": 1200, "unit": "s", "class": "illustrative", "source": "design parameter; launch bound, chosen larger than the cold start", "used_in": ["C1"]},
+ "sim_retire_timeout_s_illustrative": {"value": 300, "unit": "s", "class": "illustrative", "source": "design parameter; bound on stopping and retiring one simulation instance", "used_in": ["B5", "C1"]},
+ "sim_rebind_grace_s_illustrative": {"value": 5, "unit": "s", "class": "illustrative", "source": "design parameter; grace in which the same browser page may rebind after its application channel drops", "used_in": ["C1"]},
+ "sim_inactivity_s_illustrative": {"value": 90, "unit": "s", "class": "illustrative", "source": "design parameter; visitor inactivity deadline renewed only by meaningful activity", "used_in": ["C1"]},
+ "matrix_profiles_illustrative": {"value": 5, "unit": "profiles", "class": "illustrative", "source": "illustrative number of experience profiles validated by the serial profile-matrix runner", "used_in": ["B5"]},
+ "matrix_run_s_illustrative": {"value": 300, "unit": "s", "class": "illustrative", "source": "illustrative scenario run time per profile in the serial matrix", "used_in": ["B5"]},
+
+ "observatory_session_ttl_h_illustrative": {"value": 2, "unit": "h", "class": "illustrative", "source": "design parameter; maximum lifetime of one cloud observatory session cell", "used_in": ["C4"]},
+ "observatory_idle_min_illustrative": {"value": 20, "unit": "min", "class": "illustrative", "source": "design parameter; idle timeout that stops one cloud observatory session cell", "used_in": ["C4"]}
+}

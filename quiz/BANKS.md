@@ -290,3 +290,66 @@ about 28 % because each "Common confusions" entry gets a tf on the confusion its
 lint (answer not clearly the longest choice) was applied to every bank. Validated with
 `node quiz/check-banks.js` (0 errors); `tools/public-scan.sh learning/agentic-research-harness` and a scan
 of the new banks, `manifest.js` and this file are clean.
+
+## hri-experience-platform — A platform for many robot experiences
+
+| Topic | Section | KPs | Questions | Date |
+|---|---|---|---|---|
+| hri-experience-platform | A0-one-experience-versus-many | 8 | 26 | 2026-11-04 |
+| hri-experience-platform | A1-the-reasoner-and-the-coordinator | 7 | 25 | 2026-11-04 |
+| hri-experience-platform | B1-experiences-as-reducers | 8 | 27 | 2026-11-04 |
+| hri-experience-platform | B2-state-ownership | 8 | 26 | 2026-11-04 |
+| hri-experience-platform | B3-the-effect-vocabulary | 8 | 31 | 2026-11-04 |
+| hri-experience-platform | B4-kernel-interception-and-arbitration | 8 | 26 | 2026-11-04 |
+| hri-experience-platform | B5-registration-selection-switching | 8 | 26 | 2026-11-04 |
+| hri-experience-platform | B6-conversation-and-model-boundaries | 8 | 26 | 2026-11-04 |
+| hri-experience-platform | C1-simulation-first | 8 | 26 | 2026-11-04 |
+| hri-experience-platform | C2-the-conformance-ladder | 8 | 27 | 2026-11-04 |
+| hri-experience-platform | C3-regeneration-and-comparison | 8 | 25 | 2026-11-04 |
+| hri-experience-platform | C4-the-observatory | 8 | 26 | 2026-11-04 |
+| hri-experience-platform | C5-migrating-from-a-single-state-tracker | 8 | 28 | 2026-11-04 |
+
+**Totals:** 13 banks (one per note), 103 knowledge points, 345 questions
+(mcq 170, tf 111, multi 40, numeric 24). Every knowledge point has 3–5 questions; every bank has all four types.
+
+Notes: sources are the kit's notes, glossary and `constants.json` only. Every number was loaded from
+`constants.json` by key at generation time; all design limits are called illustrative in the prompt or
+explanation, and the ROS 2 default history depth is public. Derived values (one profile-matrix cycle and the
+serial total in B5, 3 turns × 8 s in B6, the settle-deadline clamp in C3) are asked with their inputs in the
+prompt and labelled "my arithmetic". A1 and B4 have no constants, so their only numeric questions are counts
+of items the note lists (three reasons, five priority levels); likewise the lifecycle-phase, contract-kind and
+first-registry counts elsewhere. Numeric is lighter (~7 %) and tf heavier (~32 %) than the target because the
+notes are design rules with few numbers and many "Common confusions". mcq choices are shuffled deterministically
+at generation and passed a length-cue lint. Validated with `node quiz/check-banks.js` (0 errors);
+`tools/public-scan.sh` over the kit, the new banks, `manifest.js` and this file is clean.
+
+## public-robot-interaction-design
+
+| Topic | Section | KPs | Questions | Date |
+|---|---|---|---|---|
+| public-robot-interaction-design | A0-why-strangers-are-the-hard-case | 7 | 28 | 2026-11-04 |
+| public-robot-interaction-design | A1-the-experience-as-a-state-machine | 7 | 28 | 2026-11-04 |
+| public-robot-interaction-design | A2-beats-and-dwell-budget | 7 | 30 | 2026-11-04 |
+| public-robot-interaction-design | A3-consent-and-privacy-by-design | 8 | 34 | 2026-11-04 |
+| public-robot-interaction-design | B1-the-voice-pipeline | 8 | 33 | 2026-11-04 |
+| public-robot-interaction-design | B2-who-is-speaking | 8 | 40 | 2026-11-04 |
+| public-robot-interaction-design | B3-gaze | 8 | 39 | 2026-11-04 |
+| public-robot-interaction-design | B4-turn-taking-and-self-hearing | 8 | 37 | 2026-11-04 |
+| public-robot-interaction-design | B5-behaviours-from-language | 9 | 39 | 2026-11-04 |
+| public-robot-interaction-design | B6-ambient-awareness | 8 | 34 | 2026-11-04 |
+| public-robot-interaction-design | C1-failure-and-degradation-ux | 8 | 37 | 2026-11-04 |
+| public-robot-interaction-design | C2-the-validation-ladder | 8 | 35 | 2026-11-04 |
+| public-robot-interaction-design | C3-lessons-from-a-live-show | 7 | 28 | 2026-11-04 |
+
+**Totals:** 13 banks (one per note), 101 knowledge points, 442 questions
+(mcq 224, tf 128, multi 31, numeric 59). Every knowledge point has 4–7 questions; every bank has all four types.
+
+Notes: sources are the kit's notes, glossary and `constants.json` only. Every number was loaded from
+`constants.json` by key at generation time. Public values (Stivers turn gap, Nielsen limits, Argyle/Vertegaal
+gaze figures, Carpenter saccade, Hall proxemics, TDOA and aliasing arithmetic, GDPR ages, WCAG flash limit,
+Landis & Koch κ, Fisher p-values) keep their citation; design values are called illustrative in the prompt or
+explanation. Derived values (beat sum, cycle → throughput → visits per day, half of the scripted reach beat,
+alternation duty, saccade at 40°, pre-roll bytes) are asked with their inputs in the prompt. Two numerics are
+counts from the note (one reasoner-state publisher in B1, four conversation-ladder rungs in C1). tf is about
+29 % because the notes carry many "Common confusions". mcq choices are shuffled deterministically and passed a
+length-cue lint. Validated with `node quiz/check-banks.js` (0 errors).

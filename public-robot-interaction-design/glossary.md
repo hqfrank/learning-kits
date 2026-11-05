@@ -1,0 +1,125 @@
+# Glossary — Designing a humanoid robot's conversation with strangers
+
+One line per term, alphabetical, each defined once. The note where a term is introduced is named in
+parentheses. Numbers are not repeated here; they live in [`constants.json`](constants.json).
+
+- **ability (prompt file)** — a configuration file that adds a capability to the reasoner (prompt text plus tools) ([[notes/B1-the-voice-pipeline|B1]]).
+- **acoustic feedback cancellation (AEC)** — subtracting an adaptive estimate of the loudspeaker signal from the microphone, using the loudspeaker feed as reference ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **active speaker / addressee / bystander** — the person talking / the person being answered / a person present but outside the conversation ([[notes/B3-gaze|B3]]).
+- **active-speaker detection (ASD)** — a vision score of whether a face's mouth moves with the audio ([[notes/B2-who-is-speaking|B2]]).
+- **ambient awareness** — noticing relevant events without a request ([[notes/B6-ambient-awareness|B6]]).
+- **answer-as-consent** — treating a reply to the robot's greeting as the consent action, under qualifying conditions ([[notes/A3-consent-and-privacy-by-design|A3]]).
+- **anti-repeat pool** — a set of variants for a beat from which the robot picks without repeating recent choices ([[notes/A2-beats-and-dwell-budget|A2]]).
+- **ASR / TTS** — speech-to-text / text-to-speech ([[notes/B1-the-voice-pipeline|B1]]).
+- **automatic gain control (AGC)** — a front-end stage that raises quiet input; it can amplify noise when no speech is present ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **barge-in** — a user starting to speak while the system speaks ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **basis** — the evidence branch that produced a label ([[notes/B2-who-is-speaking|B2]]).
+- **beat** — one timed stage of a visit (greet, converse, offer, celebrate, goodbye) ([[notes/A1-the-experience-as-a-state-machine|A1]]).
+- **behaviour id** — the exact string naming a behaviour in the registry ([[notes/B5-behaviours-from-language|B5]]).
+- **behaviour library** — the robot-side component that owns and plays named gestures and poses ([[notes/B5-behaviours-from-language|B5]]).
+- **bridge** — one sentence that links an off-topic exchange back to the stand ([[notes/A1-the-experience-as-a-state-machine|A1]]).
+- **cascade** — a VAD → ASR → LLM → TTS chain of separate components ([[notes/B1-the-voice-pipeline|B1]]).
+- **coarse zone fallback** — replacing fine bearings with left/centre/right zones in a crowd ([[notes/B6-ambient-awareness|B6]]).
+- **Cohen's kappa (κ)** — agreement between two raters corrected for chance (Cohen 1960) ([[notes/C2-the-validation-ladder|C2]]).
+- **comment on things, not people** — the rule that limits appearance remarks to objects and excludes personal categories ([[notes/A3-consent-and-privacy-by-design|A3]]).
+- **compatibility shim** — a local override that bridges a version difference until upstream catches up ([[notes/B5-behaviours-from-language|B5]]).
+- **composition rule** — absolute target = measured neck yaw + camera bearing ([[notes/B3-gaze|B3]]).
+- **consent (GDPR)** — a freely given, specific, informed and unambiguous indication of wishes by a statement or clear affirmative action (Art. 4(11)) ([[notes/A3-consent-and-privacy-by-design|A3]]).
+- **consent action** — a visible visitor action that opens the microphone: answering, a wake phrase, an operator trigger or a button ([[notes/A3-consent-and-privacy-by-design|A3]]).
+- **content-safety corpus** — a curated, hashed image set for testing what the model says about people ([[notes/C2-the-validation-ladder|C2]]).
+- **contested state** — labels alternating faster than the dwell; the robot holds ([[notes/B3-gaze|B3]]).
+- **cross-ability regression** — a test that a new safety rule does not break other abilities ([[notes/C2-the-validation-ladder|C2]]).
+- **curtain** — a physical screen that hides the robot after a stop or fault ([[notes/C1-failure-and-degradation-ux|C1]]).
+- **cycle** — dwell time plus reset and turnover ([[notes/A2-beats-and-dwell-budget|A2]]).
+- **debounce (barge-in)** — the delay before a "speech started" event is allowed to stop the robot ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **debrief template** — a fixed per-scene structure: today, direction, options with trades, KPI ([[notes/C3-lessons-from-a-live-show|C3]]).
+- **decision flip** — a change in a decision caused by turning one input on or off in replay ([[notes/C2-the-validation-ladder|C2]]).
+- **degradation / graceful degradation** — running with less capability / doing so while the experience stays coherent ([[notes/C1-failure-and-degradation-ux|C1]]).
+- **degradation ladder** — an ordered set of tiers, each a complete fallback for the one above ([[notes/C1-failure-and-degradation-ux|C1]]).
+- **directedness** — whether speech is addressed to the robot ([[notes/B2-who-is-speaking|B2]]).
+- **direction of arrival (DoA)** — the bearing of a sound source estimated from inter-microphone delays ([[notes/B2-who-is-speaking|B2]]).
+- **disclosure carrier** — the physical or spoken means by which a visitor is told what the robot captures ([[notes/A3-consent-and-privacy-by-design|A3]]).
+- **driver / enabler** — the cause that produces a symptom / the condition that makes it visible ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **duty cycle (gaze)** — the fraction of time spent looking at the addressee ([[notes/B3-gaze|B3]]).
+- **dwell budget** — the planned dwell time, split into beats ([[notes/A2-beats-and-dwell-budget|A2]]).
+- **dwell time** — how long one visitor spends in the interaction ([[notes/A2-beats-and-dwell-budget|A2]]).
+- **eased glide** — a smoothstep head trajectory with a peak-speed cap ([[notes/B3-gaze|B3]]).
+- **empty-list window** — the period before the registry arrives in which every id is invalid ([[notes/B5-behaviours-from-language|B5]]).
+- **end-of-turn silence** — the trailing silence after which the VAD ends a turn ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **engage trigger** — the deterministic rule that tells the reasoner to greet an engaged visitor ([[notes/B1-the-voice-pipeline|B1]]).
+- **engagement arc** — the region in front of the stand in which an approach counts ([[notes/B6-ambient-awareness|B6]]).
+- **enrichment** — optional perception output used as a context hint, never as a transition gate ([[notes/B6-ambient-awareness|B6]]).
+- **eyebrow beat** — a facial aversion cue used instead of moving the head ([[notes/B3-gaze|B3]]).
+- **fail open** — on guard failure, allow the barge-in (the pre-guard behaviour) ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **fed capability** — a sensor that both exists and currently delivers data ([[notes/B6-ambient-awareness|B6]]).
+- **full duplex / half duplex** — listening while speaking / closing the microphone while speaking ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **gaze policy** — the ordered gates that decide whether an aim may happen now ([[notes/B3-gaze|B3]]).
+- **GCC-PHAT** — cross-correlation with phase-transform weighting for delay estimation (Knapp & Carter 1976) ([[notes/B2-who-is-speaking|B2]]).
+- **go/no-go review** — a cross-functional decision that picks a mode on recorded evidence ([[notes/C1-failure-and-degradation-ux|C1]]).
+- **guaranteed floor** — the scripted version of each beat, used whenever autonomy is not ready ([[notes/C3-lessons-from-a-live-show|C3]]).
+- **honest abstention** — publishing a null id with a reason instead of guessing ([[notes/B2-who-is-speaking|B2]]).
+- **host, not vending machine** — the stance that the robot offers one thing at a time and never reads a menu ([[notes/A0-why-strangers-are-the-hard-case|A0]]).
+- **id-namespace contract** — the agreement on valid ids, their owner, and how consumers learn them ([[notes/B5-behaviours-from-language|B5]]).
+- **interest layer** — the component that maps reasoner state and perception situation to a gaze intent ([[notes/B3-gaze|B3]]).
+- **invariant** — a rule that must hold in every state of the visit ([[notes/A1-the-experience-as-a-state-machine|A1]]).
+- **kill switch** — a documented way to turn a feature fully off ([[notes/C2-the-validation-ladder|C2]]).
+- **listening indicator** — the visible signal shown if and only if the microphone is capturing ([[notes/A3-consent-and-privacy-by-design|A3]]).
+- **lock / glance / hold / neutral / release** — the gaze intents ([[notes/B3-gaze|B3]]).
+- **lock-eligible / attention-only / refused** — the trust grades of a face nomination ([[notes/B3-gaze|B3]]).
+- **mention / offer** — saying a thing exists (no answer expected) / naming it and waiting for yes or no ([[notes/A1-the-experience-as-a-state-machine|A1]]).
+- **message ABI skew** — two sides disagreeing on a message's compiled layout, which can silently block data ([[notes/B5-behaviours-from-language|B5]]).
+- **modal bin** — the most frequent bearing bin over a turn ([[notes/B2-who-is-speaking|B2]]).
+- **offer hub** — the state from which offerings are raised, all as equals ([[notes/A1-the-experience-as-a-state-machine|A1]]).
+- **offering** — one optional thing the robot can do for the visitor ([[notes/A1-the-experience-as-a-state-machine|A1]]).
+- **on-rails dialogue** — an LLM used inside one beat with a fixed intent set and output schema ([[notes/B1-the-voice-pipeline|B1]]).
+- **open-world engagement** — engagement where people arrive and leave freely and the system decides whom to engage (Bohus & Horvitz 2009) ([[notes/A0-why-strangers-are-the-hard-case|A0]]).
+- **pinhole bearing** — atan((x − cx)/fx), the exact bearing for a rectified camera ([[notes/B3-gaze|B3]]).
+- **pre-roll** — a ring buffer of recent audio, flushed to the model when the wake phrase fires ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **primary visitor** — the visitor the robot engages first ([[notes/B6-ambient-awareness|B6]]).
+- **privacy by design** — making a privacy promise true through system structure ([[notes/A3-consent-and-privacy-by-design|A3]]).
+- **proven live** — evidenced on the deployed robot with real or rehearsed visitors ([[notes/C2-the-validation-ladder|C2]]).
+- **proxemics** — the study of interpersonal distance zones (Hall 1966) ([[notes/B6-ambient-awareness|B6]]).
+- **public demo stand** — a counter in a public venue where a robot greets and serves walk-up visitors ([[notes/A0-why-strangers-are-the-hard-case|A0]]).
+- **reasoner as sequencer / coordinator** — the model decides the order of the visit / a deterministic layer decides and the model only speaks ([[notes/B1-the-voice-pipeline|B1]]).
+- **rehearsed scripted act** — a fully authored, timed performance with pre-recorded lines and a rehearsed visitor ([[notes/C3-lessons-from-a-live-show|C3]]).
+- **release ladder** — alternative modes of a feature carried so the show never depends on one path ([[notes/C1-failure-and-degradation-ux|C1]]).
+- **reset (close the visit)** — a confirmed stop plus deletion of all per-visit state ([[notes/A1-the-experience-as-a-state-machine|A1]]).
+- **responsiveness budget** — the planned delay from a visitor's action to a visible reaction, split by stage ([[notes/A2-beats-and-dwell-budget|A2]]).
+- **robot gateway** — the component that exposes intent-level verbs to the robot and is the only one that talks to the robot middleware ([[notes/B1-the-voice-pipeline|B1]]).
+- **robot-free harness** — the real software stack with a simulated actuator ([[notes/C2-the-validation-ladder|C2]]).
+- **roster** — the durable list of present visitors given to the model ([[notes/B2-who-is-speaking|B2]]).
+- **saccade** — a fast eye movement; duration grows about linearly with amplitude ([[notes/B3-gaze|B3]]).
+- **seam** — the interface between two components, where ownership of audio, state or completion must be explicit ([[notes/C3-lessons-from-a-live-show|C3]]).
+- **sector glance** — a time-boxed acquisition turn toward an off-camera voice ([[notes/B3-gaze|B3]]).
+- **self-hearing** — the robot's microphone picking up the robot's own loudspeaker ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **self-serve hand-over** — the robot offers and points; the visitor takes the gift ([[notes/B5-behaviours-from-language|B5]]).
+- **semantic event contract** — a small set of typed, anonymous perception events that drive the interaction ([[notes/B6-ambient-awareness|B6]]).
+- **session lease** — a bounded, fail-closed interval during which the microphone stays open after consent ([[notes/A3-consent-and-privacy-by-design|A3]]).
+- **shadow mode** — running a check and logging its decisions without acting on them ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **spatial aliasing** — phase wrapping between two microphones above c/(2d) ([[notes/B2-who-is-speaking|B2]]).
+- **speaker attribution** — labelling each utterance with who said it ([[notes/B2-who-is-speaking|B2]]).
+- **spectral barge-in guard** — a check that declines a barge-in when the audio looks like motor rumble rather than a voice ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **speech-to-speech model** — one model that takes audio in and gives audio out, optionally with server VAD and function calling ([[notes/B1-the-voice-pipeline|B1]]).
+- **spine** — the linear sequence of beats, with a safety state that pre-empts all of them ([[notes/A1-the-experience-as-a-state-machine|A1]]).
+- **SRP-PHAT** — steered response power: GCC-PHAT summed over microphone pairs on a grid of directions ([[notes/B2-who-is-speaking|B2]]).
+- **stranger** — a visitor with no prior knowledge, instructions or training for the robot ([[notes/A0-why-strangers-are-the-hard-case|A0]]).
+- **supervisor / director** — the deterministic component that decides / the model that advises ([[notes/C1-failure-and-degradation-ux|C1]]).
+- **TDOA** — time difference of arrival between two microphones ([[notes/B2-who-is-speaking|B2]]).
+- **test double / dummy service** — a stand-in for a real service used in development ([[notes/B5-behaviours-from-language|B5]]).
+- **the HRI designer** — the person who owns the visitor-facing experience ([[notes/A0-why-strangers-are-the-hard-case|A0]]).
+- **the reasoner** — the speech-to-speech LLM session that produces the robot's conversational speech ([[notes/A0-why-strangers-are-the-hard-case|A0]]).
+- **"the visitor must never tell"** — the requirement that a visitor cannot perceive which degradation step is running ([[notes/A0-why-strangers-are-the-hard-case|A0]]).
+- **throughput** — visitors served per hour; 3600 s divided by the cycle, discounted for queue friction ([[notes/A2-beats-and-dwell-budget|A2]]).
+- **time box** — the maximum time a beat or session may take before a graceful close ([[notes/C1-failure-and-degradation-ux|C1]]).
+- **timing baseline** — the stopwatch times of a rehearsed act, used as the reference for autonomy targets ([[notes/A2-beats-and-dwell-budget|A2]]).
+- **tool call (function call)** — a structured request a model emits to run code ([[notes/B5-behaviours-from-language|B5]]).
+- **triage** — a per-utterance LLM decision to accept or ignore the input ([[notes/B1-the-voice-pipeline|B1]]).
+- **turn-taking** — how participants decide who speaks next ([[notes/B4-turn-taking-and-self-hearing|B4]]).
+- **validation ladder** — ordered test environments, each closer to reality ([[notes/C2-the-validation-ladder|C2]]).
+- **velocity-based release** — releasing a held item when the arm senses the visitor's pull ([[notes/B5-behaviours-from-language|B5]]).
+- **visit** — one interaction between the robot and one visitor or group, from notice to reset ([[notes/A1-the-experience-as-a-state-machine|A1]]).
+- **voice activity detection (VAD)** — deciding when speech is present ([[notes/B1-the-voice-pipeline|B1]]).
+- **voice embedding** — a vector characterising a voice, compared by cosine similarity ([[notes/B2-who-is-speaking|B2]]).
+- **voice pack** — pre-rendered lines available without the model ([[notes/B1-the-voice-pipeline|B1]]).
+- **Wizard-of-Oz floor** — the fallback in which a hidden human operator drives each step ([[notes/B1-the-voice-pipeline|B1]]).
+- **worst-trial grading** — grading an item by its worst result across repeated trials ([[notes/C2-the-validation-ladder|C2]]).

@@ -1,0 +1,904 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The stage manager — why one kernel runs every robot experience</title>
+<meta name="description" content="A visual story: a robot's interactions as a puppet theatre. The voice (an LLM) improvises and asks; the stage manager (a deterministic coordinator kernel) calls every cue, owns the stations, and drops the safety curtain first. Acts are cue sheets (pure reducers), rehearsed in a rehearsal room (simulation) before opening night.">
+<link rel="stylesheet" href="../../stories/story.css">
+<style>
+  /* palette meaning (whole page): sky = an act / its cue sheet (experience) · plum = the voice (reasoner) and its microphone
+     · sun = crew stations and cues (resources, commands, held intervals) · leaf = the volunteer and "clear" (participant, proof)
+     · coral = safety, refusal, stuck · stone = audience, stand-ins, rehearsal room · navy ink = the stage manager (kernel) */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--ink-2);margin:10px 4px 0}
+  .legend i{display:inline-block;width:16px;height:12px;border-radius:4px;border:1.5px solid var(--navy);margin-right:6px;vertical-align:-1px}
+  header.hero.wrap{padding-left:20px;padding-right:20px}
+  header.hero{padding-top:28px}
+  .hero-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+  .hero h1{max-width:44ch;font-size:clamp(24px,2.6vw,32px);line-height:1.1}
+  .hero .lede{max-width:96ch;font-size:clamp(15px,1.4vw,17px);margin-bottom:.5rem}
+  .kicker{line-height:1.6}
+  .cast .c svg{max-width:100%}
+  /* ambient loops: requests ride to the stage manager, cues ride out to the stations */
+  @keyframes ride{0%{offset-distance:0%;opacity:0}6%{opacity:1}94%{opacity:1}100%{offset-distance:100%;opacity:0}}
+  .ride{animation:ride var(--T,4s) linear infinite;offset-rotate:0deg;animation-delay:var(--dl,0s)}
+  @keyframes beam{0%,100%{opacity:.5}50%{opacity:.32}}
+  .beam{animation:beam 2.6s ease-in-out infinite}
+  .st-still .ride{animation:none;opacity:1;offset-distance:var(--od,40%)}
+  .st-still .beam{animation:none;opacity:.45}
+  .grow{transform-box:fill-box;transform-origin:left center}
+  .js .st-scene .grow[data-s]:not(.is-on){transform:scaleX(0);opacity:1}
+  .st-scene .lit.is-lit,.st-scene .is-lit .lit{stroke:var(--coral)!important;stroke-width:4!important}
+  svg text.halo{paint-order:stroke;stroke:#FFFAF2;stroke-width:5px;stroke-linejoin:round}
+  svg text.haloD{paint-order:stroke;stroke:#2F3A55;stroke-width:4px;stroke-linejoin:round}
+  .readout{font:700 16px/1.5 var(--body);margin:10px 0 0}
+  .readout b{font-family:var(--mono);color:var(--coral-d)}
+  .readout .ok{color:var(--leaf-d)} .readout .no{color:var(--coral-d)} .readout .mid{color:var(--sun-d)}
+  details{margin-top:10px;font-size:15px;color:var(--ink-2)} summary{cursor:pointer;font-weight:700;color:var(--ink)}
+  code{font:600 .92em var(--mono);background:var(--card-2);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+  .grid2>*{min-width:0} .ctl label{flex-wrap:wrap;gap:4px 10px}
+  .ctl .chk{display:flex;gap:8px;align-items:center;font:700 15px var(--body);justify-content:flex-start}
+  .ctl .chk input{width:20px;height:20px;accent-color:var(--coral)}
+  .ctl2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 22px;margin-top:10px}
+  .breaks li{margin:4px 0}
+  .st-foot td{overflow-wrap:anywhere}
+  #src code{overflow-wrap:normal;word-break:break-word} #src td:first-child{min-width:11ch}
+  @media (max-width:600px){
+   .st-foot table#src{min-width:0} #src thead{display:none}
+   #src, #src tbody, #src tr, #src td{display:block;width:auto}
+   #src tr{border-bottom:1.5px solid var(--line);padding:8px 0}
+   #src td{border:0;padding:2px 0}
+   #src td:first-child{min-width:0;font-weight:800}
+   #src td:nth-child(n+2)::before{font:700 12px var(--body);color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;margin-right:6px}
+   #src td:nth-child(2)::before{content:"Value"} #src td:nth-child(3)::before{content:"Class"} #src td:nth-child(4)::before{content:"Source"}
+   #src code{overflow-wrap:anywhere}
+   .st-motion{left:auto;right:10px;bottom:10px;padding:4px 10px;font-size:13px} body{padding-bottom:56px}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#s1">Skip to the first scene</a>
+<noscript><p class="wrap" style="background:#FFF4DE;padding:10px;border-radius:10px">This story draws its pictures with JavaScript. The written version is in <a href="../notes/A0-one-experience-versus-many.md">the notes</a>.</p></noscript>
+
+<!-- the cast: drawn once, reused with <use>. Outlines are presentation attributes inside each symbol. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <marker id="ah-ink" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1D2A44"/></marker>
+  <marker id="ah-sky" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#2C6A82"/></marker>
+  <marker id="ah-sun" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#8A6800"/></marker>
+  <marker id="ah-plum" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#7E3A6C"/></marker>
+  <marker id="ah-coral" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#B33F1D"/></marker>
+  <marker id="ah-leaf" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1D7660"/></marker>
+  <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#F6D3C6"/><line x1="0" y1="0" x2="0" y2="8" stroke="#B33F1D" stroke-width="3"/></pattern>
+  <pattern id="stripes" width="14" height="14" patternUnits="userSpaceOnUse"><rect width="14" height="14" fill="#EE6A45"/><rect width="14" height="3" fill="#B33F1D"/></pattern>
+  <!-- a person; --c shirt, --skin, --hair -->
+  <symbol id="i-person" viewBox="0 0 60 100">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M10 98 V62 a20 20 0 0 1 40 0 V98 Z" style="fill:var(--c,#5E9FB8)"/>
+    <circle cx="30" cy="27" r="16" style="fill:var(--skin,#F4CDA7)"/>
+    <path d="M14 25 a16 16 0 0 1 32 0 q-8 -7 -16 -5 q-8 -2 -16 5z" style="fill:var(--hair,#3A2618)"/>
+   </g>
+   <circle cx="24" cy="29" r="2" fill="#141C2E"/><circle cx="36" cy="29" r="2" fill="#141C2E"/>
+   <ellipse cx="19.5" cy="35" rx="3" ry="1.7" fill="#EE8E78" opacity=".7"/><ellipse cx="40.5" cy="35" rx="3" ry="1.7" fill="#EE8E78" opacity=".7"/>
+   <path d="M25 36 Q30 40 35 36" fill="none" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <!-- the stage manager: headset and clipboard -->
+  <symbol id="i-sm" viewBox="0 0 70 100">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M14 98 V62 a21 21 0 0 1 42 0 V98 Z" fill="#34405E"/>
+    <circle cx="35" cy="28" r="16" style="fill:var(--skin,#D49A6A)"/>
+    <path d="M19 26 a16 16 0 0 1 32 0 q-9 -9 -16 -7 q-8 -2 -16 7z" fill="#1C1714"/>
+    <path d="M17 30 a18 18 0 0 1 36 0" fill="none" stroke-width="3"/>
+    <rect x="13" y="26" width="7" height="11" rx="3" fill="#55607A"/><rect x="50" y="26" width="7" height="11" rx="3" fill="#55607A"/>
+    <path d="M17 36 Q20 46 30 44" fill="none" stroke-width="2"/>
+    <rect x="40" y="58" width="22" height="30" rx="3" fill="#FFFDF8" transform="rotate(10 51 73)"/>
+   </g>
+   <circle cx="29" cy="30" r="2" fill="#141C2E"/><circle cx="41" cy="30" r="2" fill="#141C2E"/>
+   <path d="M30 37 H40" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+   <path d="M45 66 h12 M45 72 h12 M45 78 h8" stroke="#5E9FB8" stroke-width="2" transform="rotate(10 51 73)"/>
+  </symbol>
+  <!-- the puppet: a child-sized robot -->
+  <symbol id="i-puppet" viewBox="0 0 80 120">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="27" y="92" width="10" height="24" rx="4" fill="#C9D2DC"/><rect x="43" y="92" width="10" height="24" rx="4" fill="#C9D2DC"/>
+    <rect x="9" y="52" width="10" height="34" rx="5" fill="#C9D2DC"/><rect x="61" y="52" width="10" height="34" rx="5" fill="#C9D2DC"/>
+    <rect x="20" y="48" width="40" height="48" rx="12" fill="#E4EAF0"/>
+    <rect x="34" y="40" width="12" height="9" rx="2" fill="#C9D2DC"/>
+    <rect x="16" y="6" width="48" height="36" rx="14" fill="#E4EAF0"/>
+    <rect x="22" y="14" width="36" height="18" rx="9" fill="#1D2A44"/>
+   </g>
+   <circle cx="32" cy="23" r="3.2" fill="#FFFDF8"/><circle cx="48" cy="23" r="3.2" fill="#FFFDF8"/>
+   <circle cx="40" cy="70" r="5" fill="#F2C64A" stroke="#141C2E" stroke-width="2"/>
+  </symbol>
+  <symbol id="i-puppet-wave" viewBox="0 0 80 120">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="27" y="92" width="10" height="24" rx="4" fill="#C9D2DC"/><rect x="43" y="92" width="10" height="24" rx="4" fill="#C9D2DC"/>
+    <rect x="9" y="52" width="10" height="34" rx="5" fill="#C9D2DC"/><rect x="61" y="18" width="10" height="34" rx="5" fill="#C9D2DC" transform="rotate(18 66 52)"/>
+    <rect x="20" y="48" width="40" height="48" rx="12" fill="#E4EAF0"/>
+    <rect x="34" y="40" width="12" height="9" rx="2" fill="#C9D2DC"/>
+    <rect x="16" y="6" width="48" height="36" rx="14" fill="#E4EAF0"/>
+    <rect x="22" y="14" width="36" height="18" rx="9" fill="#1D2A44"/>
+   </g>
+   <path d="M29 24 q3 -4 6 0 M45 24 q3 -4 6 0" fill="none" stroke="#FFFDF8" stroke-width="2.6" stroke-linecap="round"/>
+   <circle cx="40" cy="70" r="5" fill="#F2C64A" stroke="#141C2E" stroke-width="2"/>
+  </symbol>
+  <symbol id="i-sheet" viewBox="0 0 50 64">
+   <g stroke="#141C2E" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="3" width="44" height="58" rx="5" fill="#FFFDF8"/><rect x="3" y="3" width="44" height="13" rx="5" fill="#5E9FB8"/></g>
+   <path d="M10 25 H22 M27 25 h4 l4 0 M38 25 H41 M10 34 H22 M27 34 H41 M10 43 H22 M27 43 H38 M10 52 H22 M27 52 H40" stroke="#55607A" stroke-width="2" stroke-linecap="round"/>
+   <path d="M23 22 l3 3 -3 3 M23 31 l3 3 -3 3 M23 40 l3 3 -3 3 M23 49 l3 3 -3 3" fill="none" stroke="#2C6A82" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-slip" viewBox="0 0 40 24">
+   <rect x="2" y="2" width="36" height="20" rx="3" fill="#FFFDF8" stroke="#7E3A6C" stroke-width="2.2"/>
+   <path d="M8 9 H30 M8 15 H24" stroke="#B4669D" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="i-bar" viewBox="0 0 90 34">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="3" y="12" width="84" height="10" rx="4" fill="#D9A93A"/><rect x="40" y="3" width="10" height="28" rx="4" fill="#B98A2A"/></g>
+  </symbol>
+  <symbol id="i-spot" viewBox="0 0 64 54">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><path d="M30 44 L22 52 H44 L36 44" fill="#55607A"/><rect x="8" y="10" width="40" height="28" rx="8" fill="#34405E" transform="rotate(-18 28 24)"/>
+    <ellipse cx="50" cy="31" rx="6" ry="11" fill="#F2C64A" transform="rotate(-18 50 31)"/></g>
+  </symbol>
+  <symbol id="i-mic" viewBox="0 0 30 84">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"><path d="M15 26 V78 M5 80 H25" fill="none"/>
+    <rect x="7" y="3" width="16" height="25" rx="8" fill="#B4669D"/></g>
+   <path d="M10 10 H20 M10 15 H20 M10 20 H20" stroke="#7E3A6C" stroke-width="1.6"/>
+  </symbol>
+  <symbol id="i-curtain" viewBox="0 0 80 50">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><rect x="4" y="4" width="72" height="42" rx="4" fill="url(#stripes)"/></g>
+   <path d="M10 14 H70" stroke="#FFFDF8" stroke-width="2.5" opacity=".6"/>
+  </symbol>
+  <symbol id="i-room" viewBox="0 0 70 80">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round"><path d="M6 76 V26 L35 6 L64 26 V76 Z" fill="#ECE7DC"/><rect x="24" y="44" width="22" height="32" rx="3" fill="#8C8670"/>
+    <rect x="14" y="30" width="42" height="10" rx="2" fill="#FFFDF8"/></g>
+   <circle cx="41" cy="61" r="2.2" fill="#F2C64A"/>
+  </symbol>
+  <symbol id="i-shelf" viewBox="0 0 70 60">
+   <g stroke="#141C2E" stroke-width="2.2" stroke-linejoin="round"><rect x="3" y="48" width="64" height="8" rx="2" fill="#8A5A3C"/>
+    <rect x="8" y="12" width="12" height="36" rx="2" fill="#5E9FB8"/><rect x="22" y="8" width="12" height="40" rx="2" fill="#8CC0D3"/><rect x="50" y="14" width="12" height="34" rx="2" fill="#5E9FB8"/></g>
+   <rect x="36" y="20" width="12" height="28" rx="2" fill="none" stroke="#55607A" stroke-width="1.6" stroke-dasharray="3 3"/>
+  </symbol>
+ </defs>
+</svg>
+
+<!-- ================================ HERO: the answer as a picture ================================ -->
+<header class="hero wrap">
+ <div class="hero-top">
+  <div>
+   <div class="kicker">A platform for many robot experiences · story 1</div>
+   <h1><span class="lbl-k">One stage manager runs every act. The voice may improvise and ask, but only the stage manager calls the cues.</span><span class="lbl-e">One deterministic kernel runs every experience. The LLM may improvise and propose, but only the kernel dispatches.</span></h1>
+  </div>
+  <div class="st-switch" data-view-switch role="group" aria-label="Label style">
+   <button data-view="kitchen" aria-pressed="true">Theatre view</button><button data-view="eng" aria-pressed="false">Engineer view</button>
+  </div>
+ </div>
+ <p class="lede">A child-sized robot at a public demo stand greets strangers, talks with them and does one small physical thing. Think of it as <b>a puppet theatre with one stage manager</b>. Each interaction story is <b>one act</b>; the robot is <b>the puppet</b>. Flip to <b>Engineer view</b> to see the real names.</p>
+ <figure class="panel" style="padding:10px 10px 4px">
+  <svg id="hero" data-wide viewBox="0 0 1000 500" role="img" aria-labelledby="hero-t"><title id="hero-t">A puppet theatre. In the left wing the voice improvises lines at a microphone and sends a request slip. Every slip travels over the stage to the stage manager's desk on the right, where the act's cue sheet lies open. Only from the desk do cues travel to the three crew stations: the control bar above the puppet, the follow-spot on the volunteer, and the microphone. The safety curtain hangs above the stage. In the audience, a person who is not the volunteer waves, and that wave is ignored.</title></svg>
+  <figcaption class="legend"><span><i style="background:var(--sky)"></i><span class="lbl-k">an act's cue sheet</span><span class="lbl-e">experience (reducer)</span></span><span><i style="background:var(--plum)"></i><span class="lbl-k">the voice</span><span class="lbl-e">reasoner (LLM)</span></span><span><i style="background:var(--sun)"></i><span class="lbl-k">crew stations, cues</span><span class="lbl-e">resources, commands</span></span><span><i style="background:var(--leaf)"></i><span class="lbl-k">volunteer, "clear"</span><span class="lbl-e">participant, proof</span></span><span><i style="background:var(--coral)"></i><span class="lbl-k">safety, refused</span><span class="lbl-e">safety, rejected</span></span><span><i style="background:var(--stone)"></i><span class="lbl-k">audience, stand-ins</span><span class="lbl-e">bystanders, simulation</span></span><span>A picture of the design in <a href="../notes/A0-one-experience-versus-many.md">A0</a> and <a href="../notes/A1-the-reasoner-and-the-coordinator.md">A1</a>, not of one robot.</span></figcaption>
+ </figure>
+ <div class="cast" aria-label="The cast">
+  <div class="c" data-ref="sm"><svg viewBox="0 0 70 100" role="img" aria-label="stage manager"><use href="#i-sm"/></svg><b>The stage manager</b><span>the coordinator kernel</span></div>
+  <div class="c" data-ref="voice"><svg viewBox="0 0 60 100" role="img" aria-label="the voice"><use href="#i-person" style="--c:#B4669D;--skin:#F4CDA7;--hair:#A8492A"/></svg><b>The voice</b><span>the reasoner: a speech-to-speech LLM session</span></div>
+  <div class="c" data-ref="slip"><svg viewBox="0 0 40 24" role="img" aria-label="request slip"><use href="#i-slip"/></svg><b>A request slip</b><span>a typed intent: a proposal, never a command</span></div>
+  <div class="c" data-ref="sheet"><svg viewBox="0 0 50 64" role="img" aria-label="cue sheet"><use href="#i-sheet"/></svg><b>An act's cue sheet</b><span>an experience: a pure reducer</span></div>
+  <div class="c" data-ref="shelf"><svg viewBox="0 0 70 60" role="img" aria-label="repertoire"><use href="#i-shelf"/></svg><b>The repertoire</b><span>the registry; one act per show</span></div>
+  <div class="c" data-ref="puppet"><svg viewBox="0 0 80 120" role="img" aria-label="puppet"><use href="#i-puppet"/></svg><b>The puppet</b><span>the robot</span></div>
+  <div class="c" data-ref="bar"><svg viewBox="0 0 90 34" role="img" aria-label="control bar"><use href="#i-bar"/></svg><b>The control bar</b><span>the action slot: one physical act at a time</span></div>
+  <div class="c" data-ref="spot"><svg viewBox="0 0 64 54" role="img" aria-label="follow-spot"><use href="#i-spot"/></svg><b>The follow-spot</b><span>the gaze lease</span></div>
+  <div class="c" data-ref="mic"><svg viewBox="0 0 30 84" role="img" aria-label="microphone"><use href="#i-mic"/></svg><b>The microphone</b><span>audio out, one speech lease per turn</span></div>
+  <div class="c" data-ref="vol"><svg viewBox="0 0 60 100" role="img" aria-label="volunteer"><use href="#i-person" style="--c:#3AA88D;--skin:#8E5B3B;--hair:#1C1714"/></svg><b>The volunteer</b><span>the current session participant</span></div>
+  <div class="c" data-ref="curtain"><svg viewBox="0 0 80 50" role="img" aria-label="safety curtain"><use href="#i-curtain"/></svg><b>The safety curtain</b><span>kernel safety interception</span></div>
+  <div class="c" data-ref="room"><svg viewBox="0 0 70 80" role="img" aria-label="rehearsal room"><use href="#i-room"/></svg><b>The rehearsal room</b><span>the simulation target</span></div>
+ </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================================ 1. two acts, one puppet ================================ -->
+<section class="scene" id="s1" data-title="1 · Two acts, one puppet">
+ <h2><span class="num">1</span>One act is easy. The second one collides.</h2>
+ <p class="sub">The first act was written to work the puppet by itself. Step through what happens when a second act joins the repertoire.</p>
+ <figure class="st-scene panel" id="s-two" data-dwell="3400" aria-label="Scene: why a second experience forces a kernel">
+  <svg data-wide viewBox="0 0 1000 380" role="img" aria-label="Two cue sheets on the left and the puppet with its control bar, microphone and safety curtain on the right. First one sheet cues the puppet directly; then two sheets cue the same bar and microphone; then each sheet carries its own copy of the stop rule; finally a stage manager in the middle takes every request and alone works the stations and the curtain."></svg>
+  <ol class="st-cap">
+   <li><b>One act, one puppet.</b> The <span class="lbl-k">greeting act</span><span class="lbl-e">first experience</span> works the bar and the mic directly. Its beats, its stop rule and its cleanup all live in one state machine. That works. <a class="read-note" href="../notes/A0-one-experience-versus-many.md">A0</a></li>
+   <li><b>But a second act wants the same puppet.</b> Both pages cue the same bar and the same mic. Without one owner, two pieces of code can each believe they hold the speaker.</li>
+   <li><b>And each act copies the safety rules.</b> Stop handling, cleanup and "who is the visitor" are written twice. The copies drift.</li>
+   <li><b>Therefore: one stage manager.</b> Acts only <i>ask</i>. One <span class="lbl-k">stage manager</span><span class="lbl-e">kernel</span> owns the stations, the curtain and the rules, for every act. About {{old_effect_kinds_illustrative}} story-specific cue kinds <span class="tag ill">illustrative</span> become a handful of generic ones. <a class="read-note" href="../notes/A0-one-experience-versus-many.md">A0</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 2. the voice asks ================================ -->
+<section class="scene" id="s2" data-title="2 · The voice asks">
+ <h2><span class="num">2</span>The voice asks. The stage manager calls.</h2>
+ <p class="sub">The voice improvises every line. It can never touch the strings. When it wants the puppet to move, it writes a slip.</p>
+ <div class="st-predict" id="p-ask">
+  <p class="q">Mid-greeting, the voice asks the puppet to hand over a gift. This beat's page does not list a gift. What happens?</p>
+  <div class="opts">
+   <button class="btn" data-choice="moves" data-why="The voice owns what is said, not what is done. A request that is not on the current beat's page cannot reach the strings, whoever asks.">The puppet hands it over</button>
+   <button class="btn" data-choice="notnow" data-right data-why="The stage manager answers &quot;not now&quot; and nothing moves. The voice is never told to refuse the visitor; it carries on talking, and the beat's time budget brings the flow back.">"Not now"; the voice carries on</button>
+   <button class="btn" data-choice="stop" data-why="Nothing fails. A refused request is an ordinary answer to the voice. Detours are bounded by time, not forbidden.">The show stops with an error</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-ask" data-dwell="3400" aria-label="Scene: the reasoner proposes, the coordinator decides">
+  <svg data-wide viewBox="0 0 1000 330" role="img" aria-label="The voice at a microphone on the left, the stage manager at a desk with the cue sheet in the middle, the puppet under its control bar on the right. A slip travels from the voice to the desk; the desk checks the page and the bar; a cue travels to the puppet, which waves. In the last step a gift slip is refused and a not-now note returns to the voice."></svg>
+  <ol class="st-cap">
+   <li><b>The voice owns the words.</b> Wording, tone, small detours: all free inside this beat. It is never told it is bounded. <a class="read-note" href="../notes/A1-the-reasoner-and-the-coordinator.md">A1</a></li>
+   <li><b>It asks on a slip.</b> "Wave" is a value from a closed list: a <span class="lbl-k">request slip</span><span class="lbl-e">typed intent</span>. A proposal, never a command.</li>
+   <li><b>The stage manager checks, then calls.</b> Is a wave on this beat's page? Is the bar free? Both yes, so the cue goes to the crew. Only the stage manager ever calls a cue.</li>
+   <li><b>A gift is not on this page.</b> The answer is "not now". Nothing moves, and the talk goes on. Every physical act stays in a finite set a reviewer can read. <a class="read-note" href="../notes/B6-conversation-and-model-boundaries.md">B6</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 3. an act is a cue sheet (live) ================================ -->
+<section class="scene" id="s3" data-title="3 · An act is a cue sheet">
+ <h2><span class="num">3</span>An act is a cue sheet: given this, do that</h2>
+ <p class="sub">The wave act has three beats: greet, wait for a wave, wave. Time is a cue too: the wait has a timer. Move the wave, and change who waves.</p>
+ <figure class="panel" id="cue-live">
+  <svg id="cue" data-wide viewBox="0 0 1000 300" role="img" aria-label="Timeline of the wave act: the page's beats, the wait timer, the control bar, and the slips at the stage door."></svg>
+  <div class="ctl2">
+   <div class="ctl"><label for="cW"><span><span class="lbl-k">The wave comes</span><span class="lbl-e">Gesture input arrives</span> (s after the invitation)</span> <output id="cW-v"></output></label><input id="cW" data-k="w" type="range" min="0" max="14" step="1"></div>
+   <div class="ctl"><label class="chk" for="cA"><input id="cA" data-k="aud" type="checkbox"> <span><span class="lbl-k">The wave comes from someone in the audience</span><span class="lbl-e">Gesture is from a non-participant track</span></span></label></div>
+  </div>
+  <p class="readout" id="cue-read" aria-live="polite"></p>
+  <figcaption><span class="tag ill">illustrative</span> Wait timer {{gesture_wait_timeout_s_illustrative}} s, greeting {{page_timing_01/greeting_s}} s and wave {{page_timing_01/wave_s}} s, as in <a href="../explorers/01-reducer-sandbox.html">explorer 01</a>.</figcaption>
+  <details><summary>The model</summary>The page is a pure reducer: (page state, read-only stage manager's record, cue) → (next page state, cues to request). <code>greet</code> → <code>await_wave</code> starts the timer; a wave from the current participant's track before the timer cancels it and enters <code>wave</code>; the timer cue enters <code>gesture_not_observed</code>, whose only cue is "request completion cleanup". A wave from any other track is rejected at admission and never reaches the page. With no rule for <i>(state, cue)</i> the resolver rejects: no change, no cues. At a tie, the queue's fixed order puts the timer first, as in explorer 01 (<a href="../notes/B1-experiences-as-reducers.md">B1</a>, <a href="../notes/B2-state-ownership.md">B2</a>, <a href="../notes/B4-kernel-interception-and-arbitration.md">B4</a>).</details>
+ </figure>
+ <p class="sub" style="margin-top:12px">The page reads no clock and touches no station. It only <b>asks</b>. So the same events always give the same show, and every run can be replayed exactly. <a class="read-note" href="../notes/B1-experiences-as-reducers.md">B1</a></p>
+</section>
+
+<!-- ================================ 4. stations ================================ -->
+<section class="scene" id="s4" data-title="4 · Who may move at once">
+ <h2><span class="num">4</span>The stations decide what may overlap</h2>
+ <p class="sub">The crew has three stations: the <b>control bar</b>, the <b>follow-spot</b> and the <b>microphone</b>. Each cue claims the stations it needs.</p>
+ <div class="st-predict" id="p-over">
+  <p class="q">The puppet is waving. Can the voice keep talking?</p>
+  <div class="opts">
+   <button class="btn" data-choice="no" data-why="One thing at a time holds only inside a station. A conversation turn holds the microphone; the wave holds the control bar. Different stations may overlap.">No: one thing at a time</button>
+   <button class="btn" data-choice="yes" data-right data-why="Yes. The talk holds only the microphone (one speech lease per turn); the wave holds the control bar, body and head. The catch: the puppet's own recorded lines are worked from the control bar, so they would have to wait.">Yes: different stations</button>
+   <button class="btn" data-choice="canned" data-why="The opposite. The puppet's own recorded lines (its text-to-speech) are worked from the control bar, so they cannot overlap the wave. The voice's live talk can.">Only with the puppet's own recorded lines</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-show" data-dwell="3000" aria-label="Scene: held intervals on three stations">
+  <svg data-wide viewBox="0 0 1000 300" role="img" aria-label="Three lanes, the control bar, the follow-spot and the microphone, with held intervals growing step by step: spot on, voice talks, spot cleared, wave with talk over it, wave done, spot back, cleanup with nothing held."></svg>
+  <ol class="st-cap">
+   <li><b>The spot finds the volunteer.</b> The <span class="lbl-k">follow-spot</span><span class="lbl-e">gaze lease</span> holds the puppet's attention on them. <a class="read-note" href="../notes/B3-the-effect-vocabulary.md">B3</a></li>
+   <li><b>The voice talks over the spot.</b> A conversation turn holds only the microphone, so it may overlap.</li>
+   <li><b>But the wave needs the head.</b> The spot and the head drive the same actuators. The spot must clear, and the crew must say so, before the wave starts.</li>
+   <li><b>The wave runs, and the voice talks over it.</b> One physical act on the bar, one turn on the mic.</li>
+   <li><b>The crew reports "done".</b> Only that report ends the wave. An animation finishing proves nothing.</li>
+   <li><b>The spot comes back</b> to the same volunteer.</li>
+   <li><b>Cleanup leaves nothing held.</b> This is the order the platform's showcase scenario must prove, read from the held intervals in the show report. <a class="read-note" href="../notes/C2-the-conformance-ladder.md">C2</a></li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 5. the safety curtain ================================ -->
+<section class="scene" id="s5" data-title="5 · The curtain first">
+ <h2><span class="num">5</span>The safety curtain comes down first</h2>
+ <p class="sub">Every note to the stage arrives at <b>one stage door</b>, in <b>one queue</b>, with one stage manager reading it. The act's page sees only what the stage manager hands over.</p>
+ <figure class="st-scene panel" id="s-curtain" data-dwell="3400" aria-label="Scene: interception and admission">
+  <svg data-wide viewBox="0 0 1000 360" role="img" aria-label="A queue at the stage door with five priority rows, the stage manager's desk, the act's page, and the puppet under the safety curtain. Notes queue by priority; an audience member's note is torn up at the door; a safety note jumps to the front and the curtain drops before the page sees anything; the way back is staff reset and safety clear into cleanup."></svg>
+  <ol class="st-cap">
+   <li><b>One queue, in a fixed order.</b> Safety, reset, operator, crew reports, then observations. The same order on every replay. <a class="read-note" href="../notes/B4-kernel-interception-and-arbitration.md">B4</a></li>
+   <li><b>A note from the wrong person is torn up at the door.</b> A wave from someone who is not the volunteer is rejected. It is dropped, not kept for later, so it can never reach the next visitor. <a class="read-note" href="../notes/B2-state-ownership.md">B2</a></li>
+   <li><b>A safety note goes first.</b> The stage manager drops the curtain and cancels every cue. The act cannot finish its line: it never sees the note.</li>
+   <li><b>Back only through reset and cleanup.</b> Staff reset plus safety clear lead into cleanup, never straight back into the show. On the real robot a hardware stop is the guarantee; this layer is extra.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 6. clear (live) ================================ -->
+<section class="scene" id="s6" data-title="6 · Stopped means clear">
+ <h2><span class="num">6</span>"Stopped" means the crew said "clear"</h2>
+ <p class="sub">The stage manager calls "stop the wave". When is the bar free for the next cue?</p>
+ <div class="st-predict" id="p-clear">
+  <p class="q">A moment after "stop", the bar's lease runs out. Is the bar free now?</p>
+  <div class="opts">
+   <button class="btn" data-choice="lease" data-why="An expired lease, a lost connection or a lost readiness is not proof. The arm might still be moving. The stage manager keeps the claim.">Yes: the lease expired</button>
+   <button class="btn" data-choice="clear" data-right data-why="Only positive proof frees a station: the crew's correlated &quot;clear&quot;. If it does not come by the settle deadline, the stage manager enters forced cleanup and keeps every claim.">No: only the crew's "clear"</button>
+   <button class="btn" data-choice="wait" data-why="No wait counts as proof. When the settle deadline passes without &quot;clear&quot;, the claims stay held and forced cleanup starts; no proof by the cleanup deadline means recovery.">Yes, after a fixed wait</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="panel st-gated" data-gate="p-clear" id="clear-live">
+  <svg id="clr" data-wide viewBox="0 0 1000 270" role="img" aria-label="Timeline after a cancel: the control bar's claim, the settle deadline, the cleanup deadline, and when the crew says clear."></svg>
+  <div class="ctl2">
+   <div class="ctl"><label for="kT"><span><span class="lbl-k">The crew says "clear" after</span><span class="lbl-e">Quiescence proof arrives after</span></span> <output id="kT-v"></output></label><input id="kT" data-k="t" type="range" min="0" max="11000" step="100"></div>
+   <div class="ctl"><label for="kD"><span><span class="lbl-k">Time left before cleanup must finish</span><span class="lbl-e">Time left on the cleanup deadline</span></span> <output id="kD-v"></output></label><input id="kD" data-k="D" type="range" min="200" max="10000" step="100"></div>
+  </div>
+  <p class="readout" id="clr-read" aria-live="polite"></p>
+  <figcaption><span class="tag ill">illustrative</span> Settle bound {{cancel_settle_target_ms_illustrative}} ms (catalog ceiling {{cancel_settle_ceiling_ms_illustrative}} ms), cleanup deadline {{cleanup_ack_timeout_ms_illustrative}} ms, default "clear" after {{@quiesceMs}} ms (<a href="../explorers/01-reducer-sandbox.html">explorer 01</a>).</figcaption>
+  <details><summary>The rule</summary>settle deadline = min(cancel time + settle bound, cleanup deadline); cancellation never extends cleanup. "Clear" by the settle deadline → every claim released. Later → forced cleanup, reason "cancellation stuck", claims kept, conflicting work refused. No "clear" by the cleanup deadline → recovery: admission stays off until operator recovery or a proven clean restart (<a href="../notes/B3-the-effect-vocabulary.md">B3</a>, <a href="../notes/B2-state-ownership.md">B2</a>). Settle bound ≤ ceiling &lt; cleanup deadline.</details>
+ </figure>
+</section>
+
+<!-- ================================ 7. rehearsal ================================ -->
+<section class="scene" id="s7" data-title="7 · Rehearse first">
+ <h2><span class="num">7</span>Rehearse first. Opening night is its own gate.</h2>
+ <p class="sub">Every act climbs the same ladder. The rehearsal room keeps <b>the same stage manager and the same pages</b>; only the world around them is stand-ins.</p>
+ <div class="st-predict" id="p-open">
+  <p class="q">Every act has passed in the rehearsal room. May the robot run them on the real stage tonight?</p>
+  <div class="opts">
+   <button class="btn" data-choice="yes" data-why="The rehearsal-room milestone proves the house rules, not the robot. Until the cross-target milestone holds, every profile is simulation-only and physical execution stays disabled.">Yes: the rules are proven</button>
+   <button class="btn" data-choice="no" data-right data-why="Opening night needs its own gate: physical adapters and producers, hardware-in-the-loop acceptance, two sign-offs, and equivalent evidence from both targets.">No: opening night is a separate gate</button>
+   <button class="btn" data-choice="some" data-why="No act runs physically before the cross-target milestone, with or without moves. A simulation producer says nothing about the robot.">Only acts without physical moves</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-ladder" data-dwell="3200" aria-label="Scene: the conformance ladder">
+  <svg data-wide viewBox="0 0 1000 390" role="img" aria-label="A staircase of five rungs rising to the right, from house rules to opening night, with an act climbing it, the rehearsal room in the top left, a list of what the room cannot prove, and a band showing that acts change only between shows."></svg>
+  <ol class="st-cap">
+   <li><b>House rules, for every act.</b> The curtain from every beat, volunteer-only waves, identical replays. Each rule also has a test that <i>must fail</i> when the rule is broken. <a class="read-note" href="../notes/C2-the-conformance-ladder.md">C2</a></li>
+   <li><b>The act's own rehearsal.</b> Its page, its failure paths, the cues it should call.</li>
+   <li><b>The rehearsal room.</b> A browser stands in for camera and mic, a simulator for the body and room. The stage manager and the crew software are the real ones. <a class="read-note" href="../notes/C1-simulation-first.md">C1</a></li>
+   <li><b>Name the milestone.</b> "Done" must say which: the rehearsal-room milestone is offline, with no cloud and no hardware. It authorises no real show.</li>
+   <li><b>Opening night is separate.</b> The real robot, two sign-offs. The room cannot prove contact force, conversation quality or social timing.</li>
+   <li><b>Acts change only between shows.</b> Stop admission, clean up, prove every store clean, restart with the new act, rerun readiness. Never mid-visit. <a class="read-note" href="../notes/B5-registration-selection-switching.md">B5</a></li>
+  </ol>
+ </figure>
+</section>
+
+<section class="scene" id="s8" data-title="Your turn">
+ <h2>Your turn</h2>
+ <p class="sub">Run the real rules yourself, then check what stuck.</p>
+ <div class="next">
+  <a href="../explorers/01-reducer-sandbox.html"><b>Cue-sheet sandbox</b><span>Feed input streams through the wave act; turn interception off and watch the hazard (explorer 01).</span></a>
+  <a href="../explorers/02-switching-experiences.html"><b>Change the act</b><span>Which act may run on which stage, and what a switch costs (explorer 02).</span></a>
+  <a href="../explorers/03-effect-dispatch.html"><b>Cues over a lossy line</b><span>Commit first, then dispatch; retries without double moves (explorer 03).</span></a>
+  <a href="../explorers/04-conformance-coverage.html"><b>What the rehearsal proves</b><span>Which rung proves which rule, and the gap (explorer 04).</span></a>
+  <a href="../../quiz/"><b>Quiz yourself</b><span>Spaced-repetition questions for every note.</span></a>
+  <a href="../README.md"><b>Read the notes</b><span>13 notes: why a platform, the kernel, verification.</span></a>
+ </div>
+ <p class="sub" style="margin-top:14px">An open question to take with you: which of your robot's rules would you <b>never</b> let a story author write?</p>
+</section>
+
+<footer class="st-foot">
+ <h3>Where the theatre breaks</h3>
+ <ul class="breaks">
+  <li>A stage manager uses judgement. The kernel has none: it is deterministic code with closed rules, and every decision is replayable.</li>
+  <li>In a theatre the safety curtain <i>is</i> the guarantee. On the robot the guaranteed stop is hardware; the kernel's interception is an extra layer that makes the story behave well when it acts.</li>
+  <li>A voice actor knows the show has limits. The reasoner is never told it is bounded; it sees a small context per beat and one tool that returns a request.</li>
+  <li>A theatre can swap acts in an interval. Here an act is fixed for the life of one coordinator process; a switch is a full stop–clean–restart that takes minutes.</li>
+  <li>A theatre rehearsal room usually lacks the real crew. The simulation keeps the real behaviour engine, motion layer and coordinator in the loop and replaces only the world.</li>
+ </ul>
+ <h3>Numbers on this page</h3>
+ <div class="tbl"><table id="src"><thead><tr><th>What</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+ <p>Every number is a labelled illustrative design parameter or page choice; none is a measurement from any specific system. Kit: <a href="../README.md">a platform for many robot experiences</a> · <a href="../SOURCES.md">sources</a> · <a href="../glossary.md">glossary</a> · <a href="INDEX.md">stories index</a>.</p>
+</footer>
+</main>
+
+<!--PARAMS-START-->
+<script type="application/json" id="params">
+{
+ "cancel_settle_ceiling_ms_illustrative": {
+  "value": 2000,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; catalog-wide ceiling pinned in the deployment profile, shared by every target"
+ },
+ "cancel_settle_target_ms_illustrative": {
+  "value": 1500,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; one target adapter's bound for positive proof that a cancelled primitive is quiet. Must be <= cancel_settle_ceiling_ms_illustrative and < cleanup_ack_timeout_ms_illustrative"
+ },
+ "cleanup_ack_timeout_ms_illustrative": {
+  "value": 10000,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; kernel cleanup acknowledgement deadline. Every settle bound must be strictly shorter"
+ },
+ "gesture_wait_timeout_s_illustrative": {
+  "value": 10,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter; experience-policy timer for the 'await wave' local state of the example wave experience"
+ },
+ "old_effect_kinds_illustrative": {
+  "value": 30,
+  "unit": "effect kinds",
+  "class": "illustrative",
+  "source": "illustrative order of magnitude of a story-specific effect vocabulary in a single-experience coordinator, before the generic vocabulary replaced it"
+ },
+ "page_timing_01": {
+  "value": {
+   "greeting_s": 3,
+   "reply_s": 2,
+   "wave_s": 2,
+   "quiesce_s": 0.5,
+   "builder_gap_s": 1.5
+  },
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): how long the toy greeting, reply turn and wave primitives run, how long a cancelled primitive takes to prove it is quiet (below the settle target), and the default gap for an appended event"
+ },
+ "sim_cold_start_s_illustrative": {
+  "value": 600,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative order of magnitude of a physics-simulator cold start to a healthy scene; not a measurement"
+ },
+ "sim_retire_timeout_s_illustrative": {
+  "value": 300,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter; bound on stopping and retiring one simulation instance"
+ }
+}
+</script>
+<!--PARAMS-END-->
+<script type="application/json" id="params-story">
+{
+ "story_wave_at_s": {"value": 4, "unit": "s after the invitation", "class": "illustrative", "source": "story 1 scene 3: default slider position, a picture value; any value below gesture_wait_timeout_s_illustrative shows the same branch"}
+}
+</script>
+
+<script>
+/* ===================== drawing: builds every SVG, fills {{placeholders}}; story.js then runs the scenes ===================== */
+const NS = "http://www.w3.org/2000/svg", NAVY = "#141C2E";
+const P = Object.assign(JSON.parse(document.getElementById("params").textContent), JSON.parse(document.getElementById("params-story").textContent));
+const V = key => { const [k, ...sub] = key.split("/"); const o = P[k]; if (!o) { console.error("missing param " + k); return NaN; }
+  let v = o.value; for (const s of sub) v = v == null ? undefined : v[s]; if (v === undefined) console.error("missing param " + key); return v; };
+const COMP = {};  // values computed by the page (shown as {{@name}})
+const C = {coral:"#EE6A45", coralD:"#B33F1D", sun:"#F2C64A", sunD:"#8A6800", sky:"#5E9FB8", skyD:"#2C6A82", leaf:"#3AA88D", leafD:"#1D7660",
+  plum:"#B4669D", plumD:"#7E3A6C", stone:"#8C8670", ink:"#1D2A44", ink2:"#55607A", card:"#FFFAF2", card2:"#EFE5D4", line:"#DCCDB4",
+  skyT:"#E3EFF4", leafT:"#D7EFE7", coralT:"#FBE0D6", sunT:"#FBEFC6", plumT:"#F1DDEA", stoneT:"#ECE7DC", grey:"#C9C1AE", stage:"#2F3A55"};
+const SKIN = ["#F4CDA7", "#D49A6A", "#8E5B3B", "#E8B98F"], HAIR = ["#3A2618", "#1C1714", "#E5BE5C", "#A8492A", "#C9CCD2"];
+function el(t, a = {}, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+function tx(p, x, y, s, a = {}) { const t = el("text", Object.assign({x, y}, a), p); t.textContent = s; return t; }
+function dual(p, x, y, k, e, a = {}) { const g = el("g", {}, p); const c = a.class || ""; tx(g, x, y, k, Object.assign({}, a, {class: ("lbl-k " + c).trim()})); tx(g, x, y, e, Object.assign({}, a, {class: ("lbl-e " + c).trim()})); return g; }
+function use(p, id, x, y, w, h, style = "", a = {}) { return el("use", Object.assign({href: "#" + id, x, y, width: w, height: h, style}, a), p); }
+function person(p, x, y, w, shirt, skin, hair) { return use(p, "i-person", x, y, w, w * 100 / 60, `--c:${shirt};--skin:${skin};--hair:${hair}`); }
+const OL = {stroke: NAVY, "stroke-width": 2.5, "stroke-linejoin": "round"};
+const MID = {"text-anchor": "middle"}, END = {"text-anchor": "end"};
+const B = (sz, col, extra) => Object.assign({"font-size": sz, "font-weight": 800}, col ? {fill: col} : {}, extra || {});
+const R = (sz, col, extra) => Object.assign({"font-size": sz, "font-weight": 600}, col ? {fill: col} : {}, extra || {});
+const svgOf = id => document.querySelector(`#${id} svg`) || document.getElementById(id);  // runs before story.js wraps wide svgs
+const fmt = v => typeof v === "number" ? String(v) : Array.isArray(v) ? v.join("–") : String(v);
+function line(p, d, col, w = 3, a = {}) { return el("path", Object.assign({d, fill: "none", stroke: col, "stroke-width": w, "stroke-linecap": "round", "stroke-linejoin": "round"}, a), p); }
+function bubble(p, x, y, w, h, fill = "#FFFDF8", stroke = NAVY) { return el("rect", {x, y, width: w, height: h, rx: 12, fill, stroke, "stroke-width": 2.5}, p); }
+function tok(p, d, s, col, r = 7, a = {}) { const g = el("g", Object.assign({class: "st-tok", "data-s": String(s), style: `offset-path:path('${d}');` + (a.style || "")}, a.attrs || {}), p);
+  el("circle", {r, fill: col, stroke: NAVY, "stroke-width": 2}, g); return g; }
+function slipTok(p, d, s, a = {}) { const g = el("g", {class: "st-tok", "data-s": String(s), style: `offset-path:path('${d}');` + (a.style || "")}, p);
+  use(g, "i-slip", -17, -10, 34, 20); return g; }
+function rider(p, d, T, od, dl, draw) { const g = el("g", {class: "ride st-loop", style: `offset-path:path('${d}');--T:${T}s;--od:${od}%;--dl:${dl}s`}, p); draw(g); return g; }
+function mark(p, x, y, ok, sz = 18) { return tx(p, x, y, ok ? "✓" : "✗", B(sz, ok ? C.leafD : C.coralD, MID)); }
+function slipLbl(p, x, y, w) { el("rect", {x, y, width: 54, height: 26, rx: 4, fill: "#FFFDF8", stroke: C.plumD, "stroke-width": 2.2}, p); return tx(p, x + 27, y + 18, w, B(13, C.plumD, MID)); }
+function at(p, s) { return el("g", {"data-s": String(s), class: "st-at"}, p); }
+function strings(p, bx, by, px, py, w) { // bar at (bx,by) centre; puppet box top-left (px,py), width w
+  const k = w / 80; [[bx - 34, px + 14 * k, py + 70 * k], [bx, px + 40 * k, py + 8 * k], [bx + 34, px + 66 * k, py + 70 * k]].forEach(([x1, x2, y2]) =>
+   el("line", {x1, y1: by + 4, x2, y2, stroke: "#B8AFA0", "stroke-width": 1.5}, p)); }
+
+/* derived numbers used in captions (no number is retyped) */
+COMP.quiesceMs = String(V("page_timing_01/quiesce_s") * 1000);
+
+/* ---------------- HERO ---------------- */
+(() => {
+ const s = document.getElementById("hero");
+ el("rect", {x: 0, y: 0, width: 1000, height: 500, fill: "#F3E6D0"}, s);
+ // the stage: backdrop, arch, floor
+ el("rect", {x: 262, y: 66, width: 476, height: 266, fill: C.stage}, s);
+ el("rect", Object.assign({x: 250, y: 56, width: 500, height: 280, rx: 8, fill: "none", stroke: "#7A4E33", "stroke-width": 16}), s);
+ el("rect", Object.assign({x: 241, y: 47, width: 518, height: 298, rx: 12, fill: "none"}, OL), s);
+ el("rect", Object.assign({x: 230, y: 332, width: 540, height: 26, rx: 4, fill: "#C9A27A"}, OL), s);
+ // the safety curtain, rolled up and wired to the desk
+ const cu = el("g", {"data-ref": "curtain"}, s);
+ el("rect", Object.assign({x: 262, y: 66, width: 476, height: 24, fill: "url(#stripes)"}, OL), cu);
+ dual(cu, 500, 83, "safety curtain", "safety interception", B(13, "#FFFDF8", Object.assign({class: ""}, MID)));
+ // the control bar and the puppet
+ const pu = el("g", {"data-ref": "puppet"}, s);
+ strings(pu, 455, 114, 410, 178, 90);
+ use(pu, "i-puppet", 410, 178, 90, 135);
+ const ba = el("g", {"data-ref": "bar"}, s);
+ use(ba, "i-bar", 410, 100, 90, 34);
+ dual(ba, 512, 124, "control bar", "action slot", B(13, "#FFFDF8", {class: "haloD"}));
+ // the follow-spot on the volunteer
+ const sp = el("g", {"data-ref": "spot"}, s);
+ el("path", {d: "M672 132 L566 222 L640 326 Z", fill: C.sun, class: "beam st-loop", opacity: .45}, sp);
+ use(sp, "i-spot", 660, 96, 64, 54);
+ dual(sp, 692, 168, "follow-spot", "gaze lease", B(13, "#FFFDF8", {class: "haloD", "text-anchor": "middle"}));
+ const vo = el("g", {"data-ref": "vol"}, s);
+ person(vo, 570, 236, 54, C.leaf, SKIN[2], HAIR[1]);
+ dual(s, 597, 350, "volunteer", "participant", B(13, C.ink, MID));
+ dual(s, 455, 350, "the puppet", "the robot", B(13, C.ink, MID));
+ // the voice in the left wing, at the microphone
+ dual(s, 125, 40, "The voice", "The reasoner (LLM)", B(17, C.plumD, MID));
+ dual(s, 125, 58, "improvises every line", "speech-to-speech session", R(13, C.ink2, MID));
+ bubble(s, 22, 82, 206, 64, "#FFFDF8", C.plumD);
+ el("path", {d: "M92 146 l10 16 8 -16", fill: "#FFFDF8", stroke: C.plumD, "stroke-width": 2.5, "stroke-linejoin": "round"}, s);
+ el("rect", {x: 93, y: 141, width: 16, height: 6, fill: "#FFFDF8"}, s);
+ tx(s, 125, 108, "Hello! Lovely to", B(15, C.plumD, Object.assign({class: "hand"}, MID)));
+ tx(s, 125, 130, "meet you. A wave?", B(15, C.plumD, Object.assign({class: "hand"}, MID)));
+ const vc = el("g", {"data-ref": "voice"}, s);
+ person(vc, 70, 196, 66, C.plum, SKIN[0], HAIR[3]);
+ const mc = el("g", {"data-ref": "mic"}, s);
+ use(mc, "i-mic", 150, 214, 28, 80);
+ dual(mc, 190, 312, "microphone", "audio out", B(13, C.plumD, MID));
+ // the stage manager's desk on the right
+ dual(s, 892, 196, "The stage manager", "The kernel", B(17, C.ink, MID));
+ dual(s, 892, 214, "calls every cue", "dispatches every command", R(13, C.ink2, MID));
+ const shelf = el("g", {"data-ref": "shelf"}, s);
+ use(shelf, "i-shelf", 900, 98, 80, 68);
+ dual(shelf, 940, 180, "repertoire", "registry", R(12, C.ink2, MID));
+ const smg = el("g", {"data-ref": "sm"}, s);
+ use(smg, "i-sm", 856, 222, 78, 111, `--skin:${SKIN[1]}`);
+ el("rect", Object.assign({x: 790, y: 300, width: 200, height: 60, rx: 6, fill: "#8A5A3C"}, OL), smg);
+ const sh = el("g", {"data-ref": "sheet"}, s);
+ el("g", {transform: "rotate(-8 830 300)"}, sh).appendChild(use(el("g"), "i-sheet", 806, 262, 44, 56));
+ [0, 1, 2].forEach(i => el("circle", Object.assign({cx: 912 + i * 24, cy: 320, r: 7, fill: i === 0 ? C.sun : "#5A4433"}, OL), smg));
+ tx(s, 936, 348, "cue lights", R(11, "#FFFDF8", MID));
+ // every slip goes over the stage to the desk; cues go out from the desk only
+ const slipPath = "M150 196 C 260 -50, 760 -50, 830 270";
+ line(s, slipPath, C.plum, 2.5, {"stroke-dasharray": "2 7", opacity: .8});
+ dual(s, 500, 32, "every request slip goes to the stage manager", "every typed intent goes to the kernel", B(14, C.plumD, Object.assign({class: "halo"}, MID)));
+ for (let i = 0; i < 2; i++) rider(s, slipPath, 6, 30 + i * 40, -i * 3, g => use(g, "i-slip", -17, -10, 34, 20));
+ const cueBar = "M840 300 C 740 220, 640 110, 506 116", cueSpot = "M850 296 C 800 220, 760 150, 722 128", cueMic = "M820 362 C 650 470, 330 470, 178 282";
+ [cueBar, cueSpot, cueMic].forEach((d, i) => { line(s, d, C.sunD, 2, {"stroke-dasharray": "2 7", opacity: .8});
+  for (let j = 0; j < 2; j++) rider(s, d, 4, 25 + j * 45, -(i * 0.9 + j * 2), g => el("circle", {r: 7, fill: C.sun, stroke: NAVY, "stroke-width": 2}, g)); });
+ dual(s, 500, 432, "cues go out from the desk only", "only the kernel dispatches", B(14, C.sunD, Object.assign({class: "halo"}, MID)));
+ // the audience: one waves, and is ignored
+ for (let i = 0; i < 6; i++) { const x = 262 + i * 62; person(s, x, 446 + (i % 2) * 4, 30, [C.stone, C.sky, C.ink2, C.sun, C.stone, C.leaf][i], SKIN[i % 4], HAIR[i % 5]); }
+ const wx = 262 + 6 * 62;
+ el("path", {d: `M${wx + 24} 482 L${wx + 36} 446`, stroke: NAVY, "stroke-width": 7, "stroke-linecap": "round"}, s);
+ el("path", {d: `M${wx + 24} 482 L${wx + 36} 446`, stroke: SKIN[3], "stroke-width": 4, "stroke-linecap": "round"}, s);
+ person(s, wx, 446, 30, C.stone, SKIN[3], HAIR[2]);
+ tx(s, wx + 52, 470, "✗", B(20, C.coralD));
+ dual(s, wx + 70, 466, "not the volunteer:", "not the participant:", B(12, C.coralD));
+ dual(s, wx + 70, 482, "wave ignored", "rejected at admission", B(12, C.coralD));
+})();
+
+/* ---------------- SCENE 1: two acts, one puppet ---------------- */
+(() => {
+ const s = svgOf("s-two");
+ const base = el("g", {"data-s": "0"}, s);
+ // the puppet with its stations
+ el("rect", Object.assign({x: 700, y: 26, width: 270, height: 24, fill: "url(#stripes)"}, OL), base);
+ dual(base, 835, 43, "safety curtain", "safety handling", B(13, "#FFFDF8", MID));
+ strings(base, 805, 82, 760, 120, 90); use(base, "i-puppet", 760, 120, 90, 135); use(base, "i-bar", 760, 68, 90, 34);
+ use(base, "i-mic", 900, 170, 28, 80);
+ dual(base, 805, 280, "the puppet", "the robot", B(14, C.ink, MID));
+ dual(base, 914, 268, "mic", "audio out", R(12, C.plumD, MID));
+ dual(base, 754, 64, "bar", "action slot", R(12, C.sunD, END));
+ // two sheets
+ const sheet = (y, k, e) => { use(base, "i-sheet", 50, y, 64, 82); dual(base, 82, y - 10, k, e, B(14, C.skyD, MID)); };
+ sheet(60, "Act 1 · greeting", "Experience 1"); 
+ const actB = at(s, "2 3 4"); use(actB, "i-sheet", 50, 230, 64, 82); dual(actB, 82, 220, "Act 2 · wave", "Experience 2", B(14, C.skyD, MID));
+ // steps 1-3: direct cues
+ const A = at(s, "1 2 3");
+ line(A, "M118 92 C 400 60, 600 70, 752 84", C.skyD, 3, {"marker-end": "url(#ah-sky)"});
+ line(A, "M118 120 C 420 140, 700 200, 892 206", C.skyD, 3, {"marker-end": "url(#ah-sky)"});
+ const Bd = at(s, "2 3");
+ line(Bd, "M118 262 C 420 230, 600 150, 754 96", C.skyD, 3, {"marker-end": "url(#ah-sky)"});
+ line(Bd, "M118 290 C 420 300, 700 260, 894 222", C.skyD, 3, {"marker-end": "url(#ah-sky)"});
+ for (const [cx, cy] of [[805, 85], [914, 196]]) el("circle", {cx, cy, r: 34, fill: "none", stroke: C.coralD, "stroke-width": 3.5, "stroke-dasharray": "6 4"}, Bd);
+ const l2 = at(s, "2"); dual(l2, 420, 352, "Two pages cue the same bar and mic. Who holds them?", "Two experiences claim the same hardware. Who owns it?", B(15, C.coralD, Object.assign({class: "halo"}, MID)));
+ // step 3: copied rules that drift
+ const l3 = at(s, "3");
+ for (const [y, v, col] of [[150, "stop rule v1", C.ink2], [320, "stop rule v2", C.coralD]]) { el("rect", {x: 30, y, width: 104, height: 24, rx: 6, fill: col === C.coralD ? C.coralT : C.stoneT, stroke: col, "stroke-width": 2}, l3); tx(l3, 82, y + 17, v, B(12, col, MID)); }
+ dual(l3, 420, 352, "Each act copies the stop and cleanup rules; the copies drift", "Duplicated safety and cleanup logic diverges", B(15, C.coralD, Object.assign({class: "halo"}, MID)));
+ // step 4: the stage manager in the middle
+ const l4 = el("g", {"data-s": "4"}, s);
+ use(l4, "i-sm", 360, 110, 84, 120, `--skin:${SKIN[1]}`);
+ el("rect", Object.assign({x: 334, y: 206, width: 136, height: 40, rx: 6, fill: "#8A5A3C"}, OL), l4);
+ dual(l4, 402, 266, "the stage manager", "the kernel", B(14, C.ink, MID));
+ line(l4, "M118 100 C 220 100, 270 150, 340 168", C.skyD, 3, {"marker-end": "url(#ah-sky)"});
+ line(l4, "M118 272 C 220 272, 270 210, 340 196", C.skyD, 3, {"marker-end": "url(#ah-sky)"});
+ dual(l4, 220, 182, "acts only ask", "experiences emit effects", B(13, C.skyD, Object.assign({class: "halo"}, MID)));
+ line(l4, "M460 160 C 560 110, 650 90, 752 86", C.sunD, 3.5, {"marker-end": "url(#ah-sun)"});
+ line(l4, "M462 214 C 600 360, 860 340, 904 236", C.sunD, 3.5, {"marker-end": "url(#ah-sun)"});
+ line(l4, "M430 112 C 480 50, 600 40, 694 38", C.coralD, 3.5, {"marker-end": "url(#ah-coral)"});
+ tok(l4, "M460 160 C 560 110, 650 90, 752 86", 4, C.sun); tok(l4, "M462 214 C 600 360, 860 340, 904 236", 4, C.sun, 7, {style: "--d:200ms"});
+ dual(l4, 600, 138, "one owner for every station", "one owner for every resource", B(13, C.sunD, Object.assign({class: "halo"}, MID)));
+ dual(l4, 500, 345, "Acts only ask; the stage manager owns the stations, the curtain and the rules", "Experiences only request; the kernel owns resources, safety and cleanup", B(15, C.ink, Object.assign({class: "halo"}, MID)));
+})();
+
+/* ---------------- SCENE 2: the voice asks ---------------- */
+(() => {
+ const s = svgOf("s-ask");
+ const base = el("g", {"data-s": "0"}, s);
+ person(base, 50, 150, 66, C.plum, SKIN[0], HAIR[3]); use(base, "i-mic", 128, 174, 26, 76);
+ dual(base, 92, 280, "the voice", "the reasoner", B(14, C.plumD, MID));
+ use(base, "i-sm", 446, 92, 76, 108, `--skin:${SKIN[1]}`);
+ el("rect", Object.assign({x: 404, y: 176, width: 160, height: 52, rx: 6, fill: "#8A5A3C"}, OL), base);
+ use(base, "i-sheet", 414, 148, 36, 46);
+ dual(base, 484, 254, "the stage manager", "the kernel", B(14, C.ink, MID));
+ strings(base, 845, 84, 800, 120, 90); use(base, "i-bar", 800, 68, 90, 34);
+ const still = at(s, "1 2 4"); use(still, "i-puppet", 800, 120, 90, 135);
+ dual(base, 845, 280, "the puppet", "the robot", B(14, C.ink, MID));
+ // the page for this beat
+ const pg = el("g", {"data-s": "3 4"}, s);
+ bubble(pg, 600, 150, 170, 74, C.skyT, C.skyD);
+ dual(pg, 685, 170, "this beat's page", "phase allowlist", B(12, C.skyD, MID));
+ tx(pg, 616, 192, "wave", B(13, C.ink)); tx(pg, 616, 212, "gift", B(13, C.ink));
+ tx(pg, 700, 192, "✓ listed", B(13, C.leafD)); tx(pg, 700, 212, "✗ not here", B(13, C.coralD));
+ // step 1: free talk
+ const b1 = at(s, "1 2 3"); bubble(b1, 20, 40, 280, 70, "#FFFDF8", C.plumD);
+ tx(b1, 160, 68, "Hello! Is that a robot", B(15, C.plumD, Object.assign({class: "hand"}, MID))); tx(b1, 160, 92, "T-shirt? Fancy a wave?", B(15, C.plumD, Object.assign({class: "hand"}, MID)));
+ // step 2: the slip
+ const sl = "M150 168 C 230 90, 350 90, 430 150";
+ slipTok(s, sl, 2, {style: "--dur:1400ms"});
+ const s2 = el("g", {"data-s": "2"}, s); line(s2, sl, C.plumD, 2.5, {"stroke-dasharray": "3 6"});
+ const sw = at(s, "2 3"); slipLbl(sw, 306, 116, "wave");
+ dual(at(s, "2"), 300, 316, "a request slip, not a command", "a typed intent, a proposal", B(14, C.plumD, Object.assign({class: "halo"}, MID)));
+ // step 3: checks pass, a cue goes out, the puppet waves
+ const s3 = at(s, "3");
+ tx(s3, 620, 120, "✓ on the page", B(14, C.leafD)); tx(s3, 620, 140, "✓ bar is free", B(14, C.leafD));
+ const cue = "M560 170 C 640 70, 740 60, 806 80";
+ line(s3, cue, C.sunD, 3.5, {"marker-end": "url(#ah-sun)"}); tok(s, cue, 3, C.sun);
+ use(s3, "i-puppet-wave", 800, 120, 90, 135);
+ dual(s3, 700, 316, "only the stage manager calls a cue", "only the kernel invokes a primitive", B(14, C.sunD, Object.assign({class: "halo"}, MID)));
+ // step 4: a gift is refused
+ const s4 = at(s, "4");
+ slipLbl(s4, 306, 116, "gift");
+ const back = "M430 196 C 340 270, 230 260, 150 214";
+ line(s4, back, C.coralD, 3, {"marker-end": "url(#ah-coral)"}); tok(s, back, 4, C.coral);
+ bubble(s4, 236, 238, 120, 30, C.coralT, C.coralD); tx(s4, 296, 258, "“not now”", B(14, C.coralD, MID));
+ bubble(s4, 20, 40, 280, 70, "#FFFDF8", C.plumD);
+ tx(s4, 160, 68, "No rush! So where", B(15, C.plumD, Object.assign({class: "hand"}, MID))); tx(s4, 160, 92, "are you visiting from?", B(15, C.plumD, Object.assign({class: "hand"}, MID)));
+ dual(s4, 700, 316, "nothing moves; the talk goes on", "no primitive; the turn continues", B(14, C.coralD, Object.assign({class: "halo"}, MID)));
+})();
+
+/* ---------------- SCENE 3: the cue sheet (live) — pure model ---------------- */
+const CUE = (() => {
+ const G = V("page_timing_01/greeting_s"), TO = V("gesture_wait_timeout_s_illustrative"), WV = V("page_timing_01/wave_s");
+ const model = st => {
+  const w = st.w, aud = !!st.aud, tIn = G + w, tTimer = G + TO;
+  const o = {G, TO, WV, w, aud, tIn, tTimer};
+  if (aud) Object.assign(o, {admitted: false, branch: "timer", end: tTimer});
+  else if (w < TO) Object.assign(o, {admitted: true, branch: "wave", waveFrom: tIn, waveTo: tIn + WV, end: tIn + WV});
+  else Object.assign(o, {admitted: true, branch: "late", end: tTimer});  // tie or later: the timer is first in the queue
+  o.timerEnd = o.branch === "wave" ? tIn : tTimer;
+  o.span = G + TO + WV + 6;
+  return o;
+ };
+ console.assert(model({w: V("story_wave_at_s"), aud: false}).branch === "wave", "B1: a participant's wave before the timer enters wave");
+ console.assert(model({w: V("story_wave_at_s"), aud: false}).waveFrom === V("page_timing_01/greeting_s") + V("story_wave_at_s"), "wave starts when the gesture is admitted");
+ console.assert(model({w: 2, aud: true}).branch === "timer" && model({w: 2, aud: true}).admitted === false, "B2/B4: a non-participant's wave is rejected at admission; the timer runs out");
+ console.assert(model({w: TO, aud: false}).branch === "late", "a wave at the timer is too late: the timer is ordered first");
+ console.assert(model({w: 0, aud: true}).end === G + TO, "gesture_not_observed at greeting + timeout");
+ return {model};
+})();
+
+/* ---------------- SCENE 4: held intervals on three stations ---------------- */
+(() => {
+ const s = svgOf("s-show");
+ const X = c => 230 + c * 106, LY = {bar: 82, spot: 152, mic: 222}, H = 36;
+ const base = el("g", {"data-s": "0"}, s);
+ [["bar", "control bar", "action slot · body · head", C.sunD], ["spot", "follow-spot", "gaze lease", C.sunD], ["mic", "microphone", "audio out (speech lease)", C.plumD]].forEach(([k, a, b, col]) => {
+  dual(base, 20, LY[k] + 16, a, b, B(15, col)); dual(base, 20, LY[k] + 34, k === "mic" ? "one turn at a time" : "one cue at a time", k === "mic" ? "one lease per turn" : "exclusive claim", R(12, C.ink2));
+  el("rect", {x: X(0), y: LY[k], width: X(7) - X(0), height: H, rx: 8, fill: "#FFFDF8", stroke: C.line, "stroke-width": 2}, base); });
+ el("line", {x1: X(0), y1: 272, x2: X(7), y2: 272, stroke: NAVY, "stroke-width": 1.5}, base);
+ tx(base, X(7), 292, "order only, not to scale", R(12, C.ink2, END));
+ const heads = [["spot on", "gaze acquired"], ["talk", "speech ∥ gaze"], ["spot clear", "gaze cleared"], ["wave + talk", "speech ∥ wave"], ["done", "completion"], ["spot back", "gaze reacquired"], ["cleanup", "release all"]];
+ heads.forEach((h, i) => dual(el("g", {"data-s": String(i + 1)}, s), X(i + 0.5), 60, `${i + 1} · ${h[0]}`, `${i + 1} · ${h[1]}`, B(12, C.ink, MID)));
+ const seg = (k, a, b, step, fill, label) => { const g = el("g", {"data-s": String(step)}, s);
+  el("rect", {x: X(a), y: LY[k] + 4, width: X(b) - X(a), height: H - 8, rx: 6, fill, class: "grow"}, g);
+  if (label) tx(g, (X(a) + X(b)) / 2, LY[k] + 23, label, B(12, fill === C.plum ? "#FFFDF8" : C.ink, MID)); return g; };
+ seg("spot", 0.15, 1, 1, C.sun, "volunteer");
+ seg("spot", 1, 2, 2, C.sun); seg("mic", 1.15, 2, 2, C.plum, "turn 1");
+ seg("spot", 2, 2.55, 3, C.sun); seg("mic", 2, 2.5, 3, C.plum);
+ const c3 = el("g", {"data-s": "3"}, s); tx(c3, X(2.55) + 6, LY.spot + 24, "clear ✓", B(13, C.leafD));
+ tx(c3, X(2.5) + 6, LY.mic + 24, "end ✓", B(12, C.leafD));
+ const w3 = at(s, "3"); line(w3, `M${X(2.75)} ${LY.bar + H} V${LY.spot - 4}`, C.coralD, 2.5, {"stroke-dasharray": "5 4", "marker-end": "url(#ah-coral)"});
+ dual(w3, X(2.85), LY.bar + 24, "the wave needs the head: spot clears first", "wave claims head: gaze must clear first", B(12, C.coralD, {class: "halo"}));
+ seg("bar", 3, 4, 4, C.sun, "wave"); seg("mic", 3.2, 4, 4, C.plum, "turn 2");
+ seg("bar", 4, 4.85, 5, C.sun); seg("mic", 4, 4.55, 5, C.plum);
+ const c5 = el("g", {"data-s": "5"}, s); tx(c5, X(4.85) + 6, LY.bar + 24, "done ✓", B(13, C.leafD)); tx(c5, X(4.55) + 6, LY.mic + 24, "end ✓", B(12, C.leafD));
+ seg("spot", 5.05, 5.85, 6, C.sun, "volunteer");
+ const c7 = el("g", {"data-s": "7"}, s); tx(c7, X(5.85) + 6, LY.spot + 24, "clear ✓", B(12, C.leafD));
+ el("rect", {x: X(6.45), y: LY.bar - 6, width: X(7) - X(6.45) - 4, height: LY.mic + H - LY.bar + 12, rx: 10, fill: C.leafT, stroke: C.leafD, "stroke-width": 2}, c7);
+ tx(c7, X(6.72), LY.spot + 14, "nothing", B(12, C.leafD, MID)); tx(c7, X(6.72), LY.spot + 30, "held ✓", B(12, C.leafD, MID));
+})();
+
+/* ---------------- SCENE 5: the curtain first ---------------- */
+(() => {
+ const s = svgOf("s-curtain");
+ const base = el("g", {"data-s": "0"}, s);
+ dual(base, 150, 30, "the stage door: one queue", "one ordered event queue", B(14, C.ink, MID));
+ el("rect", Object.assign({x: 40, y: 42, width: 220, height: 250, rx: 12, fill: "#FFFDF8"}, OL), base);
+ const rows = [["safety", "safety"], ["reset", "reset"], ["operator", "operator control"], ["crew reports", "command outcomes"], ["observations", "observations"]], RY = i => 54 + i * 47;
+ rows.forEach((r, i) => { el("rect", {x: 50, y: RY(i), width: 200, height: 40, rx: 8, fill: i === 0 ? C.coralT : C.stoneT, stroke: C.line, "stroke-width": 1.5}, base);
+  dual(base, 58, RY(i) + 15, r[0], r[1], R(11, C.ink2)); });
+ tx(base, 34, 60, "first", R(11, C.ink2, END)); tx(base, 34, 286, "last", R(11, C.ink2, END));
+ line(base, "M28 68 V276", C.ink2, 1.5, {"marker-start": "url(#ah-ink)"});
+ use(base, "i-sm", 400, 110, 76, 108, `--skin:${SKIN[1]}`);
+ el("rect", Object.assign({x: 360, y: 196, width: 160, height: 46, rx: 6, fill: "#8A5A3C"}, OL), base);
+ dual(base, 440, 264, "the stage manager", "the kernel", B(14, C.ink, MID));
+ line(base, "M262 160 C 300 160, 320 170, 360 180", NAVY, 2.5, {"marker-end": "url(#ah-ink)"});
+ use(base, "i-sheet", 616, 60, 60, 76); dual(base, 646, 156, "the act's page", "the reducer", B(13, C.skyD, MID));
+ strings(base, 870, 120, 830, 150, 80); use(base, "i-bar", 830, 106, 80, 30); use(base, "i-puppet", 830, 150, 80, 120);
+ el("rect", Object.assign({x: 760, y: 50, width: 220, height: 24, fill: "url(#stripes)"}, OL), base);
+ dual(base, 870, 67, "safety curtain", "safety stop", B(12, "#FFFDF8", MID));
+ // step 1: notes in priority order, handed over
+ const s1 = el("g", {"data-s": "1"}, s);
+ const slip = (g, i, x, label, col = C.plumD) => { use(g, "i-slip", x, RY(i) + 18, 34, 20); tx(g, x + 40, RY(i) + 33, label, B(11, col)); };
+ slip(s1, 3, 150, "wave done", C.sunD); slip(s1, 4, 150, "volunteer speaks", C.leafD);
+ const hand = at(s, "1 2"); line(hand, "M522 190 C 570 170, 590 150, 612 120", C.skyD, 3, {"marker-end": "url(#ah-sky)"});
+ dual(hand, 560, 210, "what is left", "delegated", B(12, C.skyD, Object.assign({class: "halo"}, MID)));
+ // step 2: a note from the audience torn up at the door
+ const s2 = el("g", {"data-s": "2"}, s);
+ person(s2, 40, 304, 30, C.stone, SKIN[3], HAIR[2]);
+ use(s2, "i-slip", 82, 318, 34, 20); line(s2, "M84 316 L116 340 M116 316 L84 340", C.coralD, 3);
+ dual(s2, 126, 326, "a wave from the audience:", "non-participant track:", B(12, C.coralD)); dual(s2, 126, 342, "torn up at the door", "rejected at admission", B(12, C.coralD));
+ // step 3: safety first; the curtain drops; the page never sees it
+ const s3 = el("g", {"data-s": "3"}, s);
+ el("rect", {x: 50, y: RY(0), width: 200, height: 40, rx: 8, fill: "none", stroke: C.coralD, "stroke-width": 3.5, class: "lit"}, s3);
+ slip(s3, 0, 150, "SAFETY", C.coralD);
+ const drop = "M522 222 C 620 290, 700 260, 758 210";
+ line(s3, drop, C.coralD, 3.5, {"marker-end": "url(#ah-coral)"}); tok(s, drop, 3, C.coral, 8);
+ el("rect", Object.assign({x: 760, y: 74, width: 220, height: 222, fill: "url(#stripes)"}, OL), s3);
+ dual(s3, 870, 180, "curtain down", "safety preemption", B(16, "#FFFDF8", MID)); dual(s3, 870, 202, "every cue cancelled", "every primitive cancelled", B(13, "#FFFDF8", MID));
+ el("rect", {x: 606, y: 52, width: 82, height: 92, rx: 8, fill: C.card2, opacity: .85}, s3);
+ dual(s3, 647, 100, "never", "not", B(12, C.coralD, MID)); dual(s3, 647, 116, "sees it", "delegated", B(12, C.coralD, MID));
+ // step 4: back only through reset and cleanup
+ const s4 = el("g", {"data-s": "4"}, s);
+ const chips = [["staff reset + safety clear", "reset + safety clear", C.sunD], ["cleanup", "cleanup", C.sunD], ["ready again", "ready", C.leafD]];
+ chips.forEach(([k, e, col], i) => { const x = 600 + i * 130 - (i === 0 ? 70 : 0), w = i === 0 ? 180 : 110; bubble(s4, x, 308, w, 32, i === 2 ? C.leafT : C.sunT, col);
+  dual(s4, x + w / 2, 329, k, e, B(12, col, MID)); if (i) line(s4, `M${x - 16} 324 H${x - 3}`, NAVY, 2, {"marker-end": "url(#ah-ink)"}); });
+ dual(s4, 780, 356, "a visitor's wave cannot lift it", "no visitor event exits pause", B(12, C.coralD, Object.assign({class: "halo"}, MID)));
+})();
+
+/* ---------------- SCENE 6: stopped means clear (live) — pure model ---------------- */
+const CLR = (() => {
+ const SB = V("cancel_settle_target_ms_illustrative"), CEIL = V("cancel_settle_ceiling_ms_illustrative"), CL = V("cleanup_ack_timeout_ms_illustrative");
+ const model = st => { const t = st.t, D = st.D, S = Math.min(SB, D);
+  const o = {t, D, S, SB};
+  if (t <= S) o.out = "released"; else if (t <= D) o.out = "forced"; else o.out = "recovery";
+  o.release = o.out === "recovery" ? null : t; return o; };
+ console.assert(SB <= CEIL && CEIL < CL, "B3: settle bound <= ceiling < cleanup deadline");
+ console.assert(model({t: V("page_timing_01/quiesce_s") * 1000, D: CL}).out === "released", "default: clear arrives inside the settle bound");
+ console.assert(model({t: SB + 100, D: CL}).out === "forced", "clear after the settle deadline: forced cleanup, claims kept");
+ console.assert(model({t: CL + 500, D: CL}).out === "recovery", "no clear by the cleanup deadline: recovery");
+ console.assert(model({t: 700, D: 600}).S === 600 && model({t: 700, D: 600}).out === "recovery", "C3: a cancel 600 ms before cleanup's deadline gets a 600 ms settle deadline");
+ return {model, SB, CL};
+})();
+
+/* ---------------- SCENE 7: the ladder ---------------- */
+(() => {
+ const s = svgOf("s-ladder");
+ const RX = i => 40 + i * 190, RYY = i => 250 - i * 47, W = 176, H = 36;
+ const rungs = [["House rules", "Kernel conformance", "every rule also fails when broken", "negative tests for each invariant"],
+  ["The act's rehearsal", "Experience suite", "its page, its failure paths", "matrix, replay, expected traces"],
+  ["Rehearsal room", "Simulation acceptance", "same stage manager, stand-in world", "real coordinator, simulated world"],
+  ["Milestone named", "Simulation milestone", "offline: no real show", "no cloud, no hardware"],
+  ["Opening night", "Physical acceptance", "real robot, two sign-offs", "hardware-in-the-loop"]];
+ rungs.forEach((r, i) => { const g = el("g", {"data-s": String(i + 1)}, s), x = RX(i), y = RYY(i);
+  el("rect", Object.assign({x, y, width: W, height: H, rx: 8, fill: i === 4 ? C.sun : i === 2 ? C.stoneT : C.skyT, class: "lit"}, OL), g);
+  dual(g, x + W / 2, y + 23, r[0], r[1], B(14, C.ink, MID));
+  dual(g, x + W / 2, y + H + 18, r[2], r[3], R(12, C.ink2, MID));
+  if (i) line(g, `M${RX(i - 1) + W} ${RYY(i - 1) + 10} L${x} ${y + H - 6}`, C.ink2, 2, {"stroke-dasharray": "3 4"}); });
+ // the act climbs: a cue-sheet token from rung to rung
+ for (let i = 0; i < 5; i++) { const d = i === 0 ? `M${RX(0) - 30} ${RYY(0) + 18} L${RX(0) + 20} ${RYY(0) - 12}` : `M${RX(i - 1) + 40} ${RYY(i - 1) - 12} C ${RX(i - 1) + 120} ${RYY(i) - 50}, ${RX(i) - 20} ${RYY(i) - 40}, ${RX(i) + 20} ${RYY(i) - 12}`;
+  const g = el("g", {class: "st-tok", "data-s": String(i + 1), style: `offset-path:path('${d}');--dur:1200ms`}, s); use(g, "i-sheet", -12, -16, 24, 31); }
+ for (let i = 0; i < 5; i++) use(at(s, String(i + 1)), "i-sheet", RX(i) + 8, RYY(i) - 28, 24, 31);
+ // step 3: the rehearsal room
+ const r3 = el("g", {"data-s": "3"}, s);
+ use(r3, "i-room", 40, 20, 64, 74);
+ dual(r3, 116, 44, "the rehearsal room", "the simulation target", B(14, C.ink));
+ dual(r3, 116, 62, "browser for camera and mic,", "browser perception + gateway,", R(12, C.ink2));
+ dual(r3, 116, 78, "simulator for body and room", "physics simulator for body and room", R(12, C.ink2));
+ tx(r3, 116, 96, `set-up ≈ ${V("sim_cold_start_s_illustrative")} s`, R(12, C.sunD)); el("rect", {x: 222, y: 85, width: 74, height: 14, rx: 3, fill: "none", stroke: C.sunD, "stroke-width": 1.2}, r3);
+ tx(r3, 259, 96, "illustrative", R(9, C.sunD, MID));
+ // step 5: what the room cannot prove
+ const r5 = el("g", {"data-s": "5"}, s);
+ bubble(r5, 40, 112, 330, 74, C.coralT, C.coralD);
+ dual(r5, 56, 134, "The room cannot prove:", "Simulation cannot prove:", B(13, C.coralD));
+ dual(r5, 56, 154, "contact force · real crowds", "contact force · perception quality", R(12, C.ink));
+ dual(r5, 56, 172, "conversation quality · social timing", "conversation quality · social timing", R(12, C.ink));
+ // step 6: acts change only between shows
+ const r6 = el("g", {"data-s": "6"}, s);
+ const steps = [["stop admission", "stop admission"], ["clean up", "cleanup"], ["prove clean", "prove stores clean"], ["stop", "stop"], ["start new act", "start new profile"], ["readiness", "readiness"]];
+ steps.forEach(([k, e], i) => { const x = 40 + i * 158; bubble(r6, x, 340, 140, 30, C.sunT, C.sunD); dual(r6, x + 70, 360, k, e, B(12, C.sunD, MID));
+  if (i) line(r6, `M${x - 15} 355 H${x - 3}`, NAVY, 2, {"marker-end": "url(#ah-ink)"}); });
+ dual(r6, 40, 330, `Between shows only · retire ≤ ${V("sim_retire_timeout_s_illustrative")} s, then a cold start ≈ ${V("sim_cold_start_s_illustrative")} s (illustrative)`, `No hot swap · retire ≤ ${V("sim_retire_timeout_s_illustrative")} s + cold start ≈ ${V("sim_cold_start_s_illustrative")} s (illustrative)`, B(13, C.ink));
+})();
+</script>
+<script>
+/* ---------------- sources table from both params blocks ---------------- */
+(() => { const tb = document.querySelector("#src tbody");
+ const show = v => Array.isArray(v) ? v.join(", ") : typeof v === "object" ? Object.entries(v).map(([a, b]) => `${a} ${typeof b === "object" ? show(b) : b}`).join("; ") : fmt(v);
+ for (const [k, o] of Object.entries(P)) { if (k.startsWith("_")) continue;
+  const tr = document.createElement("tr"); tr.innerHTML = `<td><code>${k}</code></td><td>${show(o.value)} ${o.unit}</td><td><span class="tag ${o.class === "public" ? "pub" : "ill"}">${o.class}</span></td><td>${o.source}</td>`; tb.appendChild(tr); } })();
+
+/* ---------------- fill {{key}}, {{key/sub}}, {{key%}}, {{@computed}} in text and attributes ---------------- */
+(() => {
+ const rep = str => str.replace(/\{\{(@?)([\w\-]+)((?:\/[^}\/%]+)*)(%?)\}\}/g, (m, at, k, path, pct) => {
+  if (at) { if (!(k in COMP)) { console.error("missing computed " + k); return m; } return COMP[k]; }
+  const v = V(k + path); if (v === undefined || (typeof v === "number" && isNaN(v))) return m;
+  return pct ? Math.round(v * 100) + " %" : fmt(v); });
+ const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => n.parentNode && /^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+ for (let n; (n = w.nextNode());) if (n.nodeValue.includes("{{")) n.nodeValue = rep(n.nodeValue);
+ for (const a of ["data-why", "aria-label"]) document.querySelectorAll(`[${a}*="{{"]`).forEach(e => e.setAttribute(a, rep(e.getAttribute(a))));
+ // slider defaults come from the params, not from the markup
+ document.getElementById("cW").value = V("story_wave_at_s");
+ document.getElementById("kT").value = V("page_timing_01/quiesce_s") * 1000;
+ document.getElementById("kD").value = V("cleanup_ack_timeout_ms_illustrative");
+})();
+</script>
+<script src="../../stories/story.js"></script>
+<script>
+/* ?view=eng: keep the switch's pressed state in step with the labels */
+if (document.body.classList.contains("view-eng")) document.querySelectorAll("[data-view-switch] [data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === "eng")));
+
+/* ---------------- LIVE: the cue sheet ---------------- */
+(() => {
+ const s = document.getElementById("cue"), root = document.getElementById("cue-live"), out = document.getElementById("cue-read");
+ const X0 = 230, X1 = 980;
+ Story.bind(root, CUE.model, o => {
+  document.getElementById("cW-v").textContent = o.w + " s";
+  s.textContent = "";
+  const X = t => X0 + (X1 - X0) * t / o.span, rows = {page: 40, timer: 104, bar: 160, door: 216}, H = 34;
+  [["page", "the page", "local story state"], ["timer", "the wait timer", "experience timer"], ["bar", "the control bar", "action slot"], ["door", "slips at the door", "admission"]].forEach(([k, a, b]) => {
+   dual(s, 20, rows[k] + 22, a, b, B(14, k === "page" ? C.skyD : k === "bar" ? C.sunD : k === "door" ? C.ink : C.sunD));
+   el("rect", {x: X0, y: rows[k], width: X1 - X0, height: H, rx: 8, fill: "#FFFDF8", stroke: C.line, "stroke-width": 1.5}, s); });
+  // page beats
+  const beat = (a, b, k, e, fill, col) => { if (b <= a) return; el("rect", {x: X(a), y: rows.page + 3, width: X(b) - X(a), height: H - 6, rx: 6, fill, stroke: NAVY, "stroke-width": 1.5}, s);
+   dual(s, (X(a) + X(b)) / 2, rows.page + 22, k, e, B(12, col, MID)); };
+  beat(0, o.G, "greet", "greet", C.skyT, C.skyD);
+  beat(o.G, o.timerEnd, "await wave", "await_wave", C.skyT, C.skyD);
+  if (o.branch === "wave") beat(o.waveFrom, o.span, "wave", "wave", C.sky, "#FFFDF8");
+  else beat(o.tTimer, o.span, "no wave seen → cleanup", "gesture_not_observed", C.coralT, C.coralD);
+  // timer
+  el("rect", {x: X(o.G), y: rows.timer + 8, width: X(o.timerEnd) - X(o.G), height: H - 16, rx: 5, fill: C.sun, stroke: NAVY, "stroke-width": 1.5}, s);
+  tx(s, X(o.timerEnd) + 6, rows.timer + 23, o.branch === "wave" ? "cancelled" : `rings after ${o.TO} s`, B(12, o.branch === "wave" ? C.ink2 : C.coralD));
+  // bar
+  if (o.branch === "wave") { el("rect", {x: X(o.waveFrom), y: rows.bar + 4, width: X(o.waveTo) - X(o.waveFrom), height: H - 8, rx: 6, fill: C.sun, stroke: NAVY, "stroke-width": 1.5}, s);
+   tx(s, X(o.waveTo) + 6, rows.bar + 23, "wave · done ✓", B(12, C.leafD)); }
+  else tx(s, X0 + 10, rows.bar + 23, "no cue", R(12, C.ink2));
+  // the wave slip at the door
+  const slipX = X(o.tIn);
+  if (o.admitted) el("line", {x1: slipX, y1: rows.door - 4, x2: slipX, y2: rows.page + H, stroke: o.branch === "late" ? C.sunD : C.leafD, "stroke-width": 2, "stroke-dasharray": "4 4"}, s);
+  use(s, "i-slip", slipX - 15, rows.door + 7, 30, 20);
+  tx(s, slipX > 760 ? slipX - 20 : slipX + 20, rows.door + 22, o.aud ? "✗ audience: torn up" : o.branch === "late" ? "admitted, but too late" : "✓ the volunteer's wave", B(12, o.aud ? C.coralD : o.branch === "late" ? C.sunD : C.leafD, slipX > 760 ? END : {}));
+  // axis
+  el("line", {x1: X0, y1: 266, x2: X1, y2: 266, stroke: NAVY, "stroke-width": 1.5}, s);
+  for (let t = 0; t <= o.span; t += 2) { el("line", {x1: X(t), y1: 266, x2: X(t), y2: 272, stroke: NAVY}, s); tx(s, X(t), 288, t + " s", R(11, C.ink2, MID)); }
+  out.innerHTML = o.aud ? `<span class="no">The wave is from someone in the audience. It is torn up at the door and the page never sees it.</span> The timer rings at ${o.G + o.TO} s: <b>no wave seen</b>, so the act asks for cleanup.`
+   : o.branch === "wave" ? `<span class="ok">The volunteer waves ${o.w} s after the invitation (${o.tIn} s into the act), before the timer.</span> The page cancels the timer and asks for the <b>wave</b> cue.`
+   : `<span class="mid">The timer rang first.</span> The page is already at <b>no wave seen</b>, and it has no rule for a wave there: nothing changes.`;
+ });
+})();
+
+/* ---------------- LIVE: stopped means clear ---------------- */
+(() => {
+ const s = document.getElementById("clr"), root = document.getElementById("clear-live"), out = document.getElementById("clr-read");
+ const X0 = 230, X1 = 980, SPAN = 11000, X = t => X0 + (X1 - X0) * Math.min(t, SPAN) / SPAN;
+ Story.bind(root, CLR.model, o => {
+  document.getElementById("kT-v").textContent = o.t + " ms"; document.getElementById("kD-v").textContent = o.D + " ms";
+  s.textContent = "";
+  const rows = {phase: 40, bar: 112, ev: 176}, H = 34;
+  [["phase", "the stage manager", "kernel phase"], ["bar", "the bar's claim", "resource claim"], ["ev", "what arrives", "events"]].forEach(([k, a, b]) => {
+   dual(s, 20, rows[k] + 22, a, b, B(14, k === "bar" ? C.sunD : C.ink));
+   el("rect", {x: X0, y: rows[k], width: X1 - X0, height: H, rx: 8, fill: "#FFFDF8", stroke: C.line, "stroke-width": 1.5}, s); });
+  const end = o.out === "recovery" ? SPAN : o.t;
+  // phases
+  const ph = (a, b, fill, k, e, col) => { if (b <= a) return; el("rect", {x: X(a), y: rows.phase + 3, width: X(b) - X(a), height: H - 6, rx: 6, fill, stroke: NAVY, "stroke-width": 1.2}, s);
+   if (X(b) - X(a) > 62) dual(s, (X(a) + X(b)) / 2, rows.phase + 22, k, e, B(12, col, MID)); };
+  ph(0, Math.min(o.S, end), C.sunT, "settling", "cancel settling", C.sunD);
+  if (o.out !== "released") ph(o.S, Math.min(o.t, o.D), C.coralT, "forced cleanup", "forced cleanup", C.coralD);
+  if (o.out === "recovery") ph(o.D, SPAN, C.coral, "recovery", "recovery", "#FFFDF8");
+  // the claim
+  el("rect", {x: X(0), y: rows.bar + 4, width: X(end) - X(0), height: H - 8, rx: 6, fill: o.out === "recovery" ? "url(#hatch)" : C.sun, stroke: NAVY, "stroke-width": 1.5}, s);
+  tx(s, X(end) + (o.out === "recovery" ? -8 : 6), rows.bar + 23, o.out === "recovery" ? "still held" : "released", B(12, o.out === "recovery" ? C.coralD : C.leafD, o.out === "recovery" ? {"text-anchor": "end", class: "halo"} : {}));
+  // events
+  if (o.t <= SPAN) { mark(s, X(o.t), rows.ev + 24, o.out !== "recovery", 18); tx(s, X(o.t) + (X(o.t) > 820 ? -12 : 12), rows.ev + 23, o.out === "recovery" ? "“clear”, too late" : "“clear”", B(12, o.out === "recovery" ? C.coralD : C.leafD, X(o.t) > 820 ? END : {})); }
+  // deadlines
+  const dl = (t, col, k, e, y) => { el("line", {x1: X(t), y1: 30, x2: X(t), y2: 214, stroke: col, "stroke-width": 2.5, "stroke-dasharray": "6 4"}, s); dual(s, Math.max(X(t), X0 + 90), y, k, e, B(11, col, Object.assign({class: "halo"}, MID))); };
+  if (o.S === o.D) dl(o.D, C.coralD, "settle = cleanup deadline", "settle deadline = cleanup deadline", 24);
+  else { dl(o.S, C.sunD, "settle deadline", "settle deadline", 24); dl(o.D, C.coralD, "cleanup deadline", "cleanup deadline", o.D - o.S < 1400 ? 236 : 24); }
+  tx(s, X(0) - 8, 240, "stop →", B(12, C.ink, END));
+  el("line", {x1: X0, y1: 250, x2: X1, y2: 250, stroke: NAVY, "stroke-width": 1.5}, s);
+  for (let t = 0; t <= SPAN; t += 1000) { el("line", {x1: X(t), y1: 250, x2: X(t), y2: 256, stroke: NAVY}, s); if (t % 2000 === 0) tx(s, X(t), 268, (t / 1000) + " s", R(11, C.ink2, MID)); }
+  out.innerHTML = o.out === "released" ? `<span class="ok">"Clear" at ${o.t} ms, inside the settle deadline (${o.S} ms).</span> Every claim is released; the bar is free.`
+   : o.out === "forced" ? `<span class="mid">No "clear" by ${o.S} ms: forced cleanup, reason "cancellation stuck".</span> The stage manager keeps every claim and refuses conflicting cues until "clear" at ${o.t} ms.`
+   : `<span class="no">No "clear" by the cleanup deadline (${o.D} ms): recovery.</span> The claim stays held in the report, and no visitor is admitted until an operator recovers or a clean restart proves the old cue cannot act.`;
+ });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,108 @@
+# Glossary — A platform for many robot experiences
+
+One line per term, alphabetical, each defined once. The note where a term is introduced is linked in parentheses. Numbers live in [`constants.json`](constants.json); this glossary carries none.
+
+- **action slot** — the resource that models the motion layer's single active command ([[notes/B3-the-effect-vocabulary|B3]]).
+- **actuator twin** — the harness component that turns behaviour commands into displayed joint state, with no dynamics ([[notes/C4-the-observatory|C4]]).
+- **adapter contract / producer contract** — the per-target implementation and acceptance obligations of a primitive / of an input ([[notes/B5-registration-selection-switching|B5]]).
+- **admission** — the kernel's checks that decide whether an event may enter the queue and reach the reducer ([[notes/B4-kernel-interception-and-arbitration|B4]]).
+- **agenda** — the ordered set of phases an experience moves through, with their allowed acts, budgets and exits ([[notes/A1-the-reasoner-and-the-coordinator|A1]]).
+- **atomic preparation and dispatch** — validate, materialise and commit one snapshot for an event before sending any command ([[notes/B3-the-effect-vocabulary|B3]]).
+- **authoring flow** — the offline pipeline description → contract export → agent-produced artifacts → mechanical gates → human approval ([[notes/B1-experiences-as-reducers|B1]]).
+- **barge-in** — the visitor speaking while the robot speaks, which cancels the current turn's stream ([[notes/B6-conversation-and-model-boundaries|B6]]).
+- **bounded exit set** — the declared, enforced ways a beat may end: done, timeout, skip, safety, operator ([[notes/A0-one-experience-versus-many|A0]]).
+- **browser gateway** — the only component that translates browser input into typed coordinator events; the browser has no other authority ([[notes/C1-simulation-first|C1]]).
+- **canonical ID** — an identifier rewritten to a first-appearance label so that structure can be compared across runs ([[notes/C3-regeneration-and-comparison|C3]]).
+- **capability matching** — deriving required capabilities from declared primitives and inputs and checking them against target health and inventory ([[notes/B5-registration-selection-switching|B5]]).
+- **capability-gap report** — the outcome of a failed regeneration: each mismatch classified as a platform improvement or an unsupported-feature record ([[notes/C3-regeneration-and-comparison|C3]]).
+- **chapter / chapter library** — a reviewed pure builder for a recurring story fragment / the set of such builders shipped in the coordinator image ([[notes/B1-experiences-as-reducers|B1]]).
+- **clearer / clear acknowledgement** — an owner of visit-scoped data / its correlated proof that the data is gone ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **command and outcome** — a correlated request to one actor and its correlated terminal result ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **comparison schema** — the per-field rule (exact, tolerance, ignore) for comparing parameters and payloads ([[notes/C3-regeneration-and-comparison|C3]]).
+- **conflict matrix** — the kernel's closed rules for which resource claims may coexist, defer, preempt or be refused ([[notes/B4-kernel-interception-and-arbitration|B4]]).
+- **conformance ladder** — the ordered gates kernel conformance → experience suite → simulation acceptance → physical acceptance ([[notes/C2-the-conformance-ladder|C2]]).
+- **contract export** — the versioned, machine-readable description of the authoring contract, exported from the pinned image ([[notes/B1-experiences-as-reducers|B1]]).
+- **contract kind** — the class of a primitive's command, lease and completion semantics: physical action, gaze lease, or session service ([[notes/B3-the-effect-vocabulary|B3]]).
+- **contract-smoke experience** — a non-visitor experience that invokes one primitive of each contract kind through every path ([[notes/C2-the-conformance-ladder|C2]]).
+- **conversation profile** — the pinned configuration of the reasoner: model identity, wording, voice, and its empty tool, context and ability sets ([[notes/B6-conversation-and-model-boundaries|B6]]).
+- **coordinator kernel (kernel)** — the deterministic core that owns every concern that must hold for every experience: admission, ordering, correlation, participant authority, safety, leases, timers, cleanup, lifecycle and evidence ([[notes/A0-one-experience-versus-many|A0]]).
+- **core fixture** — the deterministic, offline, isolated mode used as the CI seam ([[notes/C4-the-observatory|C4]]).
+- **cross-target comparator** — the tool that requires equal normalised evidence from the simulation and physical targets ([[notes/C3-regeneration-and-comparison|C3]]).
+- **current session participant track** — the kernel-derived track against which participant-bound inputs are admitted ([[notes/B2-state-ownership|B2]]).
+- **cutover** — the atomic switch of deciding authority from the old path to the new one, with a reverse-order rollback ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **deferred record** — an explicit catalog entry saying a target is not yet supported, with owner and reason ([[notes/B5-registration-selection-switching|B5]]).
+- **definition of done (platform-native)** — milestone criteria provable on the new kernel without any legacy experience ([[notes/C2-the-conformance-ladder|C2]]).
+- **dispatch-time revalidation** — re-checking a primitive's backing behaviour against the live inventory at the moment of dispatch ([[notes/B6-conversation-and-model-boundaries|B6]]).
+- **domain event** — an immutable, validated internal event made from a wire message by an adapter ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **effect** — a typed request from a reducer to the kernel; the only way an experience influences anything outside its local state ([[notes/B3-the-effect-vocabulary|B3]]).
+- **event context** — the correlation and timing fields every event carries: source, sequence, times, clock domain, epoch, uncertainty, session, generation, command ([[notes/B4-kernel-interception-and-arbitration|B4]]).
+- **event sourcing / CQRS** — storing the event log as the source of truth / separating the single command side from read models ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **experience** — one reviewed interaction story: its beats, the physical acts allowed in each beat, and the exits from each beat ([[notes/A0-one-experience-versus-many|A0]]).
+- **experience definition** — the immutable, source-registered record of one experience: identity, state type, matrix, reducer, validator, policy, manifest, projector and scenarios ([[notes/B1-experiences-as-reducers|B1]]).
+- **experience profile** — the deployment-level, content-addressed record that pins images, digests, ABIs, catalogs, requirements and one definition ([[notes/B2-state-ownership|B2]]).
+- **experience suite** — the per-experience matrix, policy, replay, degradation, trace and projection tests ([[notes/C2-the-conformance-ladder|C2]]).
+- **full duplex / half duplex / push-to-talk** — microphone open while the robot speaks / open only between robot turns / open only while a control is held ([[notes/B6-conversation-and-model-boundaries|B6]]).
+- **gap report** — the per-target classification of every needed behaviour or input into registered, catalog work, capability work, authority extension, or reserved ([[notes/B1-experiences-as-reducers|B1]]).
+- **hardware-in-the-loop (HIL)** — acceptance with the real robot hardware in the control loop ([[notes/C2-the-conformance-ladder|C2]]).
+- **harness only** — the provenance stamp that marks evidence as not valid for product claims ([[notes/C4-the-observatory|C4]]).
+- **held interval** — the evidence record of when an invocation acquired and released a resource ([[notes/C2-the-conformance-ladder|C2]]).
+- **idempotent** — safe to apply more than once with the same result ([[notes/B3-the-effect-vocabulary|B3]]).
+- **ingress kind** — the boundary type of an input: normalised event, authorised stream, simulated-world condition, or kernel test control ([[notes/B5-registration-selection-switching|B5]]).
+- **input catalog** — the reviewed registry of inputs, each with ingress kind, payload, correlation, privacy and replay policy, targets and producers ([[notes/B5-registration-selection-switching|B5]]).
+- **interception** — the kernel handling a class of events itself before, and instead of, delegating them to the experience ([[notes/B4-kernel-interception-and-arbitration|B4]]).
+- **kernel conformance suite** — the parameterised tests every registered experience must pass, covering kernel rules ([[notes/C2-the-conformance-ladder|C2]]).
+- **kernel envelope** — the kernel-owned state record around the opaque local state; experiences read it through a read-only view ([[notes/B2-state-ownership|B2]]).
+- **kernel-only effect** — an effect the kernel may perform but no experience may declare ([[notes/B3-the-effect-vocabulary|B3]]).
+- **lifecycle phase** — the closed, shared phase set: not ready, ready, selecting, in story, cleanup, safe cleanup, stopped, recovery ([[notes/B2-state-ownership|B2]]).
+- **local story state** — an experience's private, deeply immutable, canonically encoded state, valid only inside "in story" ([[notes/B2-state-ownership|B2]]).
+- **negative test** — a test that demonstrates a rule by showing that violating it fails ([[notes/C2-the-conformance-ladder|C2]]).
+- **observatory harness** — the off-robot loop that runs the real behaviour and conversation stack and renders the robot from command output ([[notes/C4-the-observatory|C4]]).
+- **output broker** — the coordinator-owned component that alone writes robot audio and authorises each frame against the turn's lease ([[notes/B6-conversation-and-model-boundaries|B6]]).
+- **output lease** — the per-turn authority that carries audio out for brokered conversation speech ([[notes/B3-the-effect-vocabulary|B3]]).
+- **overlap structure** — for each pair of held intervals, whether they overlap, are ordered, or meet at a preemption hand-off ([[notes/C3-regeneration-and-comparison|C3]]).
+- **parallel line** — the old experience kept running on a frozen image until an independently validated replacement exists ([[notes/C3-regeneration-and-comparison|C3]]).
+- **participant decision** — the kernel's typed verdict for a candidate, handshake, departure or reattachment event ([[notes/B2-state-ownership|B2]]).
+- **participant policy** — the typed story options an experience may choose about participant decisions ([[notes/B2-state-ownership|B2]]).
+- **phase allowlist** — the set of primitives an experience declares as possible in one phase ([[notes/A1-the-reasoner-and-the-coordinator|A1]]).
+- **preemption** — a higher-priority authority taking a resource or the flow from a lower one ([[notes/B4-kernel-interception-and-arbitration|B4]]).
+- **primitive / primitive catalog** — one registered thing an experience may invoke / the reviewed registry of them ([[notes/B3-the-effect-vocabulary|B3]]).
+- **profile attestation** — the readiness check that the resolved runtime reasoner profile equals the pinned one ([[notes/B6-conversation-and-model-boundaries|B6]]).
+- **profile-matrix runner** — the serial tool that cycles stop, clean, launch, qualify, run and retire for each profile and records phase timings ([[notes/B5-registration-selection-switching|B5]]).
+- **QoS (quality of service)** — ROS 2 delivery policies (history, depth, reliability, durability, deadline, lifespan, liveliness) matched by a request-versus-offered rule ([[notes/C4-the-observatory|C4]]).
+- **quiescence proof** — positive, correlated evidence that a cancelled or completed primitive no longer acts ([[notes/B3-the-effect-vocabulary|B3]]).
+- **real observer** — the separate, subscribe-only mode that views a physical robot ([[notes/C4-the-observatory|C4]]).
+- **reasoner** — the realtime speech-to-speech LLM session that speaks with the visitor inside a phase and returns a typed turn result ([[notes/A1-the-reasoner-and-the-coordinator|A1]]).
+- **recovery** — the kernel phase entered when quiescence cannot be proved; admission stays off until operator recovery or a proven clean restart ([[notes/B2-state-ownership|B2]]).
+- **reducer** — a pure function from (local state, read-only envelope, event) to (next local state, ordered effects) ([[notes/B1-experiences-as-reducers|B1]]).
+- **regeneration experiment** — re-deriving an existing experience through the authoring flow to test the catalogs, chapters and classifier ([[notes/C3-regeneration-and-comparison|C3]]).
+- **registry** — the source-code map from experience ID to definition; the only way an experience becomes selectable ([[notes/B5-registration-selection-switching|B5]]).
+- **release bundle (lock)** — the file that pins every image, message hash, asset and model used by a session ([[notes/C4-the-observatory|C4]]).
+- **renderer-neutral state** — a versioned non-video representation of every important story, action and scene change ([[notes/C1-simulation-first|C1]]).
+- **representative acceptance** — an operator-run session with a live human, distinct from mechanical CI regression ([[notes/C1-simulation-first|C1]]).
+- **reserved-policy classifier** — the human-maintained rule set naming policies an experience must not author ([[notes/B1-experiences-as-reducers|B1]]).
+- **resolver** — the registration-time compilation of the matrix that is the only way to build a reducer result ([[notes/B1-experiences-as-reducers|B1]]).
+- **resource claim** — a primitive's declared exclusive or shared hold on one kernel resource ([[notes/B3-the-effect-vocabulary|B3]]).
+- **scripted twin** — a pre-authored fallback for an autonomous beat that runs when the model or a sensor fails ([[notes/A0-one-experience-versus-many|A0]]).
+- **semantic comparator** — the tool that compares normalised command, decision, outcome and authority sequences rather than bytes ([[notes/C3-regeneration-and-comparison|C3]]).
+- **session cell** — one isolated cloud session with its own domain, router, identity, evidence and lifetime ([[notes/C4-the-observatory|C4]]).
+- **settle bound** — a target's maximum time to produce quiescence proof after a cancel request ([[notes/B3-the-effect-vocabulary|B3]]).
+- **shadow mode** — running the new reducer on live inputs, publishing under a separate namespace, issuing no commands ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **signal producer / commanded actor / passive consumer** — a component that only reports / that acts only on explicit correlated commands / that only renders the published state ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **simulation milestone / cross-target milestone** — done on the simulation target offline / done on both targets with equivalent evidence ([[notes/C2-the-conformance-ladder|C2]]).
+- **simulation target** — the registered target in which a physics simulator, a browser and virtual actors replace the body, the room and the visitor's devices ([[notes/C1-simulation-first|C1]]).
+- **single writer** — the rule that exactly one component changes the authoritative state, one transition at a time ([[notes/A0-one-experience-versus-many|A0]]).
+- **single-session ownership** — the rule that one browser page at a time holds visitor authority, transferred only through cleanup ([[notes/C1-simulation-first|C1]]).
+- **skew** — a mismatch between what the model or its author believes is available and what the pinned system really provides ([[notes/B6-conversation-and-model-boundaries|B6]]).
+- **speech fence** — the guard that waits for the previous utterance's terminal outcome before any new speech or activity ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **state snapshot** — the latest-value, transient-local projection of current state; not a command ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **statechart** — a hierarchical state machine with nested and parallel regions (Harel 1987) ([[notes/A0-one-experience-versus-many|A0]]).
+- **story projector** — the experience's pure function that derives browser-safe display values from committed state ([[notes/B1-experiences-as-reducers|B1]]).
+- **target** — a registered execution environment, initially simulation and physical ([[notes/B5-registration-selection-switching|B5]]).
+- **total order** — a sequence of events that every replay reproduces, built from priority and deterministic tie-breaks ([[notes/B4-kernel-interception-and-arbitration|B4]]).
+- **transient local / volatile** — ROS 2 durability that keeps samples for late subscribers / that keeps none ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **transition matrix** — the declared rules `(source state, stimulus) → target state` for one experience ([[notes/B1-experiences-as-reducers|B1]]).
+- **transition stream** — the volatile, bounded record of each accepted state change ([[notes/C5-migrating-from-a-single-state-tracker|C5]]).
+- **turn result** — the bounded typed output of one conversation turn: intent and terminal speech status ([[notes/A1-the-reasoner-and-the-coordinator|A1]]).
+- **typed intent** — a value from a closed list that the reasoner returns to propose an act or report the visitor's reply; a proposal, never a command ([[notes/A1-the-reasoner-and-the-coordinator|A1]]).
+- **virtual interaction actor** — simulated scene logic that creates world conditions such as contact or a held prop, never story outcomes ([[notes/C1-simulation-first|C1]]).
+- **visitor-audio permit / speech-output lease** — the session-scoped authority to listen / the turn-scoped authority to speak ([[notes/B2-state-ownership|B2]]).

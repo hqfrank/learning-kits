@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Commit first, then dispatch with deterministic IDs: a lossy link costs retries, not double actions — effect dispatch explorer</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a;
+    --warn:#ffd36b; --phone:#c9a0ff; --cloud:#5ec8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 8px}
+  .sub{color:var(--muted);max-width:78ch;margin:4px 0}
+  .banner{border-left:3px solid var(--warn);padding:6px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0;max-width:78ch;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  label,.lbl{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{width:100%;background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .radio{display:flex;gap:14px;flex-wrap:wrap}
+  .radio label{font-weight:400;display:inline-flex;gap:5px;align-items:center}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.est{color:var(--phone);border-color:var(--phone)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:first-child code{overflow-wrap:normal;white-space:nowrap}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  .sources{margin:0 22px 18px}
+  @media(max-width:860px){.sources{margin:0 12px 12px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+  .box{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;min-width:0}
+  .box h4{margin:0 0 5px;font-size:12.5px;color:var(--muted);font-weight:600}
+  .box dl{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:0}
+  .box dt{color:var(--muted)} .box dd{margin:0;overflow-wrap:anywhere}
+  .box ul{margin:0;padding-left:18px}
+  tr.cur td{background:#20263a}
+  .okc{color:var(--ok)} .badc{color:var(--bad)} .warnc{color:var(--warn)} .mutc{color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .row select{width:auto;flex:1 1 120px}
+  .checks label{font-weight:400;display:flex;gap:6px;align-items:flex-start;margin:3px 0}
+  #log td:first-child,#log th:first-child{white-space:nowrap}
+  #rules td:first-child,#rules td:last-child{white-space:nowrap}
+  #rules td:nth-child(4){white-space:nowrap}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>Commit first, then dispatch with deterministic IDs: a lossy link costs retries and pauses, not double waves</h1>
+  <p class="sub">Each accepted event makes the reducer emit a few effects. A <em>naive</em> dispatcher sends each effect as it is
+  emitted, gives every retry a fresh ID and records state afterwards. The <em>kernel</em> validates every effect, derives command
+  IDs deterministically, commits state and intent as one snapshot, and only then dispatches; an adapter that sees a repeated ID
+  treats it as a no-op (B3; Kleppmann's "effectively once"; the transactional outbox). Move the link's latency and failure rate
+  and count the <em>visible seams</em>: moments a visitor can see the join — a second wave, half an event, a stalled story, a
+  long pause, an action the state says never happened.</p>
+  <p class="banner">An illustrative model, not a measurement. "Seam" is this page's word for a visible artefact; the notes do not
+  count seams. The settle bounds and the cleanup deadline are illustrative design parameters from <code>constants.json</code>;
+  the ack timeout, the split between lost requests and lost acknowledgements, the naive dispatcher's timings and the pause a visitor
+  notices are page choices. Expected values are computed in closed form and checked against a seeded simulation.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <span class="lbl" id="cases-l">Preloaded cases</span>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <label for="lat">Adapter round trip (send to acknowledgement) <span class="val" id="lat_v"></span></label>
+      <input id="lat" type="range" min="1" max="2000" step="1">
+      <div class="hint">Ack timeout = max(<span data-p="page_dispatch_03" data-f="ack_timeout_floor_ms"></span> ms, 2 × round trip) (page choice), so a slow ack is not mistaken for a loss.</div>
+    </div>
+    <div class="ctrl">
+      <label for="fr">Failure rate per attempt <span class="val" id="fr_v"></span></label>
+      <input id="fr" type="range" min="0" max="60" step="1">
+      <div class="hint">Share of failures that are lost acknowledgements (the action ran): <span data-p="page_dispatch_03" data-f="lost_ack_share"></span> (page choice); the rest are lost requests.</div>
+    </div>
+    <div class="ctrl">
+      <label for="vf">Events with one effect that fails validation <span class="val" id="vf_v"></span></label>
+      <input id="vf" type="range" min="0" max="30" step="1">
+    </div>
+    <div class="ctrl">
+      <label for="rt">Retries per effect (bounded) <span class="val" id="rt_v"></span></label>
+      <input id="rt" type="range" min="0" max="5" step="1">
+    </div>
+    <div class="ctrl">
+      <label for="ke">Effects per event <span class="val" id="ke_v"></span></label>
+      <input id="ke" type="range" min="1" max="4" step="1">
+    </div>
+    <div class="ctrl">
+      <label for="sb">Settle bound for a cancel</label>
+      <select id="sb"><option value="target">target adapter's bound</option><option value="ceiling">catalog ceiling</option></select>
+      <div class="hint">Illustrative <span data-p="cancel_settle_target_ms_illustrative"></span> ms and <span data-p="cancel_settle_ceiling_ms_illustrative"></span> ms (B3).</div>
+    </div>
+    <div class="ctrl">
+      <label for="cl">Time left before the active cleanup deadline when the cancel is sent <span class="val" id="cl_v"></span></label>
+      <input id="cl" type="range" min="0" max="10000" step="100">
+      <div class="hint">At most the illustrative <span data-p="cleanup_ack_timeout_ms_illustrative"></span> ms cleanup deadline. Cancellation never extends cleanup (B3, C3).</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="pic" viewBox="0 0 720 420" role="img" aria-labelledby="pic-t"><title id="pic-t">Visible seams per 100 events for the naive and the kernel dispatcher</title></svg>
+    <div class="why">
+      <h3>Where the seams come from</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel sources" aria-label="Sources">
+  <h2>Parameters and sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = a cited public value; <span class="tag ill">illustrative</span> = a
+  design parameter or page choice, never a measurement; <span class="tag der">derived</span> = computed by this page's model.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Generated 2026-11-14 · Study aid for <em>hri-experience-platform</em> (rung 3). Sources: notes B3, C3 and <code>constants.json</code>
+  of this kit; Kleppmann, <em>Designing Data-Intensive Applications</em> (2017), chapters 11–12; Richardson, "Transactional outbox".
+  Numbers are from the listed sources or labelled illustrative or derived. This is a study aid.
+</footer>
+
+<script type="application/json" id="params" data-keys="cancel_settle_target_ms_illustrative,cancel_settle_ceiling_ms_illustrative,cleanup_ack_timeout_ms_illustrative,page_dispatch_03">
+{
+ "cancel_settle_target_ms_illustrative": {
+  "value": 1500,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; one target adapter's bound for positive proof that a cancelled primitive is quiet. Must be <= cancel_settle_ceiling_ms_illustrative and < cleanup_ack_timeout_ms_illustrative"
+ },
+ "cancel_settle_ceiling_ms_illustrative": {
+  "value": 2000,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; catalog-wide ceiling pinned in the deployment profile, shared by every target"
+ },
+ "cleanup_ack_timeout_ms_illustrative": {
+  "value": 10000,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; kernel cleanup acknowledgement deadline. Every settle bound must be strictly shorter"
+ },
+ "page_dispatch_03": {
+  "value": {
+   "ack_timeout_floor_ms": 500,
+   "lost_ack_share": 0.5,
+   "dispatch_step_ms": 5,
+   "commit_ms": 10,
+   "pause_threshold_ms": 1000,
+   "mc_events": 20000,
+   "strip_events": 24
+  },
+  "unit": "ms (shares and counts unitless)",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): ack timeout = max(floor, 2 x latency); share of failures that are lost acknowledgements (the action ran) rather than lost requests; per-effect send time and commit time of the naive dispatcher; the pause a visitor notices; Monte Carlo sizes"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function(){
+  "use strict";
+  // Expected attempts with up to R retries when each attempt fails with probability f: sum_{i=0..R} f^i.
+  function attempts_B3(f, R){ return f >= 1 ? R + 1 : (1 - Math.pow(f, R + 1)) / (1 - f); }
+  // Settle deadline (B3, C3): the earlier of request time + settle bound and any active cleanup deadline.
+  function settle_deadline_B3(tReq, bound, cleanupDeadline){ return Math.min(tReq + bound, cleanupDeadline); }
+  function ackTimeout(P, L){ return Math.max(P.page_dispatch_03.value.ack_timeout_floor_ms, 2 * L); }
+  // Closed-form expectations per 100 events. x = {L ms, f, v, R, k, settle: "target"|"ceiling", left ms}.
+  function expected_B3(P, x){
+    const D = P.page_dispatch_03.value, a = D.lost_ack_share, f = x.f, R = x.R, k = x.k, L = x.L, T = ackTimeout(P, L);
+    const e = 1 - f * (1 - a);                       // an attempt that executes on the robot
+    const Eatt = attempts_B3(f, R), Eexec = e * Eatt;
+    const P0 = Math.pow(f * (1 - a), R + 1);         // every attempt lost before it ran
+    const actedOnce = 1 - P0, extraExec = Eexec - actedOnce;
+    const exhausted = Math.pow(f, R + 1), unconfirmed = exhausted - P0;
+    let pause = 0; for (let i = 0; i <= R; i++) if (i * T + L > D.pause_threshold_ms) pause += Math.pow(f, i) * (1 - f);
+    let orphan = 0; for (let j = 1; j <= k; j++) if (L < (k - j) * D.dispatch_step_ms + D.commit_ms) orphan += 1 - f;
+    const valid = 1 - x.v, perEff = valid * k;
+    const bound = x.settle === "ceiling" ? P.cancel_settle_ceiling_ms_illustrative.value : P.cancel_settle_target_ms_illustrative.value;
+    const Dl = settle_deadline_B3(0, bound, x.left), nCancel = L <= Dl ? Math.floor((Dl - L) / T) + 1 : 0;
+    const pStuck = Math.pow(f, nCancel);
+    const H = 100;
+    const naive = {duplicate: H * perEff * extraExec, partial: H * x.v * (k - 1) / k, orphan: H * valid * orphan,
+      pause: H * perEff * pause, unconfirmed: H * perEff * unconfirmed};
+    const kernel = {duplicate: 0, partial: 0, orphan: 0, pause: H * perEff * pause, unconfirmed: 0};
+    const sum = o => Object.values(o).reduce((s, y) => s + y, 0);
+    return {T, Eatt, extraDispatch: H * perEff * (Eatt - 1), dedup: H * perEff * extraExec, failBranch: H * perEff * exhausted,
+      forced: H * perEff * exhausted * pStuck, nCancel, pStuck, settleDeadline: Dl, bound,
+      naive, kernel, naiveSeams: sum(naive), kernelSeams: sum(kernel), rejectedClean: H * x.v};
+  }
+  function rng(seed){ let s = seed >>> 0; return () => { s = (s + 0x6D2B79F5) >>> 0; let t = s; t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  // Seeded simulation of the same rules, used to check the closed form and to draw a strip of real draws.
+  function simulate_B3(P, x, N, seed){
+    const D = P.page_dispatch_03.value, a = D.lost_ack_share, r = rng(seed), T = ackTimeout(P, x.L);
+    const n = {duplicate: 0, partial: 0, orphan: 0, pause: 0, unconfirmed: 0, exhausted: 0}, rows = [];
+    for (let ev = 0; ev < N; ev++){
+      const row = {invalid: false, cells: []};
+      if (r() < x.v){ const pos = Math.floor(r() * x.k); row.invalid = true; row.pos = pos; if (pos > 0) n.partial++; rows.push(row); continue; }
+      for (let j = 0; j < x.k; j++){
+        let exec = 0, ackAt = -1;
+        for (let i = 0; i <= x.R; i++){ const u = r(); if (u < x.f * (1 - a)) continue; exec++; if (u < x.f) continue; ackAt = i; break; }
+        const c = {exec, ackAt, retries: ackAt < 0 ? x.R : ackAt};
+        if (exec > 1) n.duplicate += exec - 1;
+        if (ackAt >= 0 && ackAt * T + x.L > D.pause_threshold_ms){ n.pause++; c.pause = true; }
+        if (ackAt < 0){ n.exhausted++; if (exec > 0){ n.unconfirmed++; c.unconfirmed = true; } }
+        if (ackAt === 0 && x.L < (x.k - (j + 1)) * D.dispatch_step_ms + D.commit_ms){ n.orphan++; c.orphan = true; }
+        row.cells.push(c);
+      }
+      rows.push(row);
+    }
+    const per = v => 100 * v / N;
+    return {naive: {duplicate: per(n.duplicate), partial: per(n.partial), orphan: per(n.orphan), pause: per(n.pause), unconfirmed: per(n.unconfirmed)},
+      failBranch: per(n.exhausted), rows};
+  }
+  function cases(P){
+    const d = {L: 200, f: 0.10, v: 0.05, R: 2, k: 2, settle: "target", left: P.cleanup_ack_timeout_ms_illustrative.value};
+    const c = o => Object.assign({}, d, o);
+    return [
+      {name: "Default link", x: c({})},
+      {name: "Healthy link", x: c({L: 120, f: 0.02, v: 0})},
+      {name: "Lossy link", x: c({f: 0.25, v: 0, R: 3})},
+      {name: "Very fast adapter", x: c({L: 2, f: 0, v: 0})},
+      {name: "An effect fails validation", x: c({f: 0, v: 0.20, k: 3})},
+      {name: "Slow adapter", x: c({L: 900, f: 0.10, v: 0})},
+      {name: "Cancel near the cleanup deadline", x: c({L: 300, f: 0.30, R: 1, v: 0, left: 600})},
+      {name: "Round trip past the settle bound", x: c({L: 1800, f: 0.20, v: 0})},
+    ];
+  }
+  function sweep(P){
+    const out = [];
+    for (const L of [1, 2000]) for (const f of [0, 0.6]) for (const v of [0, 0.3]) for (const R of [0, 5]) for (const k of [1, 4])
+      for (const settle of ["target", "ceiling"]) for (const left of [0, 10000]){
+        const e = expected_B3(P, {L, f, v, R, k, settle, left});
+        out.push({n: e.naiveSeams, k: e.kernelSeams, f: e.forced, s: e.pStuck, d: e.extraDispatch, ok: e.kernelSeams <= e.naiveSeams + 1e-9 ? 1 : 0});
+      }
+    return out;
+  }
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const t = (c, m) => { assert(c, m); if (c) passed++; else failed++; };
+    const near = (a, b, e) => Math.abs(a - b) <= (e === undefined ? 1e-9 : e);
+    const st = P.cancel_settle_target_ms_illustrative.value, sc = P.cancel_settle_ceiling_ms_illustrative.value, ca = P.cleanup_ack_timeout_ms_illustrative.value;
+    t(st <= sc && sc < ca, "settle target <= catalog ceiling < cleanup deadline (B3)");
+    t(settle_deadline_B3(0, st, 600) === 600, "a cancel 600 ms before cleanup's deadline is clamped to that deadline (C3 worked example)");
+    t(settle_deadline_B3(0, st, ca) === st, "with the whole cleanup window left, the settle bound decides");
+    t(near(attempts_B3(0.5, 1), 1.5) && near(attempts_B3(0, 4), 1), "expected attempts: 1 + f + ... + f^R");
+    const C = cases(P), E = i => expected_B3(P, C[i].x);
+    let e = expected_B3(P, {L: 200, f: 0, v: 0, R: 2, k: 2, settle: "target", left: ca});
+    t(e.naiveSeams === 0 && e.kernelSeams === 0, "a perfect link and valid effects: no seams for either dispatcher");
+    e = expected_B3(P, {L: 200, f: 0.5, v: 0, R: 1, k: 1, settle: "target", left: ca});
+    t(near(e.naive.duplicate, 18.75), "f = 0.5, one retry, half the losses are lost acks: 0.1875 extra executions per effect (my arithmetic)");
+    t(e.kernel.duplicate === 0 && near(e.dedup, 18.75), "the kernel's re-dispatches with the same ID are deduplicated, not executed twice");
+    e = E(3); t(near(e.naive.orphan, 200) && e.kernel.orphan === 0, "a 2 ms adapter completes before the naive dispatcher records the command: both outcomes orphaned");
+    e = E(4); t(near(e.naive.partial, 100 * 0.2 * 2 / 3) && e.kernel.partial === 0 && near(e.rejectedClean, 20), "an invalid effect: naive dispatched part of the event; the kernel committed nothing");
+    e = E(6); t(e.settleDeadline === 600 && e.nCancel === 1 && near(e.pStuck, 0.3), "cancel near cleanup's deadline: one attempt fits, stuck with probability f");
+    e = E(7); t(e.pStuck === 1 && e.forced > 0, "round trip past the settle bound: quiescence proof cannot arrive in time; forced cleanup keeps every claim");
+    // closed form vs seeded simulation
+    const n = P.page_dispatch_03.value.mc_events;
+    for (const i of [0, 2, 5]){ const x = C[i].x, a = expected_B3(P, x), s = simulate_B3(P, x, n, 7 + i);
+      const ok = Object.keys(a.naive).every(k => near(a.naive[k], s.naive[k], Math.max(1.0, 0.06 * a.naive[k])));
+      t(ok, `closed form matches a ${n}-event seeded simulation (${C[i].name})`); }
+    t(sweep(P).every(r => r.ok === 1), "over every slider extreme the kernel shows no more seams than the naive dispatcher");
+    return {passed, failed};
+  }
+  return {attempts_B3, settle_deadline_B3, expected_B3, simulate_B3, cases, sweep, selfTest};
+})();
+/*MODEL-END*/
+if (typeof window !== "undefined") window.MODEL = MODEL;
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, est: {cls: "est", txt: "my estimate"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t){ return `<div class="metric"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : TAGS.ill;
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f || undefined)); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); })); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  const CASES = MODEL.cases(PARAMS);
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.textContent = c.name; b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  function applyCase(i){ const x = CASES[i].x;
+    $("lat").value = x.L; $("fr").value = Math.round(x.f * 100); $("vf").value = Math.round(x.v * 100); $("rt").value = x.R; $("ke").value = x.k;
+    $("sb").value = x.settle; $("cl").value = x.left; update(); setPressed("cases", i); }
+  const read = () => ({L: +$("lat").value, f: +$("fr").value / 100, v: +$("vf").value / 100, R: +$("rt").value, k: +$("ke").value, settle: $("sb").value, left: +$("cl").value});
+  const KC = {duplicate: ["#ff7a7a", "second action (fresh retry ID)"], partial: ["#ff9f5e", "half an event dispatched"], orphan: ["#c9a0ff", "completion before state: story stalls"],
+    pause: ["#ffd36b", "pause a visitor notices"], unconfirmed: ["#8a93a3", "acted, state says failed"]};
+  function draw(x, e, sim){
+    const W = 720, padL = 150, padR = 14;
+    const mx = 1.15 * Math.max(e.naiveSeams, e.kernelSeams, 1), sx = v => (W - padL - padR) * v / mx;
+    let s = `<title id="pic-t">Expected visible seams per 100 events: naive ${fmt(e.naiveSeams, 1)}, kernel ${fmt(e.kernelSeams, 1)}</title>`;
+    s += `<text x="12" y="16" font-size="13">Expected visible seams per 100 events (closed form)</text>`;
+    [["naive", e.naive, e.naiveSeams], ["kernel", e.kernel, e.kernelSeams]].forEach(([nm, o, tot], i) => { const y = 30 + i * 34;
+      s += `<text x="${padL - 8}" y="${y + 16}" text-anchor="end" font-size="12">${nm === "naive" ? "naive dispatcher" : "kernel (commit first)"}</text>`;
+      let xx = padL; for (const [k, [col]] of Object.entries(KC)){ const w = sx(o[k]); if (w > 0.2) s += `<rect x="${xx}" y="${y}" width="${w}" height="22" fill="${col}"/>`; xx += w; }
+      s += `<text x="${xx + 6}" y="${y + 16}" font-size="12">${fmt(tot, 1)}</text>`; });
+    let lx = 12, ly = 112; Object.values(KC).forEach(([col, lab], i) => { if (i === 3){ lx = 12; ly += 16; }
+      s += `<rect x="${lx}" y="${ly - 10}" width="12" height="12" fill="${col}"/><text x="${lx + 16}" y="${ly}" font-size="11">${lab}</text>`; lx += 230; });
+    // strip of seeded draws
+    const y0 = ly + 30, rows = sim.rows, cw = Math.min(22, (W - padL - padR) / rows.length);
+    s += `<text x="12" y="${y0}" font-size="13">The first ${rows.length} events of one seeded run (each column one event, each square one effect)</text>`;
+    [["naive", 0], ["kernel", 1]].forEach(([nm, b]) => { const yb = y0 + 14 + b * (x.k * 13 + 22);
+      s += `<text x="${padL - 8}" y="${yb + x.k * 6.5 + 4}" text-anchor="end" font-size="12">${nm}</text>`;
+      rows.forEach((r, i) => { const cx = padL + i * cw;
+        for (let j = 0; j < x.k; j++){ let col = "#49d17a", sym = "";
+          if (r.invalid){ if (b === 0){ col = j < r.pos ? "#ff9f5e" : "#3a3f4a"; } else col = "#3a3f4a"; }
+          else { const c = r.cells[j];
+            if (b === 0 && c.exec > 1){ col = "#ff7a7a"; sym = String(c.exec); }
+            else if (b === 0 && c.orphan) col = "#c9a0ff";
+            else if (c.ackAt < 0){ col = b === 0 && c.unconfirmed ? "#8a93a3" : "#5ec8ff"; sym = "✕"; }
+            else if (c.pause) col = "#ffd36b";
+            else if (c.retries > 0) sym = "↻"; }
+          s += `<rect x="${cx + 1}" y="${yb + j * 13}" width="${cw - 2}" height="11" fill="${col}"/>`;
+          if (sym) s += `<text x="${cx + cw / 2}" y="${yb + j * 13 + 9.5}" text-anchor="middle" font-size="9" fill="#0f1115">${sym}</text>`; } }); });
+    const yl = y0 + 14 + 2 * (x.k * 13 + 22) + 4;
+    s += `<text x="12" y="${yl}" font-size="11" fill="#aeb6c4">green = acknowledged · ↻ = after a retry · number = times executed · grey column = invalid event (kernel: nothing sent)</text>`;
+    s += `<text x="12" y="${yl + 15}" font-size="11" fill="#aeb6c4">blue ✕ = retries exhausted → correlated failure path and a cancel with quiescence proof (kernel)</text>`;
+    s += `<text x="12" y="${yl + 30}" font-size="11" fill="#aeb6c4">grey ✕ = acted, but the state says failed (naive) · yellow = acknowledged after a pause a visitor notices · purple = orphaned completion</text>`;
+    $("pic").setAttribute("viewBox", `0 0 ${W} ${yl + 40}`); $("pic").innerHTML = s;
+  }
+  function update(){
+    const x = read();
+    $("lat_v").textContent = x.L + " ms"; $("fr_v").textContent = fmt(100 * x.f) + " %"; $("vf_v").textContent = fmt(100 * x.v) + " %";
+    $("rt_v").textContent = String(x.R); $("ke_v").textContent = String(x.k); $("cl_v").textContent = x.left + " ms";
+    const e = MODEL.expected_B3(PARAMS, x), sim = MODEL.simulate_B3(PARAMS, x, V("page_dispatch_03", "strip_events"), 11);
+    $("headline").innerHTML =
+      metric("Seams per 100 events, naive", `<span class="badc">${fmt(e.naiveSeams, 1)}</span>`, TAGS.der) +
+      metric("Seams per 100 events, kernel", `<span class="${e.kernelSeams > 0.05 ? "warnc" : "okc"}">${fmt(e.kernelSeams, 1)}</span>`, TAGS.der) +
+      metric("Extra dispatches (retries) per 100 events", fmt(e.extraDispatch, 1), TAGS.der) +
+      metric("Forced cleanups per 100 events (cancel stuck)", fmt(e.forced, 2), TAGS.der);
+    draw(x, e, sim);
+    const parts = [];
+    if (e.naive.duplicate > 0.05) parts.push(`${fmt(e.naive.duplicate, 1)} second actions: a lost acknowledgement makes the naive dispatcher retry with a fresh ID and the robot does it again; the kernel re-sends the same ID and the adapter answers ${fmt(e.dedup, 1)} of them as no-ops`);
+    if (e.naive.partial > 0.05) parts.push(`${fmt(e.naive.partial, 1)} half-dispatched events: the naive dispatcher sent the effects before the invalid one; the kernel validates all of them before commit and rejects ${fmt(e.rejectedClean, 1)} events cleanly`);
+    if (e.naive.orphan > 0.05) parts.push(`${fmt(e.naive.orphan, 1)} orphaned completions: a ${x.L} ms adapter answers before the naive dispatcher has recorded the command, so admission rejects the outcome as "not pending" and the story waits; committing first prevents this (B3)`);
+    if (e.kernel.pause > 0.05) parts.push(`${fmt(e.kernel.pause, 1)} long pauses on both: an acknowledgement after retries arrives later than ${V("page_dispatch_03", "pause_threshold_ms")} ms; atomic dispatch does not make a slow or lossy link fast`);
+    if (e.naive.unconfirmed > 0.05) parts.push(`${fmt(e.naive.unconfirmed, 1)} actions that ran although every acknowledgement was lost; the naive state calls them failed and frees the robot`);
+    $("why_text").textContent = parts.length ? parts.join(". ") + "." : "No seams: every effect is valid and acknowledged on its first attempt, and the adapter is slower than the naive dispatcher's bookkeeping.";
+    $("callout").innerHTML = e.pStuck > 0 && e.failBranch > 0.005 ?
+      `<strong>When retries run out, the kernel cancels and waits for proof.</strong> It cannot know whether the last attempt ran, so it sends a cancel. The settle deadline is min(request + ${e.bound} ms, cleanup deadline) = ${fmt(e.settleDeadline)} ms after the request, which fits ${e.nCancel} cancel attempt(s) at this round trip and ack timeout (${fmt(e.T)} ms). With probability ${fmt(100 * e.pStuck, 1)} % no proof arrives in time: forced cleanup with reason "cancellation stuck", every claim kept, conflicting work refused (B3). Lease expiry or a disconnect never counts as proof.` :
+      `<strong>Idempotence plus commit-first.</strong> Deterministic command IDs make a re-dispatch safe, and committing state, commands and leases as one snapshot before sending anything means a fast completion always finds its command (B3, transactional outbox). Neither removes the cost of a lossy link: that shows up as retries (${fmt(e.extraDispatch, 1)} per 100 events here) and pauses.`;
+    $("live").textContent = `Naive ${fmt(e.naiveSeams, 1)} seams per 100 events, kernel ${fmt(e.kernelSeams, 1)}.`;
+  }
+  onInput(["lat", "fr", "vf", "rt", "ke", "cl"], () => { setPressed("cases", -1); update(); });
+  $("sb").addEventListener("change", () => { setPressed("cases", -1); update(); });
+  window.Story = {scenes: {out: {n: CASES.length}}, go: (id, k) => { if (id === "out") applyCase(k - 1); }};
+  fillDataP(); renderSources(); runSelfTests();
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A small array hears direction coarsely, so the bearing gates faces and never picks one — direction-of-arrival explorer</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a; --warn:#ffd36b;
+    --p1:#5ec8ff; --p2:#ffb347; --p3:#c99bff; --p4:#7fe08a; --robot:#e6e9ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:78ch;margin:6px 0 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  .ctrl>label,.ctrl>.lab{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit}
+  .checks{display:flex;flex-wrap:wrap;gap:4px 14px}
+  .checks label{font-weight:400}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  .cases button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  .cases button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:120px;flex:1 1 120px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .metric.bad .v{color:var(--bad)} .metric.ok .v{color:var(--ok)}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-bottom:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:4px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td.on{outline:2px solid var(--warn);outline-offset:-2px;background:#2a2614}
+  .src{margin:0 22px 18px}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>A microphone pair a few centimetres apart turns a talker's bearing into a delay of a few hundred microseconds: coarse enough that the bearing should gate faces, not choose between them</h1>
+  <p class="sub">Sound reaches the nearer microphone first. The <strong>time difference of arrival</strong> (TDOA) between microphones
+  <em>x</em> apart is <em>x</em>·sin θ / c. Invert it and you have the bearing θ. Move the talker, the spacing, the number of microphones
+  and the timing noise to see the estimate and its error. Then place one or two faces to see the fusion rule of note B2: the bearing
+  binds to a face inside its window, <strong>abstains</strong> when two faces share the window, and flags a voice with no face. The physics
+  is <span class="tag pub">public</span> arithmetic from <code>../constants.json</code>. Noise, faces and cases are page inputs, not measurements.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="lab" id="cases-l" style="font-weight:600;margin-bottom:4px">Preloaded cases</div>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <label for="m">Microphones (uniform line)</label>
+      <select id="m"><option value="2">2</option><option value="4">4</option></select>
+    </div>
+    <div class="ctrl">
+      <label for="d">Spacing between neighbours <span class="val" id="d_v"></span></label>
+      <input id="d" type="range" min="2" max="20" step="0.5">
+      <div class="hint">Default <span id="d_def"></span> cm, the pair behind <code>tdoa_max_10cm</code>. Larger spacing = larger delays, but phase wraps above c/(2d).</div>
+    </div>
+    <div class="ctrl">
+      <label for="th">Talker bearing <span class="val" id="th_v"></span></label>
+      <input id="th" type="range" min="-85" max="85" step="1">
+      <div class="hint">0° = broadside (straight ahead of the line), ±90° = along the line (endfire).</div>
+    </div>
+    <div class="ctrl">
+      <label for="est">Delay estimator</label>
+      <select id="est">
+        <option value="int">integer-sample lag at 16 kHz</option>
+        <option value="sub">sub-sample (GCC-PHAT peak interpolation)</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label for="sg">Timing noise per microphone <span class="val" id="sg_v"></span></label>
+      <input id="sg" type="range" min="0" max="60" step="1">
+      <div class="hint">Standard deviation of each microphone's arrival-time error. Stands in for room noise and reverberation. Page input.</div>
+    </div>
+    <div class="ctrl">
+      <label for="bin">Bearing published as</label>
+      <select id="bin">
+        <option value="cont">a continuous angle</option>
+        <option value="bin">an on-chip bin</option>
+      </select>
+      <div class="hint">On-chip arrays often publish only a quantised direction (<code>doa_bin_illustrative</code>).</div>
+    </div>
+    <div class="ctrl">
+      <label for="fa">Face A bearing <span class="val" id="fa_v"></span></label>
+      <input id="fa" type="range" min="-85" max="85" step="1">
+    </div>
+    <div class="ctrl">
+      <label><input type="checkbox" id="fbOn"> Face B present</label>
+      <label for="fb" style="font-weight:400">Face B bearing <span class="val" id="fb_v"></span></label>
+      <input id="fb" type="range" min="-85" max="85" step="1">
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="geo" viewBox="0 0 720 300" role="img" aria-labelledby="geo-t"></svg>
+    <svg id="err" viewBox="0 0 720 240" role="img" aria-labelledby="err-t"></svg>
+    <div class="why">
+      <h3>What dominates right now</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel src" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters &amp; sources</h3>
+  <p class="hint">Loaded from the inlined params block (also shipped as <code>params.json</code>), copied verbatim from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = physics arithmetic or a cited source.
+  <span class="tag ill">illustrative</span> = a round teaching number. <span class="tag ill">page model</span> = a choice made only for this page.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Study aid for <em>public-robot-interaction-design</em> (rung 3), from note B2 (who is speaking). Delay estimation: Knapp &amp; Carter 1976
+  (GCC-PHAT). Model: far-field plane wave, uniform linear array, independent Gaussian timing error per microphone, least-squares fit of
+  delay against microphone position. A linear array cannot tell front from back; the page shows the front half only.
+  Nothing here is a measurement from any robot or venue.
+</footer>
+
+<script type="application/json" id="params" data-keys="speed_of_sound_20c,tdoa_max_10cm,tdoa_max_5cm,sample_period_16k,sample_path_16k,one_sample_angle_10cm_16k,spatial_alias_5cm,spatial_alias_10cm,guard_speech_band_illustrative,doa_bin_illustrative,doa_face_gate_illustrative,doa_effective_window_illustrative,page_face_distance,page_mc_trials">
+{
+  "speed_of_sound_20c": {"value":343,"unit":"m/s","class":"public","source":"dry air at 20 degrees C (standard physics value)"},
+  "tdoa_max_10cm": {"value":292,"unit":"us","class":"public","source":"my arithmetic: 0.10 m / speed_of_sound_20c, the largest delay between two microphones 10 cm apart (sound arriving along the axis)"},
+  "tdoa_max_5cm": {"value":146,"unit":"us","class":"public","source":"my arithmetic: 0.05 m / speed_of_sound_20c"},
+  "sample_period_16k": {"value":62.5,"unit":"us","class":"public","source":"my arithmetic: 1 / 16 000 Hz"},
+  "sample_path_16k": {"value":2.1,"unit":"cm of path difference per sample","class":"public","source":"my arithmetic: speed_of_sound_20c x sample_period_16k"},
+  "one_sample_angle_10cm_16k": {"value":12.4,"unit":"degrees near broadside","class":"public","source":"my arithmetic: asin(sample_path_16k / 10 cm); why integer-lag cross-correlation is coarse and sub-sample interpolation (GCC-PHAT peak interpolation) is used"},
+  "spatial_alias_5cm": {"value":3.4,"unit":"kHz","class":"public","source":"my arithmetic: f < c / (2 d) with d = 5 cm; above this a pair's phase difference wraps (spatial aliasing)"},
+  "spatial_alias_10cm": {"value":1.7,"unit":"kHz","class":"public","source":"my arithmetic: f < c / (2 d) with d = 10 cm"},
+  "guard_speech_band_illustrative": {"value":[400,3000],"unit":"Hz","class":"illustrative","source":"illustrative speech band"},
+  "doa_bin_illustrative": {"value":45,"unit":"degrees per direction bin (8 bins)","class":"illustrative","source":"illustrative coarse on-chip direction-of-arrival quantisation"},
+  "doa_face_gate_illustrative": {"value":15,"unit":"degrees (nominal gate between a bearing and a face)","class":"illustrative","source":"illustrative"},
+  "doa_effective_window_illustrative": {"value":40,"unit":"degrees either side (gate widened by bin uncertainty)","class":"illustrative","source":"my arithmetic, rounded: doa_face_gate_illustrative + half of doa_bin_illustrative"},
+  "page_face_distance": {"value":1.5,"unit":"m","class":"illustrative","source":"page model choice (not in constants.json); drawing distance of the talker and faces in the top-down picture (far field assumed by the model)"},
+  "page_mc_trials": {"value":400,"unit":"trials","class":"illustrative","source":"page model choice (not in constants.json); Monte Carlo trials per RMS-error estimate (seeded)"}
+}
+</script>
+
+<script>
+/*MODEL-START*/
+var MODEL = (function(){
+  "use strict";
+  const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+  function rng(seed){ let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  function gauss(r){ let u = 0; while (u === 0) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+
+  const fs16 = P => 1e6 / P.sample_period_16k.value;                       // Hz, from the 62.5 µs sample period
+  // B2: TDOA between two microphones x metres apart for a far-field source at bearing θ: τ = x·sin θ / c
+  function tdoa_B2(P, xM, thDeg){ return xM * Math.sin(thDeg * D2R) / P.speed_of_sound_20c.value; }
+  // B2: largest delay (sound along the axis): d / c
+  function tdoa_max_B2(P, dM){ return dM / P.speed_of_sound_20c.value; }
+  // B2: one integer sample near broadside resolves asin(c·Ts / d)
+  function one_sample_angle_B2(P, dM){ const p = P.speed_of_sound_20c.value * P.sample_period_16k.value * 1e-6; return p >= dM ? 90 : Math.asin(p / dM) * R2D; }
+  // B2: spatial aliasing above f = c / (2d)
+  function spatial_alias_B2(P, dM){ return P.speed_of_sound_20c.value / (2 * dM); }
+  // first-order bearing std for least-squares slope over M mics, per-mic timing std σ: σθ = c·σ / (cos θ · sqrt(Σ(x−x̄)²))
+  function sxx(m, dM){ const xs = [...Array(m).keys()].map(i => i * dM), mx = xs.reduce((a, b) => a + b, 0) / m; return xs.reduce((a, x) => a + (x - mx) ** 2, 0); }
+  function bearing_std_ls(P, m, dM, sigS, thDeg){ return P.speed_of_sound_20c.value * sigS / (Math.cos(thDeg * D2R) * Math.sqrt(sxx(m, dM))) * R2D; }
+
+  // one estimate: arrival times + noise, optional integer-sample quantisation relative to mic 0, LS slope -> sin θ
+  function estimate(P, x, r){
+    const c = P.speed_of_sound_20c.value, fs = fs16(P), m = x.m, dM = x.spacingCm / 100, sig = x.sigUs * 1e-6;
+    const xs = [...Array(m).keys()].map(i => i * dM), ts = xs.map(xpos => tdoa_B2(P, xpos, x.th) + sig * gauss(r));
+    let q = ts.map(t => t - ts[0]);
+    if (x.est === "int") q = q.map(t => Math.round(t * fs) / fs);
+    const mx = xs.reduce((a, b) => a + b, 0) / m, mq = q.reduce((a, b) => a + b, 0) / m;
+    let num = 0, den = 0; xs.forEach((xpos, i) => { num += (xpos - mx) * (q[i] - mq); den += (xpos - mx) ** 2; });
+    const s = Math.max(-1, Math.min(1, c * num / den));
+    let th = Math.asin(s) * R2D;
+    if (x.bin === "bin"){ const b = P.doa_bin_illustrative.value; th = Math.max(-90, Math.min(90, Math.round(th / b) * b)); }
+    return th;
+  }
+  function rms_error(P, x, trials, seed){
+    const r = rng(seed || 11); let s2 = 0;
+    for (let k = 0; k < trials; k++){ const e = estimate(P, x, r) - x.th; s2 += e * e; }
+    return Math.sqrt(s2 / trials);
+  }
+  // B2 fusion rule: the bearing gates faces; >1 face in the window -> abstain (defer to ASD); 0 faces -> no face at that voice
+  function fusion_window_B2(P, bin){ return bin === "bin" ? P.doa_effective_window_illustrative.value : P.doa_face_gate_illustrative.value; }
+  function fuse_B2(P, thEst, faces, bin){
+    const w = fusion_window_B2(P, bin), inside = faces.filter(f => Math.abs(f.b - thEst) <= w);
+    if (inside.length === 1) return {verdict: "bind", face: inside[0].name, w};
+    if (inside.length > 1) return {verdict: "abstain", faces: inside.map(f => f.name), w};
+    return {verdict: "noface", w};
+  }
+  function run(P, x){
+    const dM = x.spacingCm / 100, r = rng(x.seed || 5);
+    const est1 = estimate(P, x, r);
+    const faces = [{name: "A", b: x.fa}].concat(x.fbOn ? [{name: "B", b: x.fb}] : []);
+    return {tau: tdoa_B2(P, dM, x.th) * 1e6, tauMax: tdoa_max_B2(P, dM) * 1e6, est: est1,
+      rms: rms_error(P, x, P.page_mc_trials.value, 21), oneSample: one_sample_angle_B2(P, dM),
+      alias: spatial_alias_B2(P, dM) / 1000, fusion: fuse_B2(P, est1, faces, x.bin),
+      analytic: x.sigUs > 0 ? bearing_std_ls(P, x.m, dM, x.sigUs * 1e-6, x.th) : 0};
+  }
+  // RMS error as a function of spacing (for the chart)
+  function error_curve(P, x){ const out = []; for (let d = 2; d <= 20.001; d += 0.5) out.push([d, rms_error(P, {...x, spacingCm: d}, 150, 31)]); return out; }
+
+  function cases(P){
+    const d0 = Math.round(P.tdoa_max_10cm.value * 1e-6 * P.speed_of_sound_20c.value * 1000) / 10;   // 10 cm, recovered from tdoa_max_10cm
+    const base = {m: 2, spacingCm: d0, est: "int", sigUs: 0, bin: "cont", fa: 20, fbOn: false, fb: -30, seed: 5};
+    return [
+      {name: "10 cm pair, integer lag", x: {...base, th: 20}},
+      {name: "Same pair, talker near endfire", x: {...base, th: 72, fa: 72}},
+      {name: "Noisy room, four mics", x: {...base, m: 4, est: "sub", sigUs: 20, th: 20}},
+      {name: "Two faces in one bin window", x: {...base, est: "sub", bin: "bin", th: 30, fa: 20, fbOn: true, fb: 50}},
+      {name: "A phone off camera", x: {...base, est: "sub", th: -60, fa: 20, fbOn: true, fb: 40}}
+    ];
+  }
+
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const near = (a, b, t) => Math.abs(a - b) <= t;
+    ok(near(tdoa_max_B2(P, 0.10) * 1e6, P.tdoa_max_10cm.value, 0.5), "tdoa_max_10cm = 292 µs");
+    ok(near(tdoa_max_B2(P, 0.05) * 1e6, P.tdoa_max_5cm.value, 0.5), "tdoa_max_5cm = 146 µs");
+    ok(near(1e6 / fs16(P), 62.5, 1e-9) && near(fs16(P), 16000, 1e-6), "16 kHz sample period = 62.5 µs");
+    ok(near(P.speed_of_sound_20c.value * P.sample_period_16k.value * 1e-4, P.sample_path_16k.value, 0.05), "one sample = 2.1 cm of path");
+    ok(near(one_sample_angle_B2(P, 0.10), P.one_sample_angle_10cm_16k.value, 0.05), "one sample on 10 cm = 12.4 deg");
+    ok(near(spatial_alias_B2(P, 0.05) / 1000, P.spatial_alias_5cm.value, 0.05), "alias 5 cm = 3.4 kHz");
+    ok(near(spatial_alias_B2(P, 0.10) / 1000, P.spatial_alias_10cm.value, 0.05), "alias 10 cm = 1.7 kHz");
+    const g = P.doa_face_gate_illustrative.value + P.doa_bin_illustrative.value / 2;
+    ok(near(g, P.doa_effective_window_illustrative.value, 2.5), "effective window = gate + half a bin, rounded (37.5 -> 40)");
+    // estimator identities
+    const r = rng(1);
+    ok(near(estimate(P, {m: 2, spacingCm: 10, th: 33, est: "sub", sigUs: 0, bin: "cont"}, r), 33, 1e-9), "noise-free sub-sample estimate is exact");
+    const q = estimate(P, {m: 2, spacingCm: 10, th: 5, est: "int", sigUs: 0, bin: "cont"}, r);
+    ok(q === 0, "integer lag: a 5 deg talker on a 10 cm pair reads 0 deg (inside one sample)");
+    const q2 = estimate(P, {m: 2, spacingCm: 10, th: 10, est: "int", sigUs: 0, bin: "cont"}, r);
+    ok(near(q2, P.one_sample_angle_10cm_16k.value, 0.05), "integer lag: a 10 deg talker reads one sample = 12.4 deg");
+    // Monte Carlo agrees with the least-squares formula, and 4 mics beat 2 by sqrt(10) at equal spacing
+    for (const m of [2, 4]){ const x = {m, spacingCm: 10, th: 15, est: "sub", sigUs: 20, bin: "cont"};
+      ok(near(rms_error(P, x, 4000, 9) / bearing_std_ls(P, m, 0.1, 20e-6, 15), 1, 0.08), `MC RMS matches LS formula (${m} mics)`); }
+    ok(near(bearing_std_ls(P, 2, 0.1, 1e-5, 0) / bearing_std_ls(P, 4, 0.1, 1e-5, 0), Math.sqrt(10), 1e-9), "2 -> 4 mics cuts the error by sqrt(10)");
+    ok(bearing_std_ls(P, 2, 0.1, 1e-5, 70) > 2.5 * bearing_std_ls(P, 2, 0.1, 1e-5, 0), "error grows toward endfire (1/cos θ)");
+    // fusion rule
+    ok(fuse_B2(P, 30, [{name: "A", b: 20}, {name: "B", b: 50}], "bin").verdict === "abstain", "two faces in a bin window -> abstain");
+    ok(fuse_B2(P, 30, [{name: "A", b: 20}, {name: "B", b: 50}], "cont").verdict === "bind", "continuous bearing: one face in the 15 deg gate -> bind");
+    ok(fuse_B2(P, -60, [{name: "A", b: 20}, {name: "B", b: 40}], "cont").verdict === "noface", "voice with no face -> flagged, never assigned");
+    // the cases do what their names say
+    const C = cases(P).map(c => run(P, c.x));
+    ok(C[1].rms > 2 * C[0].rms, "endfire talker: integer-lag error more than twice that near broadside");
+    ok(C[3].fusion.verdict === "abstain" && C[4].fusion.verdict === "noface", "fusion cases: abstain, no face");
+    ok(cases(P)[0].x.spacingCm === 10, "default spacing recovered from tdoa_max_10cm is 10 cm");
+    return {passed, failed};
+  }
+  function nanSweep(P){
+    let checked = 0, bad = 0;
+    for (const m of [2, 4]) for (const est of ["int", "sub"]) for (const bin of ["cont", "bin"]) for (const fbOn of [false, true])
+      for (const spacingCm of [2, 20]) for (const th of [-85, 0, 85]) for (const sigUs of [0, 60]) for (const fa of [-85, 85]){
+        const x = {m, est, bin, fbOn, spacingCm, th, sigUs, fa, fb: -fa, seed: 2};
+        const o = run(P, {...x}); const vals = [o.tau, o.tauMax, o.est, o.rms, o.oneSample, o.alias, o.analytic, o.fusion.w];
+        if (spacingCm === 2 && th === 0) error_curve(P, x).forEach(p => vals.push(p[1]));
+        vals.forEach(v => { checked++; if (!isFinite(v)) bad++; });
+      }
+    return {checked, bad};
+  }
+  return {run, estimate, rms_error, error_curve, cases, selfTest, nanSweep, tdoa_B2, spatial_alias_B2, bearing_std_ls, fusion_window_B2, D2R, R2D};
+})();
+if (typeof module !== "undefined") module.exports = MODEL;
+/*MODEL-END*/
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, pg: {cls: "ill", txt: "page model"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t, cls){ return `<div class="metric ${cls || ""}"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : (k.startsWith("page_") ? TAGS.pg : TAGS.ill);
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f === undefined ? undefined : Number(el.dataset.f))); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => { const el = $(id); const ev = (el.type === "checkbox" || el.tagName === "SELECT") ? "change" : "input";
+    el.addEventListener(ev, () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); }); }); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+// shoot.py steps window.Story scenes; here a "scene" step = a preloaded case applied to the output panel.
+function exposeStory(figId, n, apply){ window.Story = {scenes: {[figId]: {n}}, go(id, k){ if (id === figId) apply(k - 1); }}; }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  window.Story = window.Story || {scenes: {}, go(){}};
+  const CASES = MODEL.cases(PARAMS);
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+    b.setAttribute("aria-pressed", "false"); b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  $("d_def").textContent = fmt(CASES[0].x.spacingCm, 0);
+  $("bin").options[1].textContent = `an on-chip bin of ${V("doa_bin_illustrative")}°`;
+  const IDS = {m: "m", spacingCm: "d", th: "th", est: "est", sigUs: "sg", bin: "bin", fa: "fa", fb: "fb"};
+  function applyCase(i){ const x = CASES[i].x; for (const [k, id] of Object.entries(IDS)) $(id).value = String(x[k]);
+    $("fbOn").checked = x.fbOn; setPressed("cases", i); update(); }
+  function inputs(){ return {m: +$("m").value, spacingCm: +$("d").value, th: +$("th").value, est: $("est").value, sigUs: +$("sg").value,
+    bin: $("bin").value, fa: +$("fa").value, fbOn: $("fbOn").checked, fb: +$("fb").value, seed: 5}; }
+
+  function drawGeo(x, r){
+    const W = 720, H = 300, ox = 360, oy = 262, R = 190;
+    const pt = (b, rr) => [ox + rr * Math.sin(b * MODEL.D2R), oy - rr * Math.cos(b * MODEL.D2R)];
+    let g = `<title id="geo-t">Top-down: a line of ${x.m} microphones, the talker at ${x.th} degrees, the estimate at ${fmt(r.est, 1)} degrees, and the face window.</title>`;
+    // window wedge around the estimate
+    const w = r.fusion.w, [a0x, a0y] = pt(r.est - w, R + 10), [a1x, a1y] = pt(r.est + w, R + 10);
+    g += `<path d="M${ox},${oy} L${a0x},${a0y} A${R + 10},${R + 10} 0 0 1 ${a1x},${a1y} Z" fill="#ffd36b" fill-opacity="0.12" stroke="#ffd36b" stroke-opacity="0.5"/>`;
+    // plane wavefronts perpendicular to the talker direction
+    const ux = Math.sin(x.th * MODEL.D2R), uy = -Math.cos(x.th * MODEL.D2R);
+    for (let k = 1; k <= 5; k++){ const cx = ox + ux * k * 34, cy = oy + uy * k * 34;
+      g += `<line x1="${cx - uy * 120}" y1="${cy + ux * 120}" x2="${cx + uy * 120}" y2="${cy - ux * 120}" stroke="#5ec8ff" stroke-opacity="${0.5 - k * 0.07}"/>`; }
+    // microphones (drawn 6 px per cm, centred)
+    const px = 6, span = (x.m - 1) * x.spacingCm * px;
+    for (let i = 0; i < x.m; i++){ const mx = ox - span / 2 + i * x.spacingCm * px; g += `<circle cx="${mx}" cy="${oy}" r="5" fill="#eef1f6"/>`; }
+    g += `<text x="${ox}" y="${oy + 26}" font-size="11" text-anchor="middle" fill="#aeb6c4">${x.m} microphones, ${fmt(x.spacingCm, 1)} cm apart (drawn ×6)</text>`;
+    const [tx, ty] = pt(x.th, R);
+    g += `<line x1="${ox}" y1="${oy}" x2="${tx}" y2="${ty}" stroke="#5ec8ff" stroke-width="2"/>`;
+    g += `<circle cx="${tx}" cy="${ty}" r="9" fill="#5ec8ff"/><text x="${tx}" y="${ty - 14}" font-size="12" text-anchor="middle" fill="#5ec8ff">talker ${x.th}°</text>`;
+    const [ex, ey] = pt(r.est, R + 10);
+    g += `<line x1="${ox}" y1="${oy}" x2="${ex}" y2="${ey}" stroke="#ffd36b" stroke-width="2" stroke-dasharray="6 4"/>`;
+    g += `<text x="${ex}" y="${ey + (r.est > 0 ? 18 : -8)}" font-size="12" text-anchor="${r.est > 0 ? "end" : "start"}" fill="#ffd36b">estimate ${fmt(r.est, 1)}°</text>`;
+    const faces = [["A", x.fa, "#ffb347"]].concat(x.fbOn ? [["B", x.fb, "#c99bff"]] : []);
+    for (const [n, b, c] of faces){ const [fx, fy] = pt(b, R - 40);
+      g += `<rect x="${fx - 11}" y="${fy - 11}" width="22" height="22" rx="4" fill="${c}"/><text x="${fx}" y="${fy + 4}" font-size="12" text-anchor="middle" fill="#0f1115" font-weight="700">${n}</text>`; }
+    g += `<text x="12" y="20" font-size="12">yellow wedge = face window ±${w}° around the estimate · squares = faces on camera</text>`;
+    $("geo").innerHTML = g;
+  }
+  function drawErr(x, r){
+    const W = 720, H = 240, pl = 52, pr = 14, pt = 34, pb = 34, cur = MODEL.error_curve(PARAMS, x);
+    const ymax = Math.max(5, ...cur.map(p => p[1])) * 1.1;
+    const sx = d => pl + (W - pl - pr) * (d - 2) / 18, sy = e => pt + (H - pt - pb) * (1 - e / ymax);
+    let g = `<title id="err-t">RMS bearing error against microphone spacing for the current settings; the current spacing gives ${fmt(r.rms, 1)} degrees.</title>`;
+    const top = V("guard_speech_band_illustrative", 1), dAl = MODEL.spatial_alias_B2(PARAMS, 1) / top * 100;   // spacing (cm) where aliasing starts at the band top
+    if (dAl < 20) g += `<rect x="${sx(Math.max(2, dAl))}" y="${pt}" width="${sx(20) - sx(Math.max(2, dAl))}" height="${H - pt - pb}" fill="#ff7a7a" fill-opacity="0.08"/>` +
+      `<text x="${sx(20) - 4}" y="${H - pb - 6}" font-size="11" text-anchor="end" fill="#ff9a9a">phase wraps below ${fmt(top / 1000, 0)} kHz (inside the speech band) beyond ${fmt(dAl, 1)} cm</text>`;
+    for (let k = 0; k <= 4; k++){ const e = ymax * k / 4; g += `<line x1="${pl}" x2="${W - pr}" y1="${sy(e)}" y2="${sy(e)}" stroke="#262b35"/>` +
+      `<text x="${pl - 6}" y="${sy(e) + 4}" font-size="11" text-anchor="end" fill="#aeb6c4">${fmt(e, 1)}°</text>`; }
+    for (let d = 2; d <= 20; d += 2) g += `<text x="${sx(d)}" y="${H - 14}" font-size="11" text-anchor="middle" fill="#aeb6c4">${d}</text>`;
+    g += `<text x="${(pl + W) / 2}" y="${H - 1}" font-size="11" text-anchor="middle" fill="#aeb6c4">spacing between neighbouring microphones (cm)</text>`;
+    g += `<polyline fill="none" stroke="#5ec8ff" stroke-width="2" points="${cur.map(p => sx(p[0]).toFixed(1) + "," + sy(p[1]).toFixed(1)).join(" ")}"/>`;
+    g += `<circle cx="${sx(x.spacingCm)}" cy="${sy(Math.min(ymax, r.rms))}" r="5" fill="#ffd36b"/>`;
+    g += `<text x="${pl + 4}" y="${pt - 10}" font-size="12">RMS bearing error, talker at ${x.th}° (seeded Monte Carlo; line = this page's model, not a measurement)</text>`;
+    $("err").innerHTML = g;
+  }
+  function update(){
+    const x = inputs();
+    $("d_v").textContent = fmt(x.spacingCm, 1) + " cm"; $("th_v").textContent = x.th + "°"; $("sg_v").textContent = x.sigUs + " µs";
+    $("fa_v").textContent = x.fa + "°"; $("fb_v").textContent = x.fb + "°"; $("fb").disabled = !x.fbOn;
+    const r = MODEL.run(PARAMS, x), f = r.fusion;
+    const fz = f.verdict === "bind" ? `binds to face ${f.face}` : f.verdict === "abstain" ? `abstains (faces ${f.faces.join(" + ")})` : "no face at that voice";
+    $("headline").innerHTML =
+      metric("TDOA, neighbour pair", fmt(r.tau, 0) + " µs", TAGS.pub) +
+      metric("max possible TDOA", fmt(r.tauMax, 0) + " µs", TAGS.pub) +
+      metric("estimate (one trial)", fmt(r.est, 1) + "°", TAGS.der) +
+      metric("RMS error", fmt(r.rms, 1) + "°", TAGS.der, r.rms > 10 ? "bad" : "") +
+      metric("fusion (B2 rule)", fz, TAGS.der, f.verdict === "bind" ? "ok" : "bad");
+    drawGeo(x, r); drawErr(x, r);
+    let why;
+    if (x.bin === "bin") why = `The array publishes only a ${V("doa_bin_illustrative")}° bin, so the bearing snaps to the nearest bin centre (${fmt(r.est, 0)}°) whatever the estimator does: the ${fmt(r.rms, 1)}° error here is quantisation, and no spacing removes it. Taking the mode of the bins over a turn helps against spread, not against the bin width.`;
+    else if (x.est === "int" && x.sigUs < 5) why = `With an integer-sample lag the estimate can only take a few values: one sample at 16 kHz is ${fmt(V("sample_path_16k"), 1)} cm of path, which on this ${fmt(x.spacingCm, 1)} cm pair is ${fmt(r.oneSample, 1)}° near broadside and much more toward endfire, where sin θ flattens. That is why estimators interpolate the correlation peak below one sample (GCC-PHAT).`;
+    else if (x.sigUs > 0) why = `Timing noise dominates. The least-squares formula gives ${fmt(r.analytic, 1)}° for ${x.m} microphones; the seeded Monte Carlo gives ${fmt(r.rms, 1)}°. More microphones and a wider aperture shrink it (2 → 4 at equal spacing: ÷√10), and it grows as 1/cos θ toward endfire.`;
+    else why = `Noise-free sub-sample delays invert exactly. Real rooms add reverberation and the robot's own voice, which is why the bearing is a corroborating cue, not a selector.`;
+    why += ` Fusion: the window is ±${f.w}° (${x.bin === "bin" ? "the gate widened by half a " + V("doa_bin_illustrative") + "° bin" : "the nominal gate"}). `;
+    why += f.verdict === "bind" ? `Exactly one face is inside it, so the bearing corroborates face ${f.face}.` :
+      f.verdict === "abstain" ? `Two faces share the window, so the bearing abstains and active-speaker detection decides. At stand distances this is the common case, so the bearing rarely names a speaker.` :
+      `No face is inside it: a voice from a direction with no face (a phone, a bystander, off camera). The rule is to flag it and answer "unidentified", never to give it the nearest face's name.`;
+    $("why_text").innerHTML = why;
+    $("callout").innerHTML = `Spatial aliasing: above c/(2d) = ${fmt(r.alias, 1)} kHz the phase difference of this pair wraps (B2 lists ${V("spatial_alias_5cm")} kHz for 5 cm and ${V("spatial_alias_10cm")} kHz for 10 cm). ` +
+      `Wider spacing buys angle precision and gives up the upper part of the speech band. The ${V("doa_bin_illustrative")}° on-chip bin is coarser than either.`;
+    $("live").textContent = `Estimate ${fmt(r.est, 1)} degrees, RMS error ${fmt(r.rms, 1)} degrees, fusion: ${fz}.`;
+  }
+  onInput(["m", "d", "th", "est", "sg", "bin", "fa", "fbOn", "fb"], update);
+  fillDataP(); renderSources(); runSelfTests();
+  exposeStory("out", CASES.length, applyCase);
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Throughput is 3600 divided by the cycle, not the dwell — dwell-budget explorer</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a; --warn:#ffd36b;
+    --p1:#5ec8ff; --p2:#ffb347; --p3:#c99bff; --p4:#7fe08a; --robot:#e6e9ef;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  .sub{color:var(--muted);max-width:78ch;margin:6px 0 0}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  .ctrl>label,.ctrl>.lab{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:4px 6px;font:inherit}
+  .checks{display:flex;flex-wrap:wrap;gap:4px 14px}
+  .checks label{font-weight:400}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  .cases button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  .cases button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 12px;min-width:120px;flex:1 1 120px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:21px;font-weight:700;font-variant-numeric:tabular-nums}
+  .metric.bad .v{color:var(--bad)} .metric.ok .v{color:var(--ok)}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line);margin-bottom:10px}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:4px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--muted);font-weight:600}
+  td.on{outline:2px solid var(--warn);outline-offset:-2px;background:#2a2614}
+  .src{margin:0 22px 18px}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>Beats add up to a dwell time, the reset turns it into a cycle, and the cycle sets visitors per hour: if more people arrive than the cycle serves, the queue grows all day</h1>
+  <p class="sub">Write the visit as timed beats (note A2). Change any beat, the reset, the queue-friction factor and the arrival rate, and
+  watch the cycle, the visitors served per hour, and the queue over a show day. The arithmetic runs both ways: the page also says how
+  much the cycle must shrink to keep up. Every default is an <span class="tag ill">illustrative</span> value from <code>../constants.json</code>;
+  the queue is a deterministic page model with steady arrivals. Nothing here is a measurement.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <div class="lab" id="cases-l" style="font-weight:600;margin-bottom:4px">Preloaded cases</div>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div id="beats"></div>
+    <div class="ctrl">
+      <label for="reset">Reset and turnover <span class="val" id="reset_v"></span></label>
+      <input id="reset" type="range" min="0" max="60" step="1">
+      <div class="hint">Pure overhead between visitors. Default <span data-p="reset_turnover_illustrative"></span> s.</div>
+    </div>
+    <div class="ctrl">
+      <label for="fr">Queue-friction factor <span class="val" id="fr_v"></span></label>
+      <input id="fr" type="range" min="0.4" max="1" step="0.05">
+      <div class="hint">Discount for crowd and queue friction. Default <span data-p="queue_friction_factor_illustrative"></span>.</div>
+    </div>
+    <div class="ctrl">
+      <label for="arr">Visitors who want a turn <span class="val" id="arr_v"></span></label>
+      <input id="arr" type="range" min="5" max="60" step="1">
+      <div class="hint">Steady arrival rate. Default <span data-p="page_arrivals_default"></span> per hour (page model).</div>
+    </div>
+    <div class="ctrl">
+      <label for="day">Show day <span class="val" id="day_v"></span></label>
+      <input id="day" type="range" min="1" max="10" step="0.5">
+      <div class="hint">Default <span data-p="show_day_illustrative"></span> h.</div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="bar" viewBox="0 0 720 150" role="img" aria-labelledby="bar-t"></svg>
+    <svg id="q" viewBox="0 0 720 240" role="img" aria-labelledby="q-t"></svg>
+    <div class="why">
+      <h3>What dominates right now</h3>
+      <p id="why_text"></p>
+      <div class="tablewrap"><table id="gates" aria-label="Downstream checks"></table></div>
+      <div class="callout" id="callout"></div>
+    </div>
+  </section>
+</main>
+
+<section class="panel src" aria-label="Sources">
+  <h3 style="margin:0 0 4px">Parameters &amp; sources</h3>
+  <p class="hint">Loaded from the inlined params block (also shipped as <code>params.json</code>), copied verbatim from
+  <code>../constants.json</code>. <span class="tag ill">illustrative</span> = a round teaching number, never a measurement.
+  <span class="tag pub">public</span> = a cited public source. <span class="tag ill">page model</span> = a choice made only for this page.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Study aid for <em>public-robot-interaction-design</em> (rung 3), from note A2 (beats and dwell budget) with C2 (the endurance gate).
+  Queue model: steady arrivals and a steady service rate, so a queue forms only when arrivals exceed the realistic throughput; real
+  arrivals are bursty and would form a queue even below capacity, and people walk away. Neither is modelled. Nothing here is a measurement.
+</footer>
+
+<script type="application/json" id="params" data-keys="beat_greet_illustrative,beat_reply_window_illustrative,beat_converse_illustrative,beat_offer_illustrative,beat_celebrate_illustrative,beat_goodbye_illustrative,interaction_typical_illustrative,interaction_cap_illustrative,reset_turnover_illustrative,cycle_illustrative,throughput_theoretical_illustrative,queue_friction_factor_illustrative,throughput_realistic_illustrative,show_day_illustrative,visits_per_day_illustrative,consecutive_cycles_gate_illustrative,page_arrivals_default">
+{
+  "beat_greet_illustrative": {"value":6,"unit":"s","class":"illustrative","source":"illustrative beat length"},
+  "beat_reply_window_illustrative": {"value":12,"unit":"s","class":"illustrative","source":"illustrative listening-armed window after the greeting"},
+  "beat_converse_illustrative": {"value":35,"unit":"s","class":"illustrative","source":"illustrative conversation beat (a few turns)"},
+  "beat_offer_illustrative": {"value":15,"unit":"s","class":"illustrative","source":"illustrative self-serve gift offer including the take timer"},
+  "beat_celebrate_illustrative": {"value":8,"unit":"s","class":"illustrative","source":"illustrative"},
+  "beat_goodbye_illustrative": {"value":4,"unit":"s","class":"illustrative","source":"illustrative"},
+  "interaction_typical_illustrative": {"value":80,"unit":"s","class":"illustrative","source":"my arithmetic: sum of the six beat_*_illustrative values"},
+  "interaction_cap_illustrative": {"value":150,"unit":"s","class":"illustrative","source":"illustrative 'chatty visitor' cap and session-lease maximum"},
+  "reset_turnover_illustrative": {"value":20,"unit":"s","class":"illustrative","source":"illustrative time to reset and let the next visitor step up"},
+  "cycle_illustrative": {"value":100,"unit":"s","class":"illustrative","source":"my arithmetic: interaction_typical_illustrative + reset_turnover_illustrative"},
+  "throughput_theoretical_illustrative": {"value":36,"unit":"visitors per hour","class":"illustrative","source":"my arithmetic: 3600 s / cycle_illustrative"},
+  "queue_friction_factor_illustrative": {"value":0.7,"unit":"dimensionless","class":"illustrative","source":"illustrative discount for crowd and queue friction"},
+  "throughput_realistic_illustrative": {"value":25,"unit":"visitors per hour","class":"illustrative","source":"my arithmetic: throughput_theoretical_illustrative x queue_friction_factor_illustrative, rounded"},
+  "show_day_illustrative": {"value":6,"unit":"h","class":"illustrative","source":"illustrative show day"},
+  "visits_per_day_illustrative": {"value":150,"unit":"visits","class":"illustrative","source":"my arithmetic: throughput_realistic_illustrative x show_day_illustrative"},
+  "consecutive_cycles_gate_illustrative": {"value":150,"unit":"visitor cycles without intervention","class":"illustrative","source":"illustrative launch gate"},
+  "page_arrivals_default": {"value":30,"unit":"visitors per hour who want a turn","class":"illustrative","source":"page model choice (not in constants.json); default arrival rate, chosen between throughput_realistic_illustrative and throughput_theoretical_illustrative so the first screen shows a queue that grows"}
+}
+</script>
+
+<script>
+/*MODEL-START*/
+var MODEL = (function(){
+  "use strict";
+  const BEATS = [["greet", "beat_greet_illustrative", "Greet"], ["reply", "beat_reply_window_illustrative", "Reply window"],
+    ["converse", "beat_converse_illustrative", "Converse"], ["offer", "beat_offer_illustrative", "Offer (gift)"],
+    ["celebrate", "beat_celebrate_illustrative", "Celebrate"], ["goodbye", "beat_goodbye_illustrative", "Goodbye"]];
+  // A2: dwell = sum of beats; cycle = dwell + reset
+  function dwell_A2(b){ return BEATS.reduce((a, [k]) => a + b[k], 0); }
+  function cycle_A2(b, reset){ return dwell_A2(b) + reset; }
+  // A2: throughput = 3600 s / cycle, discounted by queue friction
+  function throughput_theoretical_A2(cycle){ return 3600 / cycle; }
+  function throughput_realistic_A2(cycle, friction){ return 3600 / cycle * friction; }
+  // A2 run backwards: the cycle that serves a given arrival rate
+  function cycle_needed_A2(arrivals, friction){ return 3600 * friction / arrivals; }
+  // page model: fluid queue with steady arrivals λ and service μ over the day
+  function queue_fluid(lambda, mu, hours){ const q = Math.max(0, (lambda - mu) * hours); return {queue: q, waitMin: mu > 0 ? q / mu * 60 : Infinity, served: Math.min(lambda, mu) * hours}; }
+
+  // endurance gate vs visits per day; "edge" when only the unrounded rate breaks it (A2 prints 25.2/h as 25/h, x 6 h = 150)
+  function endurance_verdict(P, x, real, served){ const g = P.consecutive_cycles_gate_illustrative.value;
+    if (g >= served - 1e-9) return "yes"; return g >= Math.round(Math.min(x.arrivals, real)) * x.day ? "edge" : "no"; }
+  function run(P, x){
+    const dwell = dwell_A2(x.b), cycle = cycle_A2(x.b, x.reset), theo = throughput_theoretical_A2(cycle), real = throughput_realistic_A2(cycle, x.friction);
+    const end = queue_fluid(x.arrivals, real + 1e-9, x.day), need = cycle_needed_A2(x.arrivals, x.friction);
+    const biggest = BEATS.reduce((a, [k, , n]) => x.b[k] > a.v ? {k, n, v: x.b[k]} : a, {v: -1});
+    return {dwell, cycle, theo, real, perDay: real * x.day, end, need, short: Math.max(0, cycle - need), biggest,
+      overCap: dwell > P.interaction_cap_illustrative.value, gifts: x.b.offer > 0 ? end.served : 0,
+      endurance: P.consecutive_cycles_gate_illustrative.value, endVerdict: endurance_verdict(P, x, real, end.served)};
+  }
+  function defaults(P){ const b = {}; BEATS.forEach(([k, key]) => b[k] = P[key].value);
+    return {b, reset: P.reset_turnover_illustrative.value, friction: P.queue_friction_factor_illustrative.value,
+      arrivals: P.page_arrivals_default.value, day: P.show_day_illustrative.value}; }
+  function cases(P){
+    const d = defaults(P), others = dwell_A2(d.b) - d.b.converse;
+    const need = cycle_needed_A2(d.arrivals, d.friction);                      // cycle that keeps up with the default arrivals
+    return [
+      {name: "The kit's budget", x: d},
+      {name: "Chatty visitors (to the cap)", x: {...d, b: {...d.b, converse: P.interaction_cap_illustrative.value - others}}},
+      {name: "Halve the reset", x: {...d, reset: d.reset / 2}},
+      {name: "Busy hour", x: {...d, arrivals: P.throughput_theoretical_illustrative.value}},
+      {name: "Shorten converse to keep up", x: {...d, b: {...d.b, converse: Math.floor(d.b.converse - (cycle_A2(d.b, d.reset) - need) + 1e-9)}}}
+    ];
+  }
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const ok = (c, m) => { assert(c, m); c ? passed++ : failed++; };
+    const d = defaults(P), r = run(P, d);
+    ok(r.dwell === P.interaction_typical_illustrative.value, "beats sum to the 80 s typical interaction (A2)");
+    ok(r.cycle === P.cycle_illustrative.value, "dwell + reset = 100 s cycle (A2)");
+    ok(r.theo === P.throughput_theoretical_illustrative.value, "3600 / 100 = 36 visitors per hour (A2)");
+    ok(Math.round(r.real) === P.throughput_realistic_illustrative.value, "36 × 0.7 = 25.2, printed as 25 per hour (A2)");
+    ok(P.throughput_realistic_illustrative.value * P.show_day_illustrative.value === P.visits_per_day_illustrative.value, "25 × 6 h = 150 visits per day (A2, from the rounded rate)");
+    ok(Math.abs(r.perDay - 151.2) < 1e-9, "unrounded: 25.2 × 6 = 151.2 visits per day");
+    ok(P.consecutive_cycles_gate_illustrative.value >= P.visits_per_day_illustrative.value, "the endurance gate covers a show day of visits");
+    ok(P.interaction_cap_illustrative.value > r.dwell, "the chatty cap sits above the typical dwell (a failsafe, not a target)");
+    ok(Math.abs(throughput_realistic_A2(cycle_needed_A2(30, 0.7), 0.7) - 30) < 1e-9, "cycle_needed inverts throughput");
+    const C = cases(P).map(c => run(P, c.x));
+    ok(C[0].end.queue > 0, "default arrivals exceed the realistic throughput: a queue forms");
+    ok(C[1].dwell === P.interaction_cap_illustrative.value && C[1].real < C[0].real, "chatty case: dwell reaches the cap and throughput falls");
+    ok(C[2].real > C[0].real, "halving the reset raises throughput");
+    ok(C[3].end.queue > C[0].end.queue, "busy hour: a longer queue");
+    ok(C[4].end.queue === 0 && C[4].real >= cases(P)[4].x.arrivals - 1e-9, "shortened converse keeps up with the default arrivals");
+    ok(C[0].endVerdict === "edge", "kit budget: the 150-cycle gate holds at the printed 25/h, breaks only at the unrounded 25.2/h (edge)");
+    ok(C[0].biggest.k === "converse", "converse is the largest beat (where a cap does most work)");
+    return {passed, failed};
+  }
+  function nanSweep(P){
+    let checked = 0, bad = 0; const d = defaults(P);
+    const ext = [["reset", 0, 60], ["friction", 0.4, 1], ["arrivals", 5, 60], ["day", 1, 10]];
+    const beatExt = BEATS.map(([k]) => [k, k === "converse" ? 0 : 1, k === "converse" ? 120 : 60]);   // the sliders' own ranges
+    const combos = [];
+    for (const [k, lo, hi] of ext) for (const v of [lo, hi]) combos.push({...d, [k]: v});
+    for (const [k, lo, hi] of beatExt) for (const v of [lo, hi]) combos.push({...d, b: {...d.b, [k]: v}});
+    const lo = {}, hi = {}; BEATS.forEach(([k]) => { lo[k] = k === "converse" ? 0 : 1; hi[k] = k === "converse" ? 120 : 60; });
+    for (const reset of [0, 60]) for (const friction of [0.4, 1]) for (const arrivals of [5, 60]) { combos.push({...d, b: lo, reset, friction, arrivals}); combos.push({...d, b: hi, reset, friction, arrivals}); }
+    for (const x of combos){ const r = run(P, x);
+      for (const v of [r.dwell, r.cycle, r.theo, r.real, r.perDay, r.end.queue, r.end.served, r.need, r.short]){ checked++; if (!isFinite(v)) bad++; } }
+    return {checked, bad};
+  }
+  return {BEATS, run, defaults, cases, selfTest, nanSweep, dwell_A2, cycle_A2};
+})();
+if (typeof module !== "undefined") module.exports = MODEL;
+/*MODEL-END*/
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, pg: {cls: "ill", txt: "page model"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t, cls){ return `<div class="metric ${cls || ""}"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : (k.startsWith("page_") ? TAGS.pg : TAGS.ill);
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f === undefined ? undefined : Number(el.dataset.f))); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => { const el = $(id); const ev = (el.type === "checkbox" || el.tagName === "SELECT") ? "change" : "input";
+    el.addEventListener(ev, () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); }); }); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+// shoot.py steps window.Story scenes; here a "scene" step = a preloaded case applied to the output panel.
+function exposeStory(figId, n, apply){ window.Story = {scenes: {[figId]: {n}}, go(id, k){ if (id === figId) apply(k - 1); }}; }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  window.Story = window.Story || {scenes: {}, go(){}};
+  const CASES = MODEL.cases(PARAMS), BEATS = MODEL.BEATS;
+  const COLS = ["#5ec8ff", "#7fe08a", "#ffb347", "#c99bff", "#ffd36b", "#ff9fb3"];
+  BEATS.forEach(([k, key, n]) => { const d = document.createElement("div"); d.className = "ctrl";
+    d.innerHTML = `<label for="b_${k}">${n} <span class="val" id="b_${k}_v"></span></label>` +
+      `<input id="b_${k}" type="range" min="${k === "converse" ? 0 : 1}" max="${k === "converse" ? 120 : 60}" step="1">` +
+      `<div class="hint">Default ${esc(String(V(key)))} s (<code>${key}</code>).</div>`; $("beats").appendChild(d); });
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.textContent = c.name;
+    b.setAttribute("aria-pressed", "false"); b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  function applyCase(i){ const x = CASES[i].x; BEATS.forEach(([k]) => $("b_" + k).value = x.b[k]);
+    $("reset").value = x.reset; $("fr").value = x.friction; $("arr").value = x.arrivals; $("day").value = x.day; setPressed("cases", i); update(); }
+  function inputs(){ const b = {}; BEATS.forEach(([k]) => b[k] = +$("b_" + k).value);
+    return {b, reset: +$("reset").value, friction: +$("fr").value, arrivals: +$("arr").value, day: +$("day").value}; }
+
+  function drawBar(x, r){
+    const W = 720, pl = 12, pr = 12, cap = V("interaction_cap_illustrative"), scale = (W - pl - pr) / Math.max(r.cycle, cap + x.reset, 1);
+    let g = `<title id="bar-t">One cycle: ${BEATS.map(([k, , n]) => n + " " + x.b[k] + " s").join(", ")}, then reset ${x.reset} s; cycle ${fmt(r.cycle, 0)} s.</title>`;
+    let t = 0;
+    BEATS.forEach(([k, , n], i) => { const w = x.b[k] * scale;
+      g += `<rect x="${pl + t * scale}" y="34" width="${Math.max(0, w)}" height="40" fill="${COLS[i]}" stroke="#0f1115"/>`;
+      if (w > 34) g += `<text x="${pl + t * scale + w / 2}" y="52" font-size="11" text-anchor="middle" fill="#0f1115">${n.split(" ")[0]}</text><text x="${pl + t * scale + w / 2}" y="67" font-size="11" text-anchor="middle" fill="#0f1115">${x.b[k]} s</text>`;
+      t += x.b[k]; });
+    g += `<rect x="${pl + t * scale}" y="34" width="${x.reset * scale}" height="40" fill="#3a3f4a" stroke="#0f1115"/>`;
+    if (x.reset * scale > 34) g += `<text x="${pl + (t + x.reset / 2) * scale}" y="58" font-size="11" text-anchor="middle">reset ${x.reset} s</text>`;
+    g += `<line x1="${pl + cap * scale}" x2="${pl + cap * scale}" y1="26" y2="84" stroke="#ff7a7a" stroke-dasharray="4 3"/>` +
+      `<text x="${pl + cap * scale - 4}" y="96" font-size="11" text-anchor="end" fill="#ff9a9a">chatty cap ${cap} s</text>`;
+    g += `<text x="${pl}" y="18" font-size="12">dwell ${fmt(r.dwell, 0)} s + reset ${x.reset} s = cycle ${fmt(r.cycle, 0)} s</text>`;
+    BEATS.forEach(([k, , n], i) => { const kx = pl + i * 112; g += `<rect x="${kx}" y="106" width="10" height="10" fill="${COLS[i]}"/><text x="${kx + 14}" y="115" font-size="11" fill="#aeb6c4">${n.split(" ")[0]} ${x.b[k]} s</text>`; });
+    g += `<text x="${pl}" y="${140}" font-size="11" fill="#aeb6c4">Coloured = the beats of one visit (dwell); grey = reset and turnover; red dashed = the chatty-visitor cap on the dwell.</text>`;
+    $("bar").innerHTML = g;
+  }
+  function drawQ(x, r){
+    const W = 720, H = 240, pl = 52, pr = 14, pt = 30, pb = 34, hours = x.day;
+    const qmax = Math.max(5, r.end.queue) * 1.1, sx = h => pl + (W - pl - pr) * h / hours, sy = q => pt + (H - pt - pb) * (1 - q / qmax);
+    let g = `<title id="q-t">Queue length over a ${hours} h show day: ${fmt(r.end.queue, 0)} people waiting at the end.</title>`;
+    for (let k = 0; k <= 4; k++){ const q = qmax * k / 4; g += `<line x1="${pl}" x2="${W - pr}" y1="${sy(q)}" y2="${sy(q)}" stroke="#262b35"/><text x="${pl - 6}" y="${sy(q) + 4}" font-size="11" text-anchor="end" fill="#aeb6c4">${fmt(q, 0)}</text>`; }
+    for (let h = 0; h <= hours; h += hours > 6 ? 2 : 1) g += `<text x="${sx(h)}" y="${H - 16}" font-size="11" text-anchor="middle" fill="#aeb6c4">${h} h</text>`;
+    g += `<text x="${(pl + W) / 2}" y="${H - 2}" font-size="11" text-anchor="middle" fill="#aeb6c4">time into the show day</text>`;
+    const pts = []; for (let i = 0; i <= 60; i++){ const h = hours * i / 60; pts.push(sx(h).toFixed(1) + "," + sy(Math.max(0, (x.arrivals - r.real) * h)).toFixed(1)); }
+    g += `<polyline fill="none" stroke="${r.end.queue > 0 ? "#ff7a7a" : "#49d17a"}" stroke-width="2.5" points="${pts.join(" ")}"/>`;
+    g += `<text x="${pl + 4}" y="16" font-size="12">people waiting (arrivals ${x.arrivals}/h vs realistic service ${fmt(r.real, 1)}/h)</text>`;
+    $("q").innerHTML = g;
+  }
+  function update(){
+    const x = inputs();
+    BEATS.forEach(([k]) => $("b_" + k + "_v").textContent = x.b[k] + " s");
+    $("reset_v").textContent = x.reset + " s"; $("fr_v").textContent = fmt(x.friction, 2); $("arr_v").textContent = x.arrivals + " / h"; $("day_v").textContent = fmt(x.day, 1) + " h";
+    const r = MODEL.run(PARAMS, x);
+    $("headline").innerHTML =
+      metric("cycle", fmt(r.cycle, 0) + " s", TAGS.der) +
+      metric("visitors / h (theory)", fmt(r.theo, 1), TAGS.der) +
+      metric("visitors / h (realistic)", fmt(r.real, 1), TAGS.der, r.real >= x.arrivals ? "ok" : "bad") +
+      metric("served per day", fmt(r.end.served, 0), TAGS.der) +
+      metric("queue at close", fmt(r.end.queue, 0) + (r.end.queue > 0 ? ` (~${fmt(r.end.waitMin, 0)} min wait)` : ""), TAGS.der, r.end.queue > 0 ? "bad" : "ok");
+    drawBar(x, r); drawQ(x, r);
+    let why = r.real >= x.arrivals ?
+      `The stand keeps up: ${fmt(r.real, 1)} served per hour against ${x.arrivals} arriving, so no queue builds in this steady model (bursty arrivals would still form short queues). ` :
+      `More people arrive (${x.arrivals}/h) than the cycle serves (${fmt(r.real, 1)}/h), so the queue grows by ${fmt(x.arrivals - r.real, 1)} people every hour. To keep up the cycle must be ${fmt(r.need, 0)} s, ${fmt(r.short, 0)} s shorter. ` +
+      `The largest beat is <strong>${r.biggest.n}</strong> (${r.biggest.v} s), the most variable one and where a cap does the most work; the reset is pure overhead, every second removed from it goes back to visitors. `;
+    if (r.overCap) why += `The dwell (${fmt(r.dwell, 0)} s) is past the ${V("interaction_cap_illustrative")} s chatty cap; in the real design the cap would end the visit there. `;
+    $("why_text").innerHTML = why;
+    $("gates").innerHTML = `<thead><tr><th>Downstream check</th><th>Value</th><th>Holds?</th></tr></thead><tbody>` +
+      `<tr><td>Endurance gate: cycles without intervention ≥ visits per day</td><td>${r.endurance} vs ${fmt(r.end.served, 0)}</td><td>${r.endVerdict === "yes" ? "yes" : r.endVerdict === "edge" ? "edge: holds at the rate rounded as A2 prints it, not at the unrounded rate" : "no: the gate must cover a full day"}</td></tr>` +
+      `<tr><td>Gifts needed per day (one per served visit)</td><td>${fmt(r.gifts, 0)}</td><td>${x.b.offer > 0 ? "plan the tray and refills" : "no offer beat"}</td></tr>` +
+      `<tr><td>Dwell under the chatty cap</td><td>${fmt(r.dwell, 0)} s vs ${V("interaction_cap_illustrative")} s</td><td>${r.overCap ? "no" : "yes"}</td></tr></tbody>`;
+    $("callout").innerHTML = `Common confusion (A2): throughput is 3600 divided by the <em>cycle</em>, not the dwell. With these beats 3600 / dwell would claim ${fmt(3600 / Math.max(1, r.dwell), 1)} per hour; the reset brings it to ${fmt(r.theo, 1)}, and friction to ${fmt(r.real, 1)}. ` +
+      `Shorter is not always better: a rushed visit loses the delight that justifies the stand.`;
+    $("live").textContent = `Cycle ${fmt(r.cycle, 0)} s, ${fmt(r.real, 1)} visitors per hour, queue at close ${fmt(r.end.queue, 0)}.`;
+  }
+  onInput([...BEATS.map(([k]) => "b_" + k), "reset", "fr", "arr", "day"], update);
+  fillDataP(); renderSources(); runSelfTests();
+  exposeStory("out", CASES.length, applyCase);
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

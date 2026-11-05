@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A safety input stops the robot only because the kernel sees it before the story does: reducer sandbox</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a;
+    --warn:#ffd36b; --phone:#c9a0ff; --cloud:#5ec8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 8px}
+  .sub{color:var(--muted);max-width:78ch;margin:4px 0}
+  .banner{border-left:3px solid var(--warn);padding:6px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0;max-width:78ch;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  label,.lbl{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{width:100%;background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .radio{display:flex;gap:14px;flex-wrap:wrap}
+  .radio label{font-weight:400;display:inline-flex;gap:5px;align-items:center}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.est{color:var(--phone);border-color:var(--phone)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:first-child code{overflow-wrap:normal;white-space:nowrap}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  .sources{margin:0 22px 18px}
+  @media(max-width:860px){.sources{margin:0 12px 12px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+  .box{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;min-width:0}
+  .box h4{margin:0 0 5px;font-size:12.5px;color:var(--muted);font-weight:600}
+  .box dl{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:0}
+  .box dt{color:var(--muted)} .box dd{margin:0;overflow-wrap:anywhere}
+  .box ul{margin:0;padding-left:18px}
+  tr.cur td{background:#20263a}
+  .okc{color:var(--ok)} .badc{color:var(--bad)} .warnc{color:var(--warn)} .mutc{color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .row select{width:auto;flex:1 1 120px}
+  .checks label{font-weight:400;display:flex;gap:6px;align-items:flex-start;margin:3px 0}
+  #log td:first-child,#log th:first-child{white-space:nowrap}
+  #rules td:first-child,#rules td:last-child{white-space:nowrap}
+  #rules td:nth-child(4){white-space:nowrap}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>A safety input stops the robot only because the kernel sees it before the story does</h1>
+  <p class="sub">A toy kernel runs one toy experience, the wave experience of note B1 (<code>greet → await_wave → wave</code>).
+  Every input goes into one ordered queue (safety, reset, operator, command outcomes and timers, then observations; B4).
+  The kernel admits or rejects it, handles the classes it owns itself, and passes the rest to the experience's pure
+  <em>reducer</em>, which returns a next local state and a list of <em>effects</em>. The kernel validates the effects,
+  commits one snapshot, and only then dispatches (B3). Step through a stream and watch three columns: what the kernel owns
+  (the <em>envelope</em>), what the experience owns (its <em>local state</em>), and what it asked for (its effects).
+  Then switch off interception and see what a story with no rule for "safety" does.</p>
+  <p class="banner">An illustrative toy, not the real kernel. The gesture-wait timer and the cleanup deadline are illustrative design
+  parameters from <code>constants.json</code>; how long each primitive runs is a page choice. The experience, its three primitives
+  and its claims follow notes B1 and B3; the reply-to-speech rule is a page addition so that "visitor speaks" has an effect.
+  The "off" toggles show a design the notes reject, to make the rule visible.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <span class="lbl" id="cases-l">Preloaded streams</span>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl checks">
+      <span class="lbl">Kernel rules</span>
+      <label><input type="checkbox" id="icpt"> kernel intercepts safety, operator stop, reset and departure first (B4)</label>
+      <label><input type="checkbox" id="admit"> admission rejects participant inputs from any other track (B2, B4)</label>
+      <div class="hint">Both are on in the design. Switch one off to see the failure it prevents.</div>
+    </div>
+    <div class="ctrl">
+      <label for="tick">Step through the processed events <span class="val" id="tick_v"></span></label>
+      <input id="tick" type="range" min="1" max="1" step="1">
+      <div class="row" style="margin-top:6px"><button id="prev" type="button">◀ previous</button><button id="next" type="button">next ▶</button></div>
+    </div>
+    <div class="ctrl">
+      <span class="lbl" id="add-l">Append an input to the stream</span>
+      <div class="row" role="group" aria-labelledby="add-l">
+        <select id="add_k" aria-label="Input type">
+          <option value="arrive">visitor arrives</option><option value="speak">visitor speaks</option>
+          <option value="wave">visitor waves</option><option value="leave">visitor leaves</option>
+          <option value="operator_stop">operator stop</option><option value="safety">safety input</option>
+          <option value="reset">staff reset</option>
+        </select>
+        <select id="add_tr" aria-label="Visitor track"><option value="A">track A</option><option value="B">track B</option></select>
+      </div>
+      <label for="gap" style="margin-top:6px">after the last scripted input by <span class="val" id="gap_v"></span></label>
+      <input id="gap" type="range" min="0.5" max="15" step="0.5">
+      <div class="row" style="margin-top:6px"><button id="add" type="button">Append</button><button id="clear" type="button">Clear the stream</button></div>
+      <div class="hint" id="script_txt"></div>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="pic" viewBox="0 0 720 300" role="img" aria-labelledby="pic-t"><title id="pic-t">Timeline of phase, held resources and timers</title></svg>
+    <div class="cols">
+      <div class="box"><h4>This event</h4><dl id="b_ev"></dl></div>
+      <div class="box"><h4>Kernel envelope (kernel writes, story reads)</h4><dl id="b_env"></dl></div>
+      <div class="box"><h4>Local story state (experience writes)</h4><div id="b_loc"></div></div>
+    </div>
+    <div class="why">
+      <h3>What decided this step</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+    <h2 style="margin-top:14px">Event log</h2>
+    <div class="tablewrap"><table id="log"><thead><tr><th>t (s)</th><th>input</th><th>kernel</th><th>reducer</th><th>effects committed</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+
+<section class="panel sources" aria-label="Sources">
+  <h2>Parameters and sources</h2>
+  <p class="hint">Every number is loaded from the inlined params block (also shipped as <code>params.json</code>), copied from
+  <code>../constants.json</code>. <span class="tag pub">public</span> = a cited public value; <span class="tag ill">illustrative</span> = a
+  design parameter or page choice, never a measurement; <span class="tag der">derived</span> = computed by this page's model.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Generated 2026-11-14 · Study aid for <em>hri-experience-platform</em> (rung 3). Sources: notes B1, B2, B3, B4 and
+  <code>constants.json</code> of this kit; Redux "three principles"; Lamport 1978 (total order by tie-break). Numbers are from the listed
+  sources or labelled illustrative or derived. This is a study aid.
+</footer>
+
+<script type="application/json" id="params" data-keys="gesture_wait_timeout_s_illustrative,cleanup_ack_timeout_ms_illustrative,cancel_settle_target_ms_illustrative,cancel_settle_ceiling_ms_illustrative,page_timing_01">
+{
+ "gesture_wait_timeout_s_illustrative": {
+  "value": 10,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter; experience-policy timer for the 'await wave' local state of the example wave experience"
+ },
+ "cleanup_ack_timeout_ms_illustrative": {
+  "value": 10000,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; kernel cleanup acknowledgement deadline. Every settle bound must be strictly shorter"
+ },
+ "cancel_settle_target_ms_illustrative": {
+  "value": 1500,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; one target adapter's bound for positive proof that a cancelled primitive is quiet. Must be <= cancel_settle_ceiling_ms_illustrative and < cleanup_ack_timeout_ms_illustrative"
+ },
+ "cancel_settle_ceiling_ms_illustrative": {
+  "value": 2000,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; catalog-wide ceiling pinned in the deployment profile, shared by every target"
+ },
+ "page_timing_01": {
+  "value": {
+   "greeting_s": 3,
+   "reply_s": 2,
+   "wave_s": 2,
+   "quiesce_s": 0.5,
+   "builder_gap_s": 1.5
+  },
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): how long the toy greeting, reply turn and wave primitives run, how long a cancelled primitive takes to prove it is quiet (below the settle target), and the default gap for an appended event"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function(){
+  "use strict";
+  // Queue priority (B4): safety, reset, operator control, correlated command outcomes, then observations.
+  // Timer expiries sort with outcomes (page choice; the notes do not rank them). Ties: time, then priority, then arrival order.
+  const PRIO = {safety: 0, reset: 1, operator_stop: 2, outcome: 3, timer: 3, arrive: 4, speak: 4, wave: 4, leave: 4};
+  const NAME = {arrive: "visitor arrives", speak: "visitor speaks", wave: "visitor waves", leave: "visitor leaves",
+    operator_stop: "operator stop", safety: "safety input", reset: "staff reset", outcome: "command outcome", timer: "timer expiry"};
+  const RES = ["action slot", "body", "head", "audio out"];
+  // Primitive catalog of the toy (B3): contract kind and resource claims; durations are page choices.
+  function catalog_01(P){
+    const T = P.page_timing_01.value;
+    return {
+      greeting:   {kind: "session service", claims: ["audio out"], dur: T.greeting_s},
+      reply_turn: {kind: "session service", claims: ["audio out"], dur: T.reply_s},
+      wave:       {kind: "physical action", claims: ["action slot", "body", "head"], dur: T.wave_s},
+    };
+  }
+  // The wave experience's reducer (B1): (local state, read-only envelope, stimulus) -> (op, next local state, ordered effects).
+  // Pure: no clock, no randomness, no I/O; time arrives as a timer event. Every result is one of transition / update / reject.
+  function reduce_wave_B1(local, env, stim, P){
+    const s = local ? local.state_name : null, heard = local ? local.heard : 0;
+    const mk = (name, h) => Object.freeze({schema: 1, state_name: name, heard: h});
+    const tr = (to, effects, rule) => ({op: "transition", next: mk(to, heard), effects, rule});
+    if (stim.k === "participant" && s === null) return tr("greet", [{e: "invoke", prim: "greeting"}], "(start, provisional participant) → greet");
+    if (stim.k === "outcome" && stim.prim === "greeting" && s === "greet")
+      return tr("await_wave", [{e: "start_timer", name: "gesture_wait", s: P.gesture_wait_timeout_s_illustrative.value}], "(greet, greeting completed) → await_wave");
+    if (stim.k === "wave" && s === "await_wave")
+      return tr("wave", [{e: "cancel_timer", name: "gesture_wait"}, {e: "invoke", prim: "wave"}], "(await_wave, gesture = wave) → wave");
+    if (stim.k === "timer" && stim.name === "gesture_wait" && s === "await_wave")
+      return tr("gesture_not_observed", [{e: "request_cleanup"}], "(await_wave, timer expired) → gesture_not_observed");
+    if (stim.k === "outcome" && stim.prim === "wave" && s === "wave") return tr("done", [{e: "request_cleanup"}], "(wave, wave completed) → done");
+    if (stim.k === "speak" && (s === "greet" || s === "await_wave" || s === "wave"))
+      return {op: "update", next: mk(s, heard + 1), effects: [{e: "invoke", prim: "reply_turn"}], rule: "state update: speech heard → reply turn (page addition)"};
+    if (stim.k === "outcome" && stim.prim === "reply_turn" && s !== null)
+      return {op: "update", next: local, effects: [], rule: "state update: reply finished, no change"};
+    return {op: "reject", next: local, effects: [], rule: `reject: no rule for (${s === null ? "no story" : s}, ${stim.k})`};
+  }
+  function effStr(x){ return x.e === "invoke" ? "invoke " + x.prim : x.e === "start_timer" ? `start timer ${x.name} (${x.s} s)` :
+    x.e === "cancel_timer" ? "cancel timer " + x.name : "request completion cleanup"; }
+
+  function simulate_01(P, script, opt){
+    const CAT = catalog_01(P), T = P.page_timing_01.value, CLEAN = P.cleanup_ack_timeout_ms_illustrative.value / 1000;
+    let q = [], seq = 0;
+    const push = ev => { ev.seq = seq++; q.push(ev); };
+    script.forEach(e => push(Object.assign({}, e)));
+    const env = {phase: "ready", session: 0, track: null, held: {}, cmds: {}, timers: {}, cleanup: null, nextCmd: 1, nextTimer: 1};
+    let local = null;
+    const frames = [], intervals = [], timerBars = [], hazards = [], phaseLog = [{t: 0, phase: "ready"}];
+    const setPhase = (t, p) => { if (env.phase !== p){ env.phase = p; phaseLog.push({t, phase: p}); } };
+    const snap = () => ({phase: env.phase, session: env.session, track: env.track, held: Object.assign({}, env.held),
+      cmds: Object.entries(env.cmds).map(([id, c]) => `cmd#${id} ${c.prim} (${c.status})`),
+      timers: Object.entries(env.timers).map(([n, x]) => `${n} until ${x.at.toFixed(1)} s`),
+      cleanup: env.cleanup ? `${env.cleanup.why}; deadline ${env.cleanup.deadline.toFixed(1)} s` : null});
+    function release(id, t){ for (const r of RES) if (env.held[r] === +id) delete env.held[r];
+      intervals.forEach(iv => { if (iv.cmd === +id && iv.t1 === null) iv.t1 = t; }); delete env.cmds[id]; }
+    function finishCleanup(t){ setPhase(t, env.phase === "safe cleanup" ? "stopped" : "ready");
+      local = null; env.track = null; env.cleanup = null; }
+    function startCleanup(t, phase, why){
+      if (env.phase === "stopped") return;
+      if (env.phase === "cleanup" || env.phase === "safe cleanup"){ if (phase === "safe cleanup") setPhase(t, phase); return; }
+      setPhase(t, phase); env.cleanup = {why, deadline: t + CLEAN};
+      for (const n of Object.keys(env.timers)){ const id = env.timers[n].id; q = q.filter(e => !(e.k === "timer" && e.id === id));
+        timerBars.forEach(b => { if (b.id === id && b.t1 === null) b.t1 = t; }); }
+      env.timers = {};
+      for (const [id, c] of Object.entries(env.cmds)){ c.status = "cancelling";
+        q = q.filter(e => !(e.k === "outcome" && e.cmd === +id)); push({t: t + T.quiesce_s, k: "outcome", cmd: +id, result: "quiet"}); }
+      if (!Object.keys(env.cmds).length) finishCleanup(t);
+    }
+    // Validate effects against the tentative claims, then commit them all, or nothing (B3 steps 3-6).
+    function validate(effects){
+      const held = Object.assign({}, env.held);
+      for (const x of effects){ if (x.e !== "invoke") continue;
+        const p = CAT[x.prim]; if (!p) return `primitive ${x.prim} not in the catalog`;
+        for (const r of p.claims){ if (held[r] !== undefined) return `${r} is held by cmd#${held[r]} (${env.cmds[held[r]].prim})`; held[r] = -1; } }
+      return null;
+    }
+    function commit(t, r, f){
+      local = r.next;
+      for (const x of r.effects){
+        if (x.e === "invoke"){ const id = env.nextCmd++, p = CAT[x.prim]; env.cmds[id] = {prim: x.prim, status: "running"};
+          p.claims.forEach(res => { env.held[res] = id; intervals.push({cmd: id, prim: x.prim, res, t0: t, t1: null}); });
+          push({t: t + p.dur, k: "outcome", cmd: id, result: "completed"}); f.effects.push(`invoke ${x.prim} → cmd#${id}`); }
+        else if (x.e === "start_timer"){ const id = env.nextTimer++; env.timers[x.name] = {at: t + x.s, id};
+          timerBars.push({id, name: x.name, t0: t, t1: null, at: t + x.s}); push({t: t + x.s, k: "timer", name: x.name, id}); f.effects.push(effStr(x)); }
+        else if (x.e === "cancel_timer"){ const tm = env.timers[x.name]; if (tm){ q = q.filter(e => !(e.k === "timer" && e.id === tm.id));
+          timerBars.forEach(b => { if (b.id === tm.id && b.t1 === null) b.t1 = t; }); delete env.timers[x.name]; } f.effects.push(effStr(x)); }
+        else { f.effects.push(effStr(x)); startCleanup(t, "cleanup", "completion cleanup requested by the story"); }
+      }
+    }
+    function delegate(t, stim, f){
+      if (env.phase !== "in story"){ f.reducer = "not called: no story is running"; return; }
+      const view = Object.freeze(snap());
+      const r = reduce_wave_B1(local, view, stim, P);
+      f.op = r.op; f.reducer = r.rule;
+      if (r.op === "reject") return;
+      const bad = validate(r.effects);
+      if (bad){ f.validation = "failed: " + bad + ". Nothing committed, nothing dispatched."; f.op = "validation failed"; return; }
+      f.validation = "passed"; commit(t, r, f);
+    }
+    frames.push({t: 0, input: "kernel starts", kernel: "ready: no participant, no story", reducer: "", op: "", validation: "", effects: [],
+      env: snap(), local: null, hazards: []});
+    let guard = 0;
+    while (q.length && guard++ < 400){
+      q.sort((a, b) => a.t - b.t || PRIO[a.k] - PRIO[b.k] || a.seq - b.seq);
+      const ev = q.shift(), t = ev.t;
+      const f = {t, input: "", kernel: "", reducer: "", op: "", validation: "", effects: [], hazards: []};
+      const c = ev.k === "outcome" ? env.cmds[ev.cmd] : null;
+      f.input = ev.k === "outcome" ? `outcome cmd#${ev.cmd} ${ev.result}` : ev.k === "timer" ? `timer ${ev.name} expired` :
+        NAME[ev.k] + (["arrive", "speak", "wave", "leave"].includes(ev.k) ? ` (track ${ev.track})` : "");
+      const bound = ["speak", "wave", "leave"].includes(ev.k), obs = PRIO[ev.k] === 4;
+      const hz = m => { f.hazards.push(m); hazards.push({t, m}); };
+      let rej = null;
+      // 1. admission
+      if (ev.k === "outcome" && !c) rej = "outcome for a command that is not pending";
+      else if (env.phase === "stopped" && ev.k !== "reset" && ev.k !== "safety") rej = "robot is stopped: only a staff reset leaves the pause";
+      else if ((env.phase === "cleanup" || env.phase === "safe cleanup") && obs) rej = "cleanup in progress: visitor admission is off";
+      else if (ev.k === "arrive" && env.phase !== "ready") rej = `a candidate is admitted only when ready (phase: ${env.phase}); dropped, not queued`;
+      else if (bound && env.track === null) rej = "no current participant";
+      else if (bound && ev.track !== env.track){
+        if (opt.admit) rej = `track ${ev.track} is not the current participant track ${env.track}`;
+        else hz(`admitted an input from track ${ev.track}, who is not the participant`);
+      }
+      else if (ev.k === "reset" && env.phase !== "stopped") rej = "not stopped: nothing to reset";
+      if (rej){ f.kernel = "rejected at admission: " + rej; f.op = "not called"; f.reducer = "never sees it"; }
+      else if (ev.k === "outcome"){
+        if (ev.result === "quiet"){ release(ev.cmd, t); f.kernel = `quiescence proof for cmd#${ev.cmd}: all its claims released`;
+          if ((env.phase === "cleanup" || env.phase === "safe cleanup") && !Object.keys(env.cmds).length){
+            const was = env.phase; finishCleanup(t); f.kernel += `; cleanup acknowledged → ${env.phase}` + (was === "safe cleanup" ? " (paused until staff reset)" : ""); }
+        } else { const prim = c.prim; release(ev.cmd, t); f.kernel = `correlated outcome: cmd#${ev.cmd} (${prim}) completed, claims released; delegated`;
+          delegate(t, {k: "outcome", prim}, f); }
+      }
+      else if (ev.k === "arrive"){
+        env.track = ev.track; env.session += 1; setPhase(t, "selecting"); setPhase(t, "in story");
+        f.kernel = `participant decision: provisional, track ${ev.track}; session ${env.session}; phase ready → selecting → in story; delegated`;
+        delegate(t, {k: "participant", decision: "provisional"}, f);
+      }
+      else if (["safety", "operator_stop", "leave", "reset"].includes(ev.k) && opt.intercept){
+        if (ev.k === "safety"){ const n = Object.keys(env.cmds).length;
+          if (env.phase === "stopped") f.kernel = "intercepted: already stopped";
+          else { startCleanup(t, "safe cleanup", "safety"); f.kernel = `intercepted: safety preempts the story; ${n} primitive(s) cancelled, claims kept until quiet; phase → ${env.phase}`; } }
+        else if (ev.k === "operator_stop"){ if (env.phase === "in story"){ const n = Object.keys(env.cmds).length; startCleanup(t, "cleanup", "operator abort");
+            f.kernel = `intercepted: operator abort; ${n} primitive(s) cancelled; phase → ${env.phase}`; } else f.kernel = "intercepted: no visit to abort"; }
+        else if (ev.k === "leave"){ const n = Object.keys(env.cmds).length; startCleanup(t, "cleanup", "participant departed");
+          f.kernel = `intercepted: participant decision departed; common cleanup; ${n} primitive(s) cancelled; phase → ${env.phase}`; }
+        else { setPhase(t, "cleanup"); finishCleanup(t); f.kernel = "intercepted: staff reset; clean-store proof; phase stopped → cleanup → ready"; }
+        f.reducer = f.reducer || "not called: the kernel owns this class";
+      }
+      else {
+        f.kernel = (f.hazards.length ? "admitted (check off); " : "admitted; ") + "delegated to the reducer";
+        delegate(t, {k: ev.k, name: ev.name}, f);
+        if (["safety", "operator_stop", "leave"].includes(ev.k) && env.phase === "in story"){
+          const n = Object.keys(env.cmds).filter(id => env.cmds[id].status === "running").length;
+          if (n) hz(`${NAME[ev.k]} reached the story, which has no rule for it: ${n} primitive(s) keep running`);
+          else hz(`${NAME[ev.k]} reached the story and was rejected: nothing was stopped or cleaned up`);
+        }
+      }
+      f.env = snap(); f.local = local; frames.push(f);
+    }
+    const tEnd = Math.max(frames[frames.length - 1].t + 1, 4);
+    intervals.forEach(iv => { if (iv.t1 === null) iv.t1 = tEnd; });
+    timerBars.forEach(b => { if (b.t1 === null) b.t1 = Math.min(b.at, tEnd); });
+    return {frames, intervals, timerBars, phaseLog, hazards, tEnd, final: {phase: env.phase, local, held: Object.keys(env.held).length, track: env.track}};
+  }
+  function cases(P){
+    const T = P.page_timing_01.value, G = P.gesture_wait_timeout_s_illustrative.value;
+    const ev = (t, k, track) => track ? {t, k, track} : {t, k};
+    const tWave = 1 + T.greeting_s + 1;
+    return [
+      {name: "Happy path: talk, then wave back", focus: 4, script: [ev(1, "arrive", "A"), ev(1 + T.greeting_s + 0.5, "speak", "A"), ev(tWave + 0.5, "wave", "A")]},
+      {name: "No wave: the timer expires", focus: 3, script: [ev(1, "arrive", "A")]},
+      {name: "A bystander waves", focus: 3, script: [ev(1, "arrive", "A"), ev(tWave, "wave", "B"), ev(tWave + 2, "wave", "A")]},
+      {name: "Visitor leaves mid-wave", focus: 4, script: [ev(1, "arrive", "A"), ev(tWave, "wave", "A"), ev(tWave + 1, "leave", "A")]},
+      {name: "Safety input mid-wave", focus: 4, script: [ev(1, "arrive", "A"), ev(tWave, "wave", "A"), ev(tWave + 1, "safety"), ev(tWave + 3, "arrive", "B"), ev(tWave + 5, "reset"), ev(tWave + 6, "arrive", "B")]},
+      {name: "Talking over the greeting", focus: 2, script: [ev(1, "arrive", "A"), ev(2, "speak", "A")]},
+      {name: "Operator stop during a reply", focus: 4, script: [ev(1, "arrive", "A"), ev(1 + T.greeting_s + 0.5, "speak", "A"), ev(1 + T.greeting_s + 1, "operator_stop")]},
+    ].map(c => Object.assign(c, {G}));
+  }
+  function sweep(P){
+    const out = [];
+    const C = cases(P);
+    for (const c of C) for (const intercept of [false, true]) for (const admit of [false, true]){
+      const r = simulate_01(P, c.script, {intercept, admit});
+      out.push({frames: r.frames.length, tEnd: r.tEnd, hazards: r.hazards.length, held: r.final.held,
+        maxT: Math.max(...r.frames.map(f => f.t)), ivs: r.intervals.reduce((a, iv) => a + iv.t1 - iv.t0, 0)});
+    }
+    return out;
+  }
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const t = (c, m) => { assert(c, m); if (c) passed++; else failed++; };
+    const near = (a, b) => Math.abs(a - b) < 1e-9;
+    const T = P.page_timing_01.value, G = P.gesture_wait_timeout_s_illustrative.value;
+    const st = P.cancel_settle_target_ms_illustrative.value, sc = P.cancel_settle_ceiling_ms_illustrative.value, ca = P.cleanup_ack_timeout_ms_illustrative.value;
+    t(st <= sc && sc < ca, "settle target <= catalog ceiling < cleanup deadline (B3)");
+    t(T.quiesce_s * 1000 < st, "the page's quiescence time is inside the settle target, so this page never reaches forced cleanup");
+    const C = cases(P), ON = {intercept: true, admit: true};
+    const run = (i, o) => simulate_01(P, C[i].script, o || ON);
+    let r = run(0);
+    t(r.final.phase === "ready" && r.final.local === null && r.final.held === 0 && r.hazards.length === 0, "happy path ends ready, story cleared, nothing held");
+    t(r.intervals.some(a => a.prim === "wave") && r.intervals.some(b => b.prim === "reply_turn" &&
+      r.intervals.some(a => a.prim === "wave" && a.t0 < b.t1 && b.t0 < a.t1)), "a reply turn (audio out) overlaps the wave (slot, body, head): concurrency between contract kinds (B3)");
+    r = run(1);
+    const fNo = r.frames.find(f => /gesture_not_observed/.test(f.reducer));
+    t(fNo && near(fNo.t, 1 + T.greeting_s + G), "no wave: gesture_not_observed at arrive + greeting + gesture wait (1 + 3 + 10 s)");
+    t(r.final.phase === "ready", "timer path ends in completion cleanup, then ready");
+    r = run(2);
+    t(r.frames.some(f => /track B is not the current participant/.test(f.kernel)) && r.frames.some(f => /→ wave$/.test(f.reducer)), "bystander's wave rejected at admission; the participant's wave runs");
+    r = run(2, {intercept: true, admit: false});
+    t(r.hazards.some(h => /track B/.test(h.m)) && r.intervals.filter(a => a.prim === "wave" && a.res === "body").length === 1, "admission off: the robot waves for the bystander");
+    r = run(3);
+    t(r.frames.some(f => /departed; common cleanup/.test(f.kernel)) && r.final.phase === "ready" && r.final.held === 0, "departure enters common cleanup (C2 conformance rule)");
+    r = run(4);
+    const fS = r.frames.find(f => /safety preempts/.test(f.kernel)), wv = r.intervals.find(a => a.prim === "wave");
+    t(fS && near(wv.t1, fS.t + T.quiesce_s), "safety: the wave's claims are released only on quiescence proof, not at the cancel");
+    t(r.frames.some(f => /robot is stopped/.test(f.kernel) && /arrive/.test(f.input)), "while stopped, a new visitor is rejected");
+    t(r.frames.some(f => /staff reset/.test(f.kernel) && /→ ready/.test(f.kernel)) &&
+      r.frames.some(f => /track B/.test(f.input) && /session 2/.test(f.kernel)), "staff reset leads to cleanup and ready; the next visitor starts session 2");
+    r = run(4, {intercept: false, admit: true});
+    const wv2 = r.intervals.find(a => a.prim === "wave");
+    t(r.hazards.some(h => /keep running/.test(h.m)) && near(wv2.t1, wv2.t0 + T.wave_s), "interception off: the story rejects the safety input and the wave runs to completion");
+    r = run(5);
+    const fV = r.frames.find(f => /validation failed/.test(f.op));
+    t(fV && fV.local.state_name === "greet" && fV.local.heard === 0 && fV.effects.length === 0, "speech during the greeting: audio out held, validation fails, nothing committed");
+    r = run(6);
+    t(r.frames.some(f => /operator abort; 1 primitive/.test(f.kernel)) && r.final.phase === "ready", "operator stop cancels the reply turn and cleans up");
+    const a = JSON.stringify(run(0).frames), b = JSON.stringify(run(0).frames);
+    t(a === b, "deterministic replay: the same stream gives byte-identical frames");
+    return {passed, failed};
+  }
+  return {simulate_01, reduce_wave_B1, catalog_01, cases, sweep, selfTest, RES, NAME};
+})();
+/*MODEL-END*/
+if (typeof window !== "undefined") window.MODEL = MODEL;
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, est: {cls: "est", txt: "my estimate"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t){ return `<div class="metric"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : TAGS.ill;
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f || undefined)); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); })); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  const CASES = MODEL.cases(PARAMS);
+  let script = [], R = null, caseIdx = 0;
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.textContent = c.name; b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  function opt(){ return {intercept: $("icpt").checked, admit: $("admit").checked}; }
+  function applyCase(i){
+    caseIdx = i; script = CASES[i].script.map(e => Object.assign({}, e));
+    $("icpt").checked = true; $("admit").checked = true;
+    rerun(CASES[i].focus); setPressed("cases", i);
+  }
+  function rerun(focus){
+    R = MODEL.simulate_01(PARAMS, script, opt());
+    $("tick").max = R.frames.length;
+    $("tick").value = Math.min(focus === undefined ? +$("tick").value : focus + 1, R.frames.length);
+    $("script_txt").textContent = "Stream: " + (script.length ? script.map(e => `${fmt(e.t, 1)} s ${MODEL.NAME[e.k]}${e.track ? " " + e.track : ""}`).join(" · ") : "empty");
+    update();
+  }
+  const PCOL = {"ready": "#49d17a", "selecting": "#5ec8ff", "in story": "#5ec8ff", "cleanup": "#ffd36b", "safe cleanup": "#ff7a7a", "stopped": "#ff7a7a", "not ready": "#8a93a3", "recovery": "#c9a0ff"};
+  const PRIMCOL = {greeting: "#5ec8ff", reply_turn: "#c9a0ff", wave: "#49d17a"};
+  function draw(k){
+    const W = 720, padL = 96, padR = 14, H = R.tEnd, sx = t => padL + (W - padL - padR) * t / H, cur = R.frames[k].t;
+    let s = `<title id="pic-t">Timeline of kernel phase, held resources and timers up to ${fmt(H, 1)} s; cursor at ${fmt(cur, 1)} s</title>`;
+    const lane = (y, name) => `<text x="${padL - 8}" y="${y + 13}" text-anchor="end" font-size="12">${name}</text>`;
+    let y = 12; s += lane(y, "kernel phase");
+    R.phaseLog.forEach((p, i) => { const t1 = i + 1 < R.phaseLog.length ? R.phaseLog[i + 1].t : H; if (t1 <= p.t) return;
+      s += `<rect x="${sx(p.t)}" y="${y}" width="${Math.max(sx(t1) - sx(p.t), 1)}" height="18" fill="${PCOL[p.phase]}" opacity="0.55"/>`;
+      if (sx(t1) - sx(p.t) > 46) s += `<text x="${sx(p.t) + 3}" y="${y + 13}" font-size="11">${p.phase}</text>`; });
+    MODEL.RES.forEach((res, j) => { y = 42 + j * 26; s += lane(y, res);
+      s += `<rect x="${padL}" y="${y}" width="${W - padL - padR}" height="18" fill="none" stroke="#3a3f4a"/>`;
+      R.intervals.filter(iv => iv.res === res).forEach(iv => { const w = Math.max(sx(iv.t1) - sx(iv.t0), 1);
+        s += `<rect x="${sx(iv.t0)}" y="${y}" width="${w}" height="18" fill="${PRIMCOL[iv.prim]}" opacity="0.75"/>`;
+        const full = `cmd#${iv.cmd} ${iv.prim}`, short = `cmd#${iv.cmd}`, lab = w > full.length * 6.3 + 6 ? full : w > short.length * 6.3 + 6 ? short : "";
+        if (lab) s += `<text x="${sx(iv.t0) + 3}" y="${y + 13}" font-size="11" fill="#0f1115">${lab}</text>`; }); });
+    y = 42 + 4 * 26; s += lane(y, "story timer");
+    R.timerBars.forEach(b => { s += `<rect x="${sx(b.t0)}" y="${y + 4}" width="${Math.max(sx(b.t1) - sx(b.t0), 1)}" height="10" fill="#ffd36b" opacity="0.7"/>`;
+      if (b.t1 >= b.at - 1e-9) s += `<text x="${sx(b.at)}" y="${y + 13}" font-size="12" fill="#ffd36b" text-anchor="middle">⏰</text>`; });
+    y = 42 + 5 * 26; s += lane(y, "inputs");
+    R.frames.slice(1).forEach(f => { const rej = /^rejected/.test(f.kernel), haz = f.hazards.length > 0, icp = /^intercepted/.test(f.kernel);
+      const sym = haz ? "!" : rej ? "✕" : icp ? "■" : "●", col = haz ? "#ff7a7a" : rej ? "#aeb6c4" : icp ? "#ffd36b" : "#5ec8ff";
+      s += `<text x="${sx(f.t)}" y="${y + 13}" font-size="12" text-anchor="middle" fill="${col}">${sym}</text>`; });
+    s += `<line x1="${sx(cur)}" y1="8" x2="${sx(cur)}" y2="${y + 22}" stroke="#eef1f6" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+    y += 30;
+    const step = H > 30 ? 5 : 2;
+    for (let t = 0; t <= H + 1e-9; t += step) s += `<line x1="${sx(t)}" y1="${y}" x2="${sx(t)}" y2="${y + 4}" stroke="#aeb6c4"/><text x="${sx(t)}" y="${y + 16}" text-anchor="middle" font-size="11" fill="#aeb6c4">${t}</text>`;
+    s += `<text x="${W - padR}" y="${y + 30}" text-anchor="end" font-size="11" fill="#aeb6c4">time (s)</text>`;
+    const ly = y + 48;
+    s += `<text x="12" y="${ly}" font-size="11" fill="#aeb6c4">● delegated to the reducer · ■ intercepted by the kernel · ✕ rejected at admission · ! hazard · ⏰ timer expiry</text>`;
+    let lx = 12; for (const [p, c] of Object.entries(PRIMCOL)){ s += `<rect x="${lx}" y="${ly + 10}" width="12" height="12" fill="${c}"/><text x="${lx + 16}" y="${ly + 20}" font-size="11">${p}</text>`; lx += 100; }
+    s += `<text x="${lx + 10}" y="${ly + 20}" font-size="11" fill="#aeb6c4">a bar = a claim held from invoke to completion or quiescence proof</text>`;
+    $("pic").setAttribute("viewBox", `0 0 ${W} ${ly + 30}`); $("pic").innerHTML = s;
+  }
+  const dl = rows => rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("");
+  function update(){
+    const k = +$("tick").value - 1, f = R.frames[k];
+    $("tick_v").textContent = `${k + 1} of ${R.frames.length} (t = ${fmt(f.t, 1)} s)`;
+    $("gap_v").textContent = fmt(+$("gap").value, 1) + " s";
+    const hazSoFar = R.hazards.filter(h => h.t <= f.t + 1e-9).length;
+    $("headline").innerHTML =
+      metric("Kernel phase", esc(f.env.phase), TAGS.der) +
+      metric("Local story state", f.local ? esc(f.local.state_name) : "none", TAGS.der) +
+      metric("Effects committed this step", String(f.effects.length), TAGS.der) +
+      metric("Hazards so far", `<span class="${hazSoFar ? "badc" : "okc"}">${hazSoFar}</span>`, TAGS.der);
+    draw(k);
+    $("b_ev").innerHTML = dl([["t", fmt(f.t, 1) + " s"], ["input", esc(f.input)], ["kernel", esc(f.kernel)], ["reducer", esc(f.reducer || "—")],
+      ["validation", esc(f.validation || "—")], ["effects", f.effects.length ? "<ul>" + f.effects.map(e => `<li>${esc(e)}</li>`).join("") + "</ul>" : "none"]]);
+    const E = f.env, held = Object.entries(E.held).map(([r, c]) => `${r}: cmd#${c}`);
+    $("b_env").innerHTML = dl([["phase", esc(E.phase)], ["session", String(E.session)], ["participant track", E.track ? esc(E.track) : "none"],
+      ["claims held", held.length ? esc(held.join(", ")) : "none"], ["commands", E.cmds.length ? esc(E.cmds.join("; ")) : "none"],
+      ["timers", E.timers.length ? esc(E.timers.join("; ")) : "none"], ["cleanup", E.cleanup ? esc(E.cleanup) : "none"]]);
+    $("b_loc").innerHTML = f.local ? "<dl>" + dl([["schema", String(f.local.schema)], ["state_name", esc(f.local.state_name)], ["heard", String(f.local.heard)]]) + "</dl>" +
+      `<p class="hint">Frozen and private: substrate code may not branch on these names (B2).</p>` : `<p class="hint">No local state: the story runs only while the phase is "in story" (B2).</p>`;
+    let why;
+    if (f.hazards.length) why = f.hazards.join(". ") + ". In the design this cannot happen: the kernel acts on these inputs before any story sees them, so no story author has to remember the rule (B4).";
+    else if (/^rejected/.test(f.kernel)) why = `Admission dropped this input before the queue reached the reducer: ${f.kernel.replace(/^rejected at admission: /, "")}. A rejected input is never deferred and replayed later, so one visitor's input cannot reach the next (B4).`;
+    else if (/validation failed/.test(f.op)) why = `The reducer asked for a reply turn, but its claim on audio out conflicts with the greeting that already holds it. Validation fails before commit, so the local state stays "${f.local.state_name}" and no command is sent (B3 steps 3–6). An audio-out conflict is refused, never queued (B4).`;
+    else if (/^intercepted/.test(f.kernel)) why = `The kernel owns this input class and handled it itself; the experience could not delay or override it. Cancelled primitives keep their claims until each proves it is quiet (B3), so the bars end ${fmt(V("page_timing_01", "quiesce_s"), 1)} s after the cancel, not at it.`;
+    else if (f.op === "transition" || f.op === "update") why = `The reducer applied the rule "${f.reducer}". It read the envelope but wrote only its local state; its effects were validated against the claims held and committed with the state in one snapshot before any command was sent (B1, B3).`;
+    else if (f.op === "reject") why = `The reducer had no rule for this input in its current state, so the resolver returned the state unchanged with no effects (B1).`;
+    else why = f.kernel;
+    $("why_text").textContent = why;
+    $("callout").innerHTML = !$("icpt").checked ? `<strong>Interception is off.</strong> Safety, operator stop and departure are now ordinary story inputs. The wave experience has no rule for them, so it rejects them, and whatever is running keeps running. This is the design the notes rule out: safety must preempt from every local state of every experience (B4, C2).` :
+      !$("admit").checked ? `<strong>The track check is off.</strong> Any visible person's gesture now reaches the story. In the design the kernel compares every participant-bound input with the current participant track at admission (B2).` :
+      `<strong>The reducer is pure.</strong> It sees time only as a timer event (the gesture wait is <span data-p="gesture_wait_timeout_s_illustrative"></span> s, illustrative), so replaying the same stream reproduces every frame exactly. Cleanup must finish before the illustrative <span data-p="cleanup_ack_timeout_ms_illustrative"></span> ms deadline or the kernel enters recovery (B2).`;
+    fillDataP();
+    [...$("log").querySelectorAll("tbody tr")].forEach(tr => tr.remove());
+    const tb = $("log").querySelector("tbody");
+    R.frames.forEach((g, i) => { const tr = document.createElement("tr"); if (i === k) tr.className = "cur";
+      tr.innerHTML = `<td>${fmt(g.t, 1)}</td><td>${esc(g.input)}</td><td>${esc(g.kernel)}</td><td>${esc(g.reducer || "—")}${g.validation && g.validation !== "passed" ? "<br><span class='badc'>" + esc(g.validation) + "</span>" : ""}</td><td>${esc(g.effects.join("; ") || "—")}${g.hazards.length ? "<br><span class='badc'>" + esc(g.hazards.join("; ")) + "</span>" : ""}</td>`;
+      tb.appendChild(tr); });
+    $("live").textContent = `Step ${k + 1}: ${f.input}. ${f.kernel}.`;
+  }
+  $("tick").addEventListener("input", update);
+  $("prev").addEventListener("click", () => { $("tick").value = Math.max(1, +$("tick").value - 1); update(); });
+  $("next").addEventListener("click", () => { $("tick").value = Math.min(R.frames.length, +$("tick").value + 1); update(); });
+  ["icpt", "admit"].forEach(id => $(id).addEventListener("change", () => { setPressed("cases", -1); rerun(); }));
+  $("gap").addEventListener("input", () => { $("gap_v").textContent = fmt(+$("gap").value, 1) + " s"; });
+  $("add").addEventListener("click", () => { const last = script.length ? script[script.length - 1].t : 0, k = $("add_k").value;
+    const e = {t: Math.round((last + +$("gap").value) * 10) / 10, k}; if (["arrive", "speak", "wave", "leave"].includes(k)) e.track = $("add_tr").value;
+    script.push(e); setPressed("cases", -1); rerun(); $("tick").value = R.frames.length; update(); });
+  $("clear").addEventListener("click", () => { script = []; setPressed("cases", -1); rerun(0); });
+  $("gap").value = V("page_timing_01", "builder_gap_s");
+  window.Story = {scenes: {out: {n: CASES.length}}, go: (id, k) => { if (id === "out") applyCase(k - 1); }};
+  fillDataP(); renderSources(); runSelfTests();
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1229 @@
+<!doctype html>
+<html lang="en" class="no-js">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>The host at the garden gate — how a public robot greets, listens, looks and fails quietly</title>
+<meta name="description" content="A visual story: a small host at a garden gate greets strangers first, lifts its ear trumpet only after a guest answers, looks at whoever it is answering, and fails so quietly that nobody notices. Consent, beats and throughput, speaker attribution, gaze, self-hearing and graceful degradation for a robot at a public demo stand.">
+<link rel="stylesheet" href="../../stories/story.css">
+<style>
+  /* palette meaning (whole page): sun = the host speaking · sky = listening (trumpet, microphone, lease)
+     · plum = the guests' voices and who said it · leaf = the flower and every path that still ends well
+     · coral = mistakes and the host's own noise · stone = time and hidden help · navy = the host */
+  .legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:14px;color:var(--ink-2);margin:10px 4px 0}
+  .legend i{display:inline-block;width:16px;height:12px;border-radius:4px;border:1.5px solid var(--navy);margin-right:6px;vertical-align:-1px}
+  header.hero.wrap{padding-left:20px;padding-right:20px}
+  header.hero{padding-top:24px}
+  .hero-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap}
+  .hero h1{max-width:44ch;font-size:clamp(24px,2.6vw,33px);line-height:1.1}
+  .hero .lede{font-size:clamp(16px,1.5vw,18px);max-width:80ch;margin-bottom:.6rem}
+  .kicker{line-height:1.6}
+  .cast .c svg{max-width:100%}
+  .stages{list-style:none;margin:12px 0 0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+  .stages li{background:var(--card);border:2px solid var(--ink);border-radius:14px;padding:8px 12px;box-shadow:0 3px 0 var(--ink);font:700 15px/1.35 var(--body)}
+  .stages li b.n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--ink);color:#fff;font:800 13px var(--display);margin-right:6px}
+  .stages li .read-note{font-size:13px;margin-left:4px}
+  /* ambient loop: passers-by keep walking along the lane (open-world arrivals) */
+  @keyframes ride{0%{offset-distance:0%}100%{offset-distance:100%}}
+  .ride{animation:ride var(--T,9s) linear infinite;offset-rotate:0deg;animation-delay:var(--dl,0s)}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
+  .bob{animation:bob .6s ease-in-out infinite;transform-box:fill-box}
+  /* still mode (reduced motion, motion off, screenshots): a representative frame, not frame 0 */
+  .st-still .ride{animation:none;offset-distance:var(--od,40%)}
+  .st-still .bob{animation:none;transform:none}
+  .grow{transform-box:fill-box;transform-origin:left center}
+  .js .st-scene .grow[data-s]:not(.is-on){transform:scaleX(0);opacity:1}
+  .st-scene .lit.is-lit,.st-scene .is-lit .lit{stroke:var(--coral)!important;stroke-width:4!important}
+  /* the gaze cone glides: the eased transition is the smoothstep the note describes */
+  .turn{transition:transform .9s cubic-bezier(.45,0,.55,1)}
+  .st-shot .turn{transition:none}
+  svg text.halo{paint-order:stroke;stroke:#FFFAF2;stroke-width:5px;stroke-linejoin:round}
+  svg text.halo-g{paint-order:stroke;stroke:#E4EED9;stroke-width:5px;stroke-linejoin:round}
+  .readout{font:700 16px/1.5 var(--body);margin:10px 0 0}
+  .readout b{font-family:var(--mono);color:var(--coral-d)}
+  .readout .ok{color:var(--leaf-d)} .readout .no{color:var(--coral-d)}
+  details{margin-top:10px;font-size:15px;color:var(--ink-2)} summary{cursor:pointer;font-weight:700;color:var(--ink)}
+  code{font:600 .92em var(--mono);background:var(--card-2);padding:1px 5px;border-radius:5px;overflow-wrap:anywhere}
+  .grid2>*{min-width:0} .ctl label{flex-wrap:wrap;gap:4px 10px}
+  .ctl2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:4px 22px;margin-top:10px}
+  .breaks li{margin:4px 0}
+  .st-foot td{overflow-wrap:anywhere}
+  .rule{background:#FFF4DE;border:2px solid var(--ink);border-radius:16px;padding:12px 14px;margin:14px 0 0}
+  .rule b{color:var(--leaf-d)}
+  .st-card .face svg{max-height:120px}
+  .st-card .in{min-height:320px}
+  .st-card b.ct{display:block;font:800 18px/1.2 var(--display);margin:8px 0 2px}
+  #src code{overflow-wrap:normal;word-break:break-word} #src td:first-child{min-width:11ch}
+  @media (max-width:600px){
+   .st-foot table#src{min-width:0} #src thead{display:none}
+   #src, #src tbody, #src tr, #src td{display:block;width:auto}
+   #src tr{border-bottom:1.5px solid var(--line);padding:8px 0}
+   #src td{border:0;padding:2px 0}
+   #src td:first-child{min-width:0;font-weight:800}
+   #src td:nth-child(n+2)::before{font:700 12px var(--body);color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;margin-right:6px}
+   #src td:nth-child(2)::before{content:"Value"} #src td:nth-child(3)::before{content:"Class"} #src td:nth-child(4)::before{content:"Source"}
+   #src code{overflow-wrap:anywhere}
+   .st-motion{left:auto;right:10px;bottom:10px;padding:4px 10px;font-size:13px} body{padding-bottom:56px}
+  }
+</style>
+</head>
+<body>
+<a class="skip" href="#s1">Skip to the first scene</a>
+<noscript><p class="wrap" style="background:#FFF4DE;padding:10px;border-radius:10px">This story draws its pictures with JavaScript. The written version is in <a href="../notes/A0-why-strangers-are-the-hard-case.md">the notes</a>.</p></noscript>
+
+<!-- the cast: drawn once, reused with <use>. Outlines are presentation attributes inside each symbol. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+ <defs>
+  <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#ECE7DC"/><line x1="0" y1="0" x2="0" y2="8" stroke="#8C8670" stroke-width="3"/></pattern>
+  <pattern id="hatch-c" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#FBE0D6"/><line x1="0" y1="0" x2="0" y2="8" stroke="#EE6A45" stroke-width="3"/></pattern>
+  <marker id="ah-ink" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="12" markerHeight="12" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#1D2A44"/></marker>
+  <marker id="ah-plum" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#7E3A6C"/></marker>
+  <marker id="ah-coral" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#B33F1D"/></marker>
+  <!-- the host: a small garden gnome, child-sized; navy cap -->
+  <symbol id="i-host" viewBox="0 0 60 100">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M10 98 V66 a20 20 0 0 1 40 0 V98 Z" fill="#FFFAF2"/>
+    <path d="M30 50 V98" stroke-width="2"/>
+    <circle cx="30" cy="40" r="15" fill="#F4CDA7"/>
+    <path d="M14 34 Q30 -10 46 34 Z" fill="#2E3A5C"/>
+    <path d="M17 50 Q30 72 43 50 Q37 56 30 55 Q23 56 17 50 Z" fill="#FFFDF8"/>
+   </g>
+   <circle cx="30" cy="80" r="2" fill="#141C2E"/><circle cx="30" cy="89" r="2" fill="#141C2E"/>
+   <circle cx="24.5" cy="40" r="2" fill="#141C2E"/><circle cx="35.5" cy="40" r="2" fill="#141C2E"/>
+   <ellipse cx="20" cy="45" rx="2.8" ry="1.6" fill="#EE8E78" opacity=".8"/><ellipse cx="40" cy="45" rx="2.8" ry="1.6" fill="#EE8E78" opacity=".8"/>
+   <circle cx="30" cy="45" r="2.6" fill="#EE9A80" stroke="#141C2E" stroke-width="1.5"/>
+  </symbol>
+  <!-- a guest; colours via --c (shirt), --skin, --hair -->
+  <symbol id="i-guest" viewBox="0 0 40 72">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M6 70 V46 a14 14 0 0 1 28 0 V70 Z" style="fill:var(--c,#B4669D)"/>
+    <circle cx="20" cy="18" r="12" style="fill:var(--skin,#F4CDA7)"/>
+    <path d="M8 16 a12 12 0 0 1 24 0 q-6 -5 -12 -4 q-6 -1 -12 4z" style="fill:var(--hair,#3A2618)"/>
+   </g>
+   <circle cx="16" cy="20" r="1.7" fill="#141C2E"/><circle cx="24" cy="20" r="1.7" fill="#141C2E"/>
+   <path d="M16.5 25 Q20 27.5 23.5 25" fill="none" stroke="#141C2E" stroke-width="1.8" stroke-linecap="round"/>
+  </symbol>
+  <!-- the ear trumpet (listening): a horn -->
+  <symbol id="i-trumpet" viewBox="0 0 50 40">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M4 18 L4 24 L22 23 Q34 32 46 38 L46 4 Q34 10 22 19 Z" fill="#5E9FB8"/>
+    <ellipse cx="46" cy="21" rx="3.5" ry="17" fill="#A9D0DE"/>
+   </g>
+  </symbol>
+  <!-- the flower basket (the gift) -->
+  <symbol id="i-basket" viewBox="0 0 60 56">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M12 26 Q30 -6 48 26" fill="none"/>
+    <path d="M24 24 V12 M32 24 V8 M40 24 V13" stroke="#1D7660"/>
+    <circle cx="24" cy="11" r="5" fill="#F2C64A"/><circle cx="32" cy="7" r="5" fill="#B4669D"/><circle cx="40" cy="12" r="5" fill="#EE6A45"/>
+    <path d="M6 26 H54 L48 52 H12 Z" fill="#3AA88D"/>
+   </g>
+   <path d="M12 34 H48 M14 42 H46" stroke="#1D7660" stroke-width="2"/>
+  </symbol>
+  <symbol id="i-flower" viewBox="0 0 20 40">
+   <path d="M10 14 V38" stroke="#1D7660" stroke-width="3" stroke-linecap="round"/>
+   <g stroke="#141C2E" stroke-width="2"><circle cx="10" cy="9" r="7" fill="#B4669D"/><circle cx="10" cy="9" r="2.6" fill="#F2C64A"/></g>
+   <path d="M10 30 q6 -6 9 -2 q-4 4 -9 2z" fill="#3AA88D" stroke="#141C2E" stroke-width="1.5"/>
+  </symbol>
+  <!-- the hourglass (dwell budget) -->
+  <symbol id="i-glass" viewBox="0 0 40 60">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <rect x="4" y="2" width="32" height="6" rx="2" fill="#8C8670"/><rect x="4" y="52" width="32" height="6" rx="2" fill="#8C8670"/>
+    <path d="M9 8 Q9 24 20 30 Q31 24 31 8 Z M9 52 Q9 36 20 30 Q31 36 31 52 Z" fill="#FFFDF8"/>
+   </g>
+   <path d="M13 14 Q20 26 27 14 Z" fill="#F2C64A"/><path d="M11 50 Q20 38 29 50 Z" fill="#F2C64A"/>
+   <path d="M20 30 V44" stroke="#F2C64A" stroke-width="2"/>
+  </symbol>
+  <!-- the hidden gardener (operator) with a cue card -->
+  <symbol id="i-gardener" viewBox="0 0 64 96">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="12" y="50" width="36" height="43" rx="14" fill="#8C8670"/>
+    <circle cx="30" cy="36" r="13" fill="#8E5B3B"/>
+    <ellipse cx="30" cy="25" rx="22" ry="5" fill="#E5BE5C"/><path d="M19 25 Q20 11 30 11 Q40 11 41 25 Z" fill="#E5BE5C"/>
+    <rect x="38" y="54" width="22" height="26" rx="3" fill="#FFFDF8" transform="rotate(8 49 67)"/>
+   </g>
+   <circle cx="25.5" cy="38" r="1.9" fill="#141C2E"/><circle cx="34.5" cy="38" r="1.9" fill="#141C2E"/>
+   <path d="M26 44 Q30 46 34 44" fill="none" stroke="#141C2E" stroke-width="2" stroke-linecap="round"/>
+   <path d="M43 61 h12 M43 66 h12 M43 71 h8" stroke="#55607A" stroke-width="1.6" transform="rotate(8 49 67)"/>
+  </symbol>
+  <!-- the "back soon" sign (curtain) -->
+  <symbol id="i-sign" viewBox="0 0 80 60">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M40 4 L18 22 M40 4 L62 22" fill="none"/><circle cx="40" cy="4" r="2.5" fill="#8C8670"/>
+    <rect x="6" y="22" width="68" height="34" rx="6" fill="#FFF4DE"/>
+   </g>
+   <text x="40" y="44" text-anchor="middle" font-size="12" font-weight="800" fill="#1D2A44" font-family="Chalkboard SE,Comic Neue,Marker Felt,cursive">back soon</text>
+  </symbol>
+  <!-- a clog (the host's own noise) -->
+  <symbol id="i-clog" viewBox="0 0 50 36">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M4 28 Q4 12 18 10 Q30 8 40 18 Q48 22 46 30 L4 30 Z" fill="#EE6A45"/>
+    <path d="M4 30 H46 V33 H4 Z" fill="#B33F1D"/>
+   </g>
+   <path d="M30 4 l4 -3 M38 8 l5 -3 M44 14 l5 -1" stroke="#B33F1D" stroke-width="2.5" stroke-linecap="round"/>
+  </symbol>
+  <!-- a radio / phone behind the hedge -->
+  <symbol id="i-radio" viewBox="0 0 44 40">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M12 10 L32 2" fill="none"/>
+    <rect x="3" y="10" width="38" height="28" rx="6" fill="#8C8670"/>
+    <circle cx="15" cy="24" r="7" fill="#ECE7DC"/>
+    <rect x="26" y="18" width="10" height="4" rx="1" fill="#ECE7DC"/><rect x="26" y="26" width="10" height="4" rx="1" fill="#ECE7DC"/>
+   </g>
+  </symbol>
+  <!-- a stretch of hedge -->
+  <symbol id="i-hedge" viewBox="0 0 80 50">
+   <g stroke="#141C2E" stroke-width="2.5" stroke-linejoin="round">
+    <path d="M4 48 V26 Q4 10 18 12 Q22 2 36 6 Q46 0 56 8 Q72 6 76 22 V48 Z" fill="#3AA88D"/>
+   </g>
+   <path d="M16 26 q4 -4 8 0 M40 20 q4 -4 8 0 M58 30 q4 -4 8 0" fill="none" stroke="#1D7660" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+ </defs>
+</svg>
+
+<!-- ================================ HERO: the answer as a picture ================================ -->
+<header class="hero wrap">
+ <div class="hero-top">
+  <div>
+   <div class="kicker">Public robot interaction design · story 1</div>
+   <h1><span class="lbl-k">A good host greets first, listens only after you answer, looks at whoever it is answering, and fails so quietly that you never notice.</span><span class="lbl-e">A public robot speaks first, opens its microphone only after a visitor action, aims its head at the addressee, and degrades without a visible seam.</span></h1>
+  </div>
+  <div class="st-switch" data-view-switch role="group" aria-label="Label style">
+   <button data-view="kitchen" aria-pressed="true">Garden view</button><button data-view="eng" aria-pressed="false">Engineer view</button>
+  </div>
+ </div>
+ <p class="lede">A child-sized robot at a busy public stand meets strangers: no instructions, a few seconds of attention, groups, noise, children. Think of it as <b>a small host at a garden gate</b>. Every success must need nothing from the guest, and every failure must be invisible to them. Flip to <b>Engineer view</b> for the real names.</p>
+ <figure class="panel" style="padding:10px 10px 4px">
+  <svg id="hero" data-wide viewBox="0 0 1000 470" role="img" aria-labelledby="hero-t"><title id="hero-t">A garden gate. Passers-by walk along the lane. A group of three stands at the gate; the child has just spoken. The small gnome host looks at the child and holds its ear trumpet up, because the child answered its hello. A flower basket sits on one gatepost and an hourglass on the other. Behind the hedge, out of the guests' sight, a gardener holds a cue card and a folded "back soon" sign.</title></svg>
+  <figcaption class="legend"><span><i style="background:var(--sun)"></i><span class="lbl-k">the host speaks</span><span class="lbl-e">robot output</span></span><span><i style="background:var(--sky)"></i><span class="lbl-k">ear trumpet up</span><span class="lbl-e">microphone capturing</span></span><span><i style="background:var(--plum)"></i><span class="lbl-k">a guest's voice</span><span class="lbl-e">speech and attribution</span></span><span><i style="background:var(--leaf)"></i><span class="lbl-k">the flower</span><span class="lbl-e">the gift; paths that end well</span></span><span><i style="background:var(--coral)"></i><span class="lbl-k">mistakes, the host's own noise</span><span class="lbl-e">errors, self-hearing</span></span><span><i style="background:var(--stone)"></i><span class="lbl-k">time, hidden help</span><span class="lbl-e">budget, operator, curtain</span></span><span>A picture of the design in <a href="../notes/A0-why-strangers-are-the-hard-case.md">A0</a>, not one robot.</span></figcaption>
+ </figure>
+ <ol class="stages" aria-label="The story in seven lines">
+  <li><b class="n">1</b>Greet first; listen on an answer <a class="read-note" href="../notes/A3-consent-and-privacy-by-design.md">A3</a></li>
+  <li><b class="n">2</b>One path at a time; a no is a no <a class="read-note" href="../notes/A1-the-experience-as-a-state-machine.md">A1</a></li>
+  <li><b class="n">3</b>The hourglass sets the queue <a class="read-note" href="../notes/A2-beats-and-dwell-budget.md">A2</a></li>
+  <li><b class="n">4</b>Who spoke? Honest when unsure <a class="read-note" href="../notes/B2-who-is-speaking.md">B2</a></li>
+  <li><b class="n">5</b>Look at whoever you answer <a class="read-note" href="../notes/B3-gaze.md">B3</a></li>
+  <li><b class="n">6</b>The host hears himself <a class="read-note" href="../notes/B4-turn-taking-and-self-hearing.md">B4</a></li>
+  <li><b class="n">7</b>The guest must never tell <a class="read-note" href="../notes/C1-failure-and-degradation-ux.md">C1</a></li>
+ </ol>
+ <div class="cast" aria-label="The cast">
+  <div class="c" data-ref="host"><svg viewBox="0 0 60 100" role="img" aria-label="gnome host"><use href="#i-host"/></svg><b>The host</b><span class="lbl-k">a small gnome at the gate</span><span class="lbl-e">the robot, a child-sized humanoid</span></div>
+  <div class="c" data-ref="guest"><svg viewBox="0 0 40 72" role="img" aria-label="guest"><use href="#i-guest"/></svg><b>Passers-by</b><span>strangers at a public demo stand</span></div>
+  <div class="c" data-ref="trumpet"><svg viewBox="0 0 50 40" role="img" aria-label="ear trumpet"><use href="#i-trumpet"/></svg><b>Ear trumpet</b><span>microphone + listening indicator</span></div>
+  <div class="c" data-ref="basket"><svg viewBox="0 0 60 56" role="img" aria-label="flower basket"><use href="#i-basket"/></svg><b>Flower basket</b><span>the small gift on a self-serve tray</span></div>
+  <div class="c" data-ref="glass"><svg viewBox="0 0 40 60" role="img" aria-label="hourglass"><use href="#i-glass"/></svg><b>Hourglass</b><span>dwell budget and cycle</span></div>
+  <div class="c" data-ref="hedge"><svg viewBox="0 0 80 50" role="img" aria-label="hedge"><use href="#i-hedge"/></svg><b>The hedge</b><span>edge of the camera's view</span></div>
+  <div class="c" data-ref="clog"><svg viewBox="0 0 50 36" role="img" aria-label="clattering clog"><use href="#i-clog"/></svg><b>Clattering clogs</b><span>the robot's own motors, heard</span></div>
+  <div class="c" data-ref="gardener"><svg viewBox="0 0 64 96" role="img" aria-label="hidden gardener"><use href="#i-gardener"/></svg><b>Hidden gardener</b><span>the Wizard-of-Oz operator</span></div>
+  <div class="c" data-ref="sign"><svg viewBox="0 0 80 60" role="img" aria-label="back soon sign"><use href="#i-sign"/></svg><b>"Back soon" sign</b><span>the curtain after a fault</span></div>
+ </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================================ 1. speak first, listen on an answer ================================ -->
+<section class="scene" id="s1" data-title="1 · Greet first, listen on an answer">
+ <h2><span class="num">1</span>Greet first; lift the trumpet only when they answer</h2>
+ <p class="sub">The host may <b>speak</b> to anyone. It may <b>listen</b> only after the guest does something visible.</p>
+ <div class="st-predict" id="p-consent">
+  <p class="q">The host has just waved and said hello to a passer-by. When may it lift the ear trumpet?</p>
+  <div class="opts">
+   <button class="btn" data-choice="near" data-why="That is listening without consent: the microphone would open on presence alone. In a loud venue it also fails technically.">As soon as someone walks up</button>
+   <button class="btn" data-choice="answer" data-right data-why="Answering the greeting is the consent action, if four things hold: the host greeted this guest and the reply window is open, the guest is at the gate, the host is not speaking, and the sound is longer than a cough.">When the guest answers</button>
+   <button class="btn" data-choice="word" data-why="Then the welcome depends on knowing a ritual, which fails the most common guest. A wake phrase exists only as a shortcut for people who already know it.">After a magic word</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-consent" data-dwell="3400" aria-label="Scene: speak first, listen on consent">
+  <svg data-wide viewBox="0 0 1000 360" role="img" aria-label="The host at the gate and one guest; a timeline below shows the consent action, the listening signal budget, the session lease and the close."></svg>
+  <ol class="st-cap">
+   <li><b>The host acts first.</b> A wave and one short line. Speaking is output, so it needs no consent. The trumpet stays down: <span class="lbl-k">nobody is heard</span><span class="lbl-e">the microphone is not capturing</span>. <a class="read-note" href="../notes/A0-why-strangers-are-the-hard-case.md">A0</a></li>
+   <li><b>The guest answers.</b> That answer is the consent action, but only if all four checks pass. A content-free detector that knows only "someone speaks" is not capture. <a class="read-note" href="../notes/A3-consent-and-privacy-by-design.md">A3</a></li>
+   <li><b>Up, fast and visible.</b> The trumpet rises within {{listening_indicator_budget_illustrative}} ms: {{listening_indicator_detect_illustrative}} ms to detect, {{listening_indicator_signal_illustrative}} ms to open and show it <span class="tag ill">illustrative</span>. Below the {{response_limit_flow}} s flow limit <span class="tag pub">Nielsen 1993</span>.</li>
+   <li><b>A lease, not a turn.</b> The trumpet stays up for the whole talk, so the guest can interrupt. The lease has a cap of {{interaction_cap_illustrative}} s <span class="tag ill">illustrative</span>. Up means "listening", and nothing else.</li>
+   <li><b>The guest leaves.</b> The trumpet drops within {{mic_close_on_permit_loss_illustrative}} ms <span class="tag ill">illustrative</span>, and the notebook is empty: no recording, no transcript, no face kept.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 2. the offer hub ================================ -->
+<section class="scene" id="s2" data-title="2 · One path at a time">
+ <h2><span class="num">2</span>One path at a time; a no is a no</h2>
+ <p class="sub">Inside the gate, {{offerings_illustrative}} paths leave one little plaza <span class="tag ill">illustrative</span>. A host, not a vending machine: <b>it never reads out the menu</b>.</p>
+ <figure class="st-scene panel" id="s-hub" data-dwell="3200" aria-label="Scene: the offer hub">
+  <svg data-wide viewBox="0 0 1000 380" role="img" aria-label="A plaza with three paths: a bench (chat), a flower basket (gift) and a photo spot. The host offers one path at a time; a declined path closes; each path is offered once, so the visit ends."></svg>
+  <ol class="st-cap">
+   <li><b>One offer.</b> "Would you like a flower?" One thing, then wait for yes or no. <a class="read-note" href="../notes/A1-the-experience-as-a-state-machine.md">A1</a></li>
+   <li><b>"No, thanks."</b> That path closes for the rest of the visit. <b>A no is a no</b>: it is never offered again. The other paths stay open.</li>
+   <li><b>Back to the plaza.</b> The guest chats. On the way the host <b>mentions</b> the photo spot ("there's a photo spot, too") and expects no answer. A mention is not an offer.</li>
+   <li><b>Silence.</b> The host names <b>one specific thing</b>. It never repeats an open "what would you like?".</li>
+   <li><b>Offering runs out.</b> Each path is offered at most once, so <b>every visit ends</b>. Wave, close the gate, wipe the slate: the next guest is a stranger again.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 3. the hourglass (live) ================================ -->
+<section class="scene" id="s3" data-title="3 · The hourglass sets the queue">
+ <h2><span class="num">3</span>The hourglass sets the queue</h2>
+ <p class="sub">The visit is a row of timed <b>beats</b>. They add up to the dwell time; add the reset and you have a <b>cycle</b>. The cycle decides how many guests the gate can welcome in an hour.</p>
+ <div class="st-predict" id="p-reset">
+  <p class="q">The reset (close the gate, wipe the slate, next guest steps up) takes {{reset_turnover_illustrative}} s. The guest has already left by then. Cut it by 10 s: how many more guests per hour?</p>
+  <div class="opts">
+   <button class="btn" data-choice="0" data-why="The reset happens after the guest leaves, but it is still part of the cycle. Throughput is 3600 s divided by the cycle, not by the dwell.">None: the guest has left</button>
+   <button class="btn" data-choice="3" data-right data-why="The cycle drops from {{cycle_illustrative}} s to {{@cycleShort}} s: {{throughput_theoretical_illustrative}} → {{@theoShort}} guests per hour in theory, about {{throughput_realistic_illustrative}} → {{@realShort}} after queue friction.">About {{@gainReal}}</button>
+   <button class="btn" data-choice="10" data-why="10 s off a {{cycle_illustrative}} s cycle is a tenth of it: throughput rises by about a ninth, not by 10 guests.">About 10</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="panel" id="glass-live">
+  <svg id="glass" data-wide viewBox="0 0 1000 300" role="img" aria-label="A stacked bar of the six beats and the reset, with the chatty-visitor cap marked; below it a row of guest figures, one per guest per hour."></svg>
+  <div class="ctl2">
+   <div class="ctl"><label for="gC"><span><span class="lbl-k">Talk beat</span><span class="lbl-e">Converse beat</span></span> <output id="gC-v"></output></label><input id="gC" data-k="conv" type="range" min="5" max="110" step="1" value="0"></div>
+   <div class="ctl"><label for="gR"><span><span class="lbl-k">Reset at the gate</span><span class="lbl-e">Reset and turnover</span></span> <output id="gR-v"></output></label><input id="gR" data-k="reset" type="range" min="0" max="60" step="1" value="0"></div>
+  </div>
+  <p class="readout" id="glass-read" aria-live="polite"></p>
+  <figcaption><span class="tag ill">illustrative</span> every duration is the kit's teaching budget (<a href="../notes/A2-beats-and-dwell-budget.md">A2</a>), chosen only to show the arithmetic. More controls, arrivals and the queue over a day in <a href="../explorers/04-dwell-budget.html">explorer 04</a>.</figcaption>
+  <details><summary>The model</summary>dwell = greet + reply window + converse + offer + celebrate + goodbye; cycle = dwell + reset; guests per hour in theory = 3600 ÷ cycle; realistic = theory × queue friction ({{queue_friction_factor_illustrative}}); per day = realistic × {{show_day_illustrative}} h. The chatty-visitor cap ({{interaction_cap_illustrative}} s) bounds the dwell. A timeout is a failsafe above the intended length, not a target.</details>
+ </figure>
+</section>
+
+<!-- ================================ 4. who spoke ================================ -->
+<section class="scene" id="s4" data-title="4 · Who spoke?">
+ <h2><span class="num">4</span>Who spoke? Panels gate, lips choose</h2>
+ <p class="sub"><b>But</b> guests come in groups, and the nearest one is often not the one talking. The host hears <b>which fence panel</b> a voice came through; it sees faces only <b>inside the hedge</b>.</p>
+ <div class="st-predict" id="p-who">
+  <p class="q">A radio plays behind the hedge. The parent in front of the gate is silent. Who does the host say spoke?</p>
+  <div class="opts">
+   <button class="btn" data-choice="parent" data-why="That was the old rule: every path names somebody. A confident wrong name is not free: one wrong bind passed on to the next {{cascade_turns_illustrative}} turns through a 'last speaker' fallback.">The parent in front</button>
+   <button class="btn" data-choice="near" data-why="Nearest is not evidence of speaking. The panel the sound came through has no face in it at all.">The nearest guest</button>
+   <button class="btn" data-choice="none" data-right data-why="Honest abstention: 'someone off camera' with no name. The panel has no face, which is positive evidence. Whether to answer is a separate question, and there the host leans towards answering.">Nobody by name: "someone off camera"</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel" id="s-who" data-dwell="3600" aria-label="Scene: speaker attribution">
+  <svg data-wide viewBox="0 0 1000 420" role="img" aria-label="Top-down: the host at the bottom, four fence panels in a half circle, the hedge beyond the camera's view on both sides, three guests and a radio behind the hedge."></svg>
+  <ol class="st-cap">
+   <li><b>A voice reaches two ears a moment apart.</b> That delay gives a direction (<span class="lbl-k">a fence panel</span><span class="lbl-e">a DoA bin</span>). For ears 10 cm apart the largest delay is only {{tdoa_max_10cm}} µs <span class="tag pub">physics</span>, so panels are coarse: {{doa_bin_illustrative}}° each <span class="tag ill">illustrative</span>. One face in the panel: that is the speaker. <a class="read-note" href="../notes/B2-who-is-speaking.md">B2</a></li>
+   <li><b>Two faces share a panel.</b> The panel cannot choose, so it <b>abstains</b>. The host watches lips (<span class="lbl-k">whose mouth moves with the voice</span><span class="lbl-e">active-speaker detection</span>), and lips choose the child.</li>
+   <li><b>Panels flicker within one sentence.</b> Take the panel heard most in the turn. Accept it only if it holds {{modal_bin_share_illustrative%}} of the samples, with at least {{modal_bin_min_samples_illustrative}} <span class="tag ill">illustrative</span>.</li>
+   <li><b>A radio behind the hedge.</b> The panel has no face. The old rule named the silent parent. The host now says <b>"someone off camera"</b> and names nobody.</li>
+   <li><b>Two questions, two rules.</b> "Should I answer?" Lean yes: "oh, were you asking me?" is easy to repair. "Who said it?" Only on evidence: a missing name is cheaper than a wrong one.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 5. gaze ================================ -->
+<section class="scene" id="s5" data-title="5 · Look at whoever you answer">
+ <h2><span class="num">5</span>Look at whoever you answer, and glide</h2>
+ <p class="sub"><b>Therefore</b> the head follows the evidence, not the loudest or nearest guest. Gaze works across a loud room in silence, and a wrong turn is easy to see.</p>
+ <figure class="st-scene panel" id="s-gaze" data-dwell="3600" aria-label="Scene: gaze">
+  <svg data-wide viewBox="0 0 1000 400" role="img" aria-label="Top-down: the host's gaze cone and three guests; later a chart of head angle over time comparing a saccade with an eased glide."></svg>
+  <ol class="st-cap">
+   <li><b>Nearest is wrong.</b> The first design looked at the nearest guest. Here the child talks and the head points at the parent. <a class="read-note" href="../notes/B3-gaze.md">B3</a></li>
+   <li><b>Two guests chat to each other.</b> A head that follows every voice swings like a rally. The host <b>holds still</b>: labels change faster than {{gaze_dwell_illustrative}} s <span class="tag ill">illustrative</span>, so the case is "contested". A head between two people addresses neither.</li>
+   <li><b>Hold the one you answer.</b> While the host speaks, it keeps its head on the child it is answering. A look-away is an <span class="lbl-k">eyebrow beat</span><span class="lbl-e">eyebrow beat (the camera stays on)</span>, not a head turn.</li>
+   <li><b>Glide, do not snap.</b> Human eyes jump {{story_glide_deg}}° in about {{saccade_40deg_duration}} ms <span class="tag pub">Carpenter 1988</span>. The host eases in and out, at most {{head_slew_cap_illustrative}} rad/s: about {{@glideS}} s for the same turn <span class="tag ill">illustrative</span>. Calm and bounded beats human-fast on a small robot.</li>
+   <li><b>Gates, in a fixed order.</b> Each gate can say "not now". The order is the safety argument. Every look that does <b>not</b> happen is logged with a reason.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 6. self-hearing ================================ -->
+<section class="scene" id="s6" data-title="6 · The host hears himself">
+ <h2><span class="num">6</span>The host hears himself</h2>
+ <p class="sub"><b>But</b> the trumpet stays up while the host talks, so guests can interrupt. Then it also hears <b>the host</b>: his voice, and his clogs every time he nods.</p>
+ <figure class="st-scene panel" id="s-hear" data-dwell="3600" aria-label="Scene: self-hearing and the spectral guard">
+  <svg data-wide viewBox="0 0 1000 340" role="img" aria-label="The host talking and nodding; the clatter of its clogs reaches the trumpet louder than a nearby guest; a bar chart of the vowel check scores with a threshold between clatter and voices."></svg>
+  <ol class="st-cap">
+   <li><b>The clatter is louder than the guest.</b> On the channel the speech model hears, a head move adds about {{actuator_lift_processed_illustrative}} dB, and the host's own motion is about {{motion_over_speech_processed_illustrative}} dB louder than a person talking nearby <span class="tag ill">illustrative</span>. No feedback canceller removes it: motors have no reference signal. <a class="read-note" href="../notes/B4-turn-taking-and-self-hearing.md">B4</a></li>
+   <li><b>Noise becomes words.</b> Clips of clatter alone came back from a transcription model as words, {{noise_only_transcripts_illustrative/0}} of {{noise_only_transcripts_illustrative/1}} <span class="tag ill">illustrative</span>. The host thinks he was interrupted and stops mid-sentence.</li>
+   <li><b>The vowel check.</b> A real voice has at least one vowel where the speech band beats the rumble band; a clatter has none. Clatter scored up to {{guard_phantom_max_illustrative}} dB, voices from {{guard_real_min_illustrative}} dB; the line is at {{guard_threshold_illustrative}} dB <span class="tag ill">illustrative</span>. One more rule was added: <b>ignore anything in the first {{guard_onset_grace_illustrative}} s after I start talking</b>.</li>
+  </ol>
+ </figure>
+ <div class="st-predict" id="p-grace">
+  <p class="q">The greeting is now shorter: {{proactive_greeting_illustrative}} s. The guest replies about {{turn_gap_typical}} ms after it ends, as people do. What happens?</p>
+  <div class="opts">
+   <button class="btn" data-choice="heard" data-why="The reply starts {{@replyAt}} s after the host began, inside the {{guard_onset_grace_illustrative}} s grace. The guard throws it away as if it were the host's own voice.">The host hears the reply</button>
+   <button class="btn" data-choice="again" data-why="The note's design argued 'a rejection costs at most one utterance'. Here the model held an unanswered greeting and stopped listening. There was no second try.">It is missed; the host asks again</button>
+   <button class="btn" data-choice="ends" data-right data-why="The reply at {{@replyAt}} s lands inside the {{guard_onset_grace_illustrative}} s grace and is rejected. The model, holding an unanswered greeting, stops listening and the robot goes idle. One rejection ended the whole visit.">It is missed, and the visit ends</button>
+  </div>
+  <p class="why"></p>
+ </div>
+ <figure class="st-scene panel st-gated" data-gate="p-grace" id="s-grace" data-dwell="3600" aria-label="Scene: the onset grace and the short greeting">
+  <svg data-wide viewBox="0 0 1000 300" role="img" aria-label="A timeline: the host's 1.5 second greeting, the 2 second grace window, the guest's reply at 1.7 seconds rejected, the trumpet dropping and the guest leaving; then the default switched off and the reply heard."></svg>
+  <ol class="st-cap">
+   <li><b>The new opening.</b> A {{proactive_greeting_illustrative}} s greeting, then the guest's reply {{turn_gap_typical}} ms later <span class="tag pub">Stivers et al. 2009</span>. The grace window still runs for {{guard_onset_grace_illustrative}} s.</li>
+   <li><b>Thrown away.</b> The reply starts at {{@replyAt}} s, inside the grace. A short host line followed by a quick reply is exactly the shape the grace cannot tell from self-hearing.</li>
+   <li><b>One rejection ended the visit.</b> The host waits for an answer it already threw away, then goes idle. The guest walks on.</li>
+   <li><b>The fix: switch the default off.</b> The guard's benefit had gone (an audio update removed most self-hearing), and the new greeting sat in its blind spot. Code, tests and the promotion rule stay; a boot-log line confirms the setting. A defence became a cost when the interaction changed under it.</li>
+  </ol>
+ </figure>
+</section>
+
+<!-- ================================ 7. never tell ================================ -->
+<section class="scene" id="s7" data-title="7 · The guest must never tell">
+ <h2><span class="num">7</span>The guest must never tell</h2>
+ <p class="sub"><b>Therefore</b> failure is planned as rungs. Each rung is a whole visit that still ends with the flower, and the guest cannot tell which rung is running. Tap a card.</p>
+ <div class="st-cards" id="cards"></div>
+ <p class="rule"><b>Degrade the richness, never the truth.</b> No "sorry, I can't hear you". No celebrating a photo that failed, and no answer the guest never gave. Every wait has a bound: no flower taken → "no rush" → one wait of {{take_timer_illustrative}} s <span class="tag ill">illustrative</span> → retract. <a class="read-note" href="../notes/C1-failure-and-degradation-ux.md">C1</a></p>
+</section>
+
+<section class="scene" id="s8" data-title="Your turn">
+ <h2>Your turn</h2>
+ <p class="sub">Move the real knobs, then check what stuck.</p>
+ <div class="next">
+  <a href="../explorers/01-gaze-state-matrix.html"><b>Where should the head point?</b><span>1–4 guests, who speaks, hold time, glide cap and noisy labels (explorer 01).</span></a>
+  <a href="../explorers/02-direction-of-arrival.html"><b>Which panel did it come through?</b><span>Microphones, spacing, noise, bins and two faces (explorer 02).</span></a>
+  <a href="../explorers/03-turn-taking-timeline.html"><b>Clatter or a guest?</b><span>VAD threshold, debounce, the guard and its grace (explorer 03).</span></a>
+  <a href="../explorers/04-dwell-budget.html"><b>Turn the hourglass</b><span>Six beats, reset, friction, arrivals and the queue (explorer 04).</span></a>
+  <a href="../../quiz/"><b>Quiz yourself</b><span>Spaced-repetition questions for every note.</span></a>
+  <a href="../README.md"><b>Read the notes</b><span>13 notes: the interaction, the mechanics, making it hold up live.</span></a>
+ </div>
+</section>
+
+<footer class="st-foot">
+ <h3>Where the garden breaks</h3>
+ <ul class="breaks">
+  <li>A real host remembers faces. The robot must <b>never claim to remember anyone</b>: after the visit closes, a returning person is a stranger again.</li>
+  <li>An ear trumpet <i>is</i> the hearing. The robot's microphones are always there; "trumpet down" is a promise kept by an audio gate, and a content-free voice detector runs before consent.</li>
+  <li>Fence panels have sharp edges. A real direction bin thrashes within a turn, and it can point at the robot's own voice or a reflection off glass.</li>
+  <li>A person barely hears their own footsteps. The robot's processed microphone channel <b>amplifies</b> its own motors (gain wind-up), so the clatter can be louder than a guest.</li>
+  <li>The hedge stays put. The head camera's view turns with the head, so every camera bearing must be added to the <b>measured</b> neck angle.</li>
+  <li>A hidden gardener sounds like a trick. At the stand the operator is a planned floor that makes autonomy safe to attempt, and has a script for privacy questions.</li>
+ </ul>
+ <h3>Numbers on this page</h3>
+ <div class="tbl"><table id="src"><thead><tr><th>What</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+ <p>Every number is a public source or labelled illustrative; none is a measurement from any specific robot or show. Kit: <a href="../README.md">public robot interaction design</a> · <a href="../SOURCES.md">sources</a> · <a href="../glossary.md">glossary</a> · <a href="INDEX.md">stories index</a>.</p>
+</footer>
+</main>
+
+<script type="application/json" id="params">
+{
+ "actuator_lift_processed_illustrative": {
+  "value": 20,
+  "unit": "dB (processed channel, head moving vs holding)",
+  "class": "illustrative",
+  "source": "illustrative; larger than actuator_lift_raw_illustrative because automatic gain control winds up"
+ },
+ "beat_celebrate_illustrative": {
+  "value": 8,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "beat_converse_illustrative": {
+  "value": 35,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative conversation beat (a few turns)"
+ },
+ "beat_goodbye_illustrative": {
+  "value": 4,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "beat_greet_illustrative": {
+  "value": 6,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative beat length"
+ },
+ "beat_offer_illustrative": {
+  "value": 15,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative self-serve gift offer including the take timer"
+ },
+ "beat_reply_window_illustrative": {
+  "value": 12,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative listening-armed window after the greeting"
+ },
+ "cascade_turns_illustrative": {
+  "value": 4,
+  "unit": "turns",
+  "class": "illustrative",
+  "source": "illustrative number of later turns that inherit one wrong bind through a 'last active speaker' fallback"
+ },
+ "cycle_illustrative": {
+  "value": 100,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "my arithmetic: interaction_typical_illustrative + reset_turnover_illustrative"
+ },
+ "doa_bin_illustrative": {
+  "value": 45,
+  "unit": "degrees per direction bin (8 bins)",
+  "class": "illustrative",
+  "source": "illustrative coarse on-chip direction-of-arrival quantisation"
+ },
+ "fov_true_illustrative": {
+  "value": 90,
+  "unit": "degrees",
+  "class": "illustrative",
+  "source": "illustrative true horizontal field of view of the head camera"
+ },
+ "gaze_deadband_illustrative": {
+  "value": 0.05,
+  "unit": "rad (about 3 deg)",
+  "class": "illustrative",
+  "source": "illustrative re-aim deadband"
+ },
+ "gaze_dwell_illustrative": {
+  "value": 2.0,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative minimum time between re-aims"
+ },
+ "guard_onset_grace_illustrative": {
+  "value": 2.0,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative 'self-hearing grace' after robot speech onset"
+ },
+ "guard_phantom_max_illustrative": {
+  "value": 3,
+  "unit": "dB",
+  "class": "illustrative",
+  "source": "illustrative highest score of motor-noise onsets in a fitted set"
+ },
+ "guard_real_min_illustrative": {
+  "value": 8,
+  "unit": "dB",
+  "class": "illustrative",
+  "source": "illustrative lowest score of real speech onsets in a fitted set"
+ },
+ "guard_threshold_illustrative": {
+  "value": 5,
+  "unit": "dB",
+  "class": "illustrative",
+  "source": "illustrative decision threshold on the max sub-window speech-to-rumble ratio"
+ },
+ "head_slew_cap_illustrative": {
+  "value": 1.5,
+  "unit": "rad/s (about 86 deg/s)",
+  "class": "illustrative",
+  "source": "illustrative peak head speed cap"
+ },
+ "interaction_cap_illustrative": {
+  "value": 150,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative 'chatty visitor' cap and session-lease maximum"
+ },
+ "interaction_typical_illustrative": {
+  "value": 80,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "my arithmetic: sum of the six beat_*_illustrative values"
+ },
+ "listening_indicator_budget_illustrative": {
+  "value": 500,
+  "unit": "ms from consent action to visible listening signal",
+  "class": "illustrative",
+  "source": "illustrative design budget; chosen below response_limit_flow"
+ },
+ "listening_indicator_detect_illustrative": {
+  "value": 300,
+  "unit": "ms (detection share of the budget)",
+  "class": "illustrative",
+  "source": "illustrative split of listening_indicator_budget_illustrative"
+ },
+ "listening_indicator_signal_illustrative": {
+  "value": 200,
+  "unit": "ms (permit + gate + indicator share)",
+  "class": "illustrative",
+  "source": "illustrative split; sums with listening_indicator_detect_illustrative to the budget"
+ },
+ "mic_close_on_permit_loss_illustrative": {
+  "value": 200,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "illustrative fail-closed latency bound"
+ },
+ "modal_bin_min_samples_illustrative": {
+  "value": 4,
+  "unit": "samples",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "modal_bin_share_illustrative": {
+  "value": 0.55,
+  "unit": "fraction of bearing samples in the modal bin",
+  "class": "illustrative",
+  "source": "illustrative acceptance rule for a per-turn modal bearing"
+ },
+ "motion_over_speech_processed_illustrative": {
+  "value": 3,
+  "unit": "dB (robot's own motion louder than a nearby talker on the processed channel)",
+  "class": "illustrative",
+  "source": "illustrative"
+ },
+ "noise_only_transcripts_illustrative": {
+  "value": [
+   5,
+   5
+  ],
+  "unit": "[attempts producing words, attempts]",
+  "class": "illustrative",
+  "source": "illustrative: every noise-only clip sent to a transcription model came back as words"
+ },
+ "offerings_illustrative": {
+  "value": 3,
+  "unit": "offerings (chat, a small gift, a photo)",
+  "class": "illustrative",
+  "source": "illustrative offering set"
+ },
+ "proactive_greeting_illustrative": {
+  "value": 1.5,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative length of a perception-triggered greeting; shorter than guard_onset_grace_illustrative"
+ },
+ "queue_friction_factor_illustrative": {
+  "value": 0.7,
+  "unit": "dimensionless",
+  "class": "illustrative",
+  "source": "illustrative discount for crowd and queue friction"
+ },
+ "reset_turnover_illustrative": {
+  "value": 20,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative time to reset and let the next visitor step up"
+ },
+ "response_limit_flow": {
+  "value": 1.0,
+  "unit": "s",
+  "class": "public",
+  "source": "Nielsen, Usability Engineering, 1993, ch. 5: about 1 s is the limit for the user's flow of thought to stay uninterrupted; 0.1 s feels instantaneous; 10 s loses attention"
+ },
+ "saccade_40deg_duration": {
+  "value": 109,
+  "unit": "ms",
+  "class": "public",
+  "source": "my arithmetic from saccade_duration_intercept and saccade_duration_slope at 40 degrees"
+ },
+ "saccade_duration_intercept": {
+  "value": 21,
+  "unit": "ms",
+  "class": "public",
+  "source": "Carpenter, Movements of the Eyes, 1988: saccade duration ~ 21 ms + 2.2 ms per degree (main-sequence approximation; Bahill, Clark & Stark 1975)"
+ },
+ "saccade_duration_slope": {
+  "value": 2.2,
+  "unit": "ms per degree",
+  "class": "public",
+  "source": "Carpenter 1988"
+ },
+ "show_day_illustrative": {
+  "value": 6,
+  "unit": "h",
+  "class": "illustrative",
+  "source": "illustrative show day"
+ },
+ "take_timer_illustrative": {
+  "value": 12,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative no-take timeout inside beat_offer_illustrative"
+ },
+ "tdoa_max_10cm": {
+  "value": 292,
+  "unit": "us",
+  "class": "public",
+  "source": "my arithmetic: 0.10 m / speed_of_sound_20c, the largest delay between two microphones 10 cm apart (sound arriving along the axis)"
+ },
+ "throughput_realistic_illustrative": {
+  "value": 25,
+  "unit": "visitors per hour",
+  "class": "illustrative",
+  "source": "my arithmetic: throughput_theoretical_illustrative x queue_friction_factor_illustrative, rounded"
+ },
+ "throughput_theoretical_illustrative": {
+  "value": 36,
+  "unit": "visitors per hour",
+  "class": "illustrative",
+  "source": "my arithmetic: 3600 s / cycle_illustrative"
+ },
+ "turn_gap_typical": {
+  "value": 200,
+  "unit": "ms",
+  "class": "public",
+  "source": "Stivers et al., 'Universals and cultural variation in turn-taking in conversation', PNAS 106(26), 2009: offsets between turns cluster around a short gap of about 200 ms across 10 languages"
+ },
+ "visits_per_day_illustrative": {
+  "value": 150,
+  "unit": "visits",
+  "class": "illustrative",
+  "source": "my arithmetic: throughput_realistic_illustrative x show_day_illustrative"
+ }
+}
+</script>
+<script type="application/json" id="params-story">
+{
+ "story_bearings": {"value": {"parent": -26, "child": -12, "friend": 22, "radio": 66}, "unit": "degrees from straight ahead (picture layout for scenes 4–5)", "class": "illustrative", "source": "story 1 picture value: parent and child share one 45° bin (doa_bin_illustrative); the radio sits outside the camera's view (half of fov_true_illustrative)"},
+ "story_turn_samples": {"value": [1, 1, 2, 1, 1, 0, 1, 1, 2, 1], "unit": "bin index heard in each bearing sample of one turn (0 = left-centre, 1 = child's bin, 2 = right-centre)", "class": "illustrative", "source": "story 1 picture value for the modal-bin step (B2: bearings thrash; the modal bin over the turn is usually right)"},
+ "story_glide_deg": {"value": 40, "unit": "degrees", "class": "illustrative", "source": "story 1: the 40° turn of the public saccade example in B3 (saccade_40deg_duration), reused for the glide"}
+}
+</script>
+
+<script>
+/* ===================== drawing: builds every SVG, fills {{placeholders}}; story.js then runs the scenes ===================== */
+const NS = "http://www.w3.org/2000/svg", NAVY = "#141C2E";
+const P = Object.assign(JSON.parse(document.getElementById("params").textContent), JSON.parse(document.getElementById("params-story").textContent));
+const V = key => { const [k, ...sub] = key.split("/"); const o = P[k]; if (!o) { console.error("missing param " + k); return NaN; }
+  let v = o.value; for (const s of sub) v = v == null ? undefined : v[s]; if (v === undefined) console.error("missing param " + key); return v; };
+const COMP = {};  // values computed by the page (shown as {{@name}})
+const C = {coral:"#EE6A45", coralD:"#B33F1D", sun:"#F2C64A", sunD:"#8A6800", sky:"#5E9FB8", skyD:"#2C6A82", leaf:"#3AA88D", leafD:"#1D7660",
+  plum:"#B4669D", plumD:"#7E3A6C", stone:"#8C8670", stoneD:"#5E5A48", ink:"#1D2A44", ink2:"#55607A", card:"#FFFAF2", card2:"#EFE5D4", line:"#DCCDB4",
+  skyT:"#E3EFF4", leafT:"#D7EFE7", coralT:"#FBE0D6", sunT:"#FBEFC6", plumT:"#F1DDEA", stoneT:"#ECE7DC", lawn:"#E4EED9", gravel:"#E7D5B8", wood:"#C9A27A"};
+const SKIN = ["#F4CDA7", "#D49A6A", "#8E5B3B", "#E8B98F"], HAIR = ["#3A2618", "#1C1714", "#E5BE5C", "#A8492A"];
+const SHIRT = ["#CDBFA8", "#A9B3C2", "#E2CDAE", "#B9C2B0"];  // guests' shirts: neutral, so no palette hue is spent on them
+function el(t, a = {}, p) { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.appendChild(e); return e; }
+function tx(p, x, y, s, a = {}) { const t = el("text", Object.assign({x, y}, a), p); t.textContent = s; return t; }
+function dual(p, x, y, k, e, a = {}) { const g = el("g", {}, p); const c = a.class || ""; tx(g, x, y, k, Object.assign({}, a, {class: ("lbl-k " + c).trim()})); tx(g, x, y, e, Object.assign({}, a, {class: ("lbl-e " + c).trim()})); return g; }
+function use(p, id, x, y, w, h, style = "", a = {}) { return el("use", Object.assign({href: "#" + id, x, y, width: w, height: h, style}, a), p); }
+const OL = {stroke: NAVY, "stroke-width": 2.5, "stroke-linejoin": "round"};
+const MID = {"text-anchor": "middle"}, END = {"text-anchor": "end"};
+const B = (sz, col, extra) => Object.assign({"font-size": sz, "font-weight": 800}, col ? {fill: col} : {}, extra || {});
+const R = (sz, col, extra) => Object.assign({"font-size": sz, "font-weight": 600}, col ? {fill: col} : {}, extra || {});
+const svgOf = id => document.querySelector(`#${id} svg`) || document.getElementById(id);  // runs before story.js wraps wide svgs
+const fmt = v => typeof v === "number" ? String(v) : Array.isArray(v) ? v.join("–") : String(v);
+const rad = d => d * Math.PI / 180;
+function bubble(p, x, y, w, h, fill = "#FFFDF8", stroke = NAVY, a = {}) { return el("rect", Object.assign({x, y, width: w, height: h, rx: 12, fill, stroke, "stroke-width": 2.5}, a), p); }
+function line(p, d, col, w = 3, a = {}) { return el("path", Object.assign({d, fill: "none", stroke: col, "stroke-width": w, "stroke-linecap": "round", "stroke-linejoin": "round"}, a), p); }
+function mark(p, x, y, ok, sz = 18, col) { return tx(p, x, y, ok ? "✓" : "✗", B(sz, col || (ok ? C.leafD : C.coralD), MID)); }
+function guest(p, x, y, w, i = 0) { return use(p, "i-guest", x, y, w, w * 1.8, `--c:${SHIRT[i % 4]};--skin:${SKIN[i % 4]};--hair:${HAIR[i % 4]}`); }
+// say(): a speech bubble with a short tail; col = sun (host) or plum (guest)
+function say(p, x, y, w, h, text, who, tail, a = {}) {
+  const g = el("g", a.attrs || {}, p), f = who === "host" ? C.sunT : who === "guest" ? C.plumT : C.card, s = who === "host" ? C.sunD : who === "guest" ? C.plumD : C.stoneD;
+  if (tail) el("path", {d: `M${tail[0] - 7} ${y + h - 2} L${tail[0] + 7} ${y + h - 2} L${tail[1]} ${tail[2]} Z`, fill: f, stroke: s, "stroke-width": 2.5, "stroke-linejoin": "round"}, g);
+  bubble(g, x, y, w, h, f, s, a.dash ? {"stroke-dasharray": "6 4"} : {});
+  if (tail) el("rect", {x: tail[0] - 6, y: y + h - 4, width: 12, height: 5, fill: f}, g);
+  tx(g, x + w / 2, y + h / 2 + 5, text, B(a.size || 14, who === "host" ? C.sunD : who === "guest" ? C.plumD : C.ink2, Object.assign({}, MID, a.hand === false ? {} : {class: "hand"})));
+  return g; }
+// the ear trumpet, placed by its narrow end at (x, y); ang rotates it (0 = mouth pointing away); flip mirrors it to point left
+function trumpet(p, x, y, ang, flip, sz = 50, a = {}) {
+  const g = el("g", Object.assign({transform: `translate(${x},${y}) rotate(${ang})${flip ? " scale(-1,1)" : ""}`}, a), p);
+  use(g, "i-trumpet", -4 * sz / 50, -21 * sz / 50, sz, sz * 0.8); return g; }
+// top-down person: shoulders + head, facing down the page (towards the host)
+function topPerson(p, x, y, r, i, a = {}) { const g = el("g", a, p);
+  el("ellipse", Object.assign({cx: x, cy: y + r * 0.35, rx: r * 1.6, ry: r * 0.85, fill: SHIRT[i % 4]}, OL), g);
+  el("circle", Object.assign({cx: x, cy: y, r, fill: SKIN[i % 4]}, OL), g);
+  el("path", {d: `M${x - r + 2} ${y - 2} a${r - 2} ${r - 2} 0 0 1 ${2 * r - 4} 0 q-${r - 2} -${r * 0.35} -${2 * r - 4} 0z`, fill: HAIR[i % 4]}, g);
+  return g; }
+const polar = (cx, cy, deg, r) => [cx + r * Math.sin(rad(deg)), cy - r * Math.cos(rad(deg))];
+
+/* derived numbers used in captions (no number is retyped) */
+const BEATS = ["beat_greet_illustrative", "beat_reply_window_illustrative", "beat_converse_illustrative", "beat_offer_illustrative", "beat_celebrate_illustrative", "beat_goodbye_illustrative"];
+const glassModel = s => { const b = BEATS.map(k => V(k)); b[2] = s.conv;
+  const dwell = b.reduce((a, x) => a + x, 0), cycle = dwell + s.reset, theo = 3600 / cycle, real = theo * V("queue_friction_factor_illustrative");
+  return {b, dwell, cycle, theo, real, perDay: real * V("show_day_illustrative"), overCap: dwell > V("interaction_cap_illustrative"), reset: s.reset}; };
+(() => { const d = glassModel({conv: V("beat_converse_illustrative"), reset: V("reset_turnover_illustrative")}), sh = glassModel({conv: V("beat_converse_illustrative"), reset: V("reset_turnover_illustrative") - 10});
+  COMP.cycleShort = String(sh.cycle); COMP.theoShort = String(Math.round(sh.theo)); COMP.realShort = String(Math.round(sh.real)); COMP.gainReal = String(Math.round(sh.real - d.real));
+  console.assert(d.dwell === V("interaction_typical_illustrative"), "beats sum to the typical interaction (A2)");
+  console.assert(d.cycle === V("cycle_illustrative"), "dwell + reset = cycle (A2)");
+  console.assert(Math.abs(d.theo - V("throughput_theoretical_illustrative")) < 1e-9, "3600 / cycle = theoretical throughput (A2)");
+  console.assert(Math.round(d.real) === V("throughput_realistic_illustrative"), "theory × friction ≈ realistic throughput (A2)");
+  console.assert(V("throughput_realistic_illustrative") * V("show_day_illustrative") === V("visits_per_day_illustrative"), "per hour × show day = visits per day (A2)");
+  console.assert(sh.cycle === 90 && Math.round(sh.theo) === 40 && Math.round(sh.real - d.real) === 3, "a 10 s shorter reset gives about 3 more guests per hour");
+  console.assert(V("interaction_cap_illustrative") > d.dwell, "the chatty cap sits above the typical dwell (a failsafe, not a target)"); })();
+COMP.glideS = (1.5 * rad(V("story_glide_deg")) / V("head_slew_cap_illustrative")).toFixed(1);
+COMP.replyAt = String(+(V("proactive_greeting_illustrative") + V("turn_gap_typical") / 1000).toFixed(2));
+console.assert(Math.abs(V("saccade_duration_intercept") + V("saccade_duration_slope") * V("story_glide_deg") - V("saccade_40deg_duration")) < 1, "saccade 21 + 2.2 × 40 ≈ 109 ms (Carpenter 1988)");
+console.assert(COMP.glideS === "0.7", "glide of 40° at the 1.5 rad/s cap takes about 0.7 s (T = 1.5 d / cap)");
+console.assert(+COMP.replyAt < V("guard_onset_grace_illustrative"), "a prompt reply to the short greeting lands inside the onset grace (B4)");
+console.assert(V("guard_phantom_max_illustrative") < V("guard_threshold_illustrative") && V("guard_threshold_illustrative") < V("guard_real_min_illustrative"), "the guard threshold sits between clatter and voices");
+console.assert(V("listening_indicator_detect_illustrative") + V("listening_indicator_signal_illustrative") === V("listening_indicator_budget_illustrative") && V("listening_indicator_budget_illustrative") < 1000 * V("response_limit_flow"), "listening budget splits 300 + 200 = 500 ms, under the 1 s flow limit");
+(() => { const bin = d => Math.floor((d + 90) / V("doa_bin_illustrative")), b = V("story_bearings");
+  console.assert(bin(b.parent) === bin(b.child) && bin(b.friend) !== bin(b.child), "parent and child share a panel; the friend does not");
+  console.assert(Math.abs(b.radio) > V("fov_true_illustrative") / 2 && Math.abs(b.child) < V("fov_true_illustrative") / 2, "the radio is behind the hedge (outside the camera's view); the guests are inside");
+  const s = V("story_turn_samples"), cnt = [0, 0, 0, 0]; s.forEach(i => cnt[i]++); const top = Math.max(...cnt);
+  COMP.modalShare = Math.round(100 * top / s.length) + " %"; COMP.modalN = String(s.length);
+  console.assert(cnt.indexOf(top) === bin(b.child) && top / s.length >= V("modal_bin_share_illustrative") && s.length >= V("modal_bin_min_samples_illustrative"), "the modal panel of the turn is the child's, and passes the share and count rule"); })();
+
+/* ---------------- HERO ---------------- */
+(() => {
+ const s = document.getElementById("hero");
+ el("rect", {x: 0, y: 0, width: 1000, height: 470, fill: "#F3E6D0"}, s);
+ el("rect", {x: 0, y: 140, width: 1000, height: 200, fill: C.lawn}, s);
+ el("rect", {x: 0, y: 330, width: 1000, height: 140, fill: C.gravel}, s);
+ for (let x = 14; x < 990; x += 46) el("circle", {cx: x, cy: 446 + ((x * 7) % 18), r: 2, fill: "#D2BE9C"}, s);
+ // the garden behind the gate: a few flowers (where the visit goes)
+ [[668, 168, C.plum], [704, 158, C.sun], [740, 174, C.coral], [776, 160, C.sun], [800, 178, C.plum]]
+  .forEach(([x, y, c]) => { line(s, `M${x} ${y + 4} V${y + 18}`, C.leafD, 2.5); el("circle", {cx: x, cy: y, r: 6, fill: c, stroke: NAVY, "stroke-width": 1.8}, s); });
+ // fence left of the gate
+ el("rect", Object.assign({x: 0, y: 258, width: 432, height: 8, fill: C.card}, OL), s);
+ el("rect", Object.assign({x: 0, y: 304, width: 432, height: 8, fill: C.card}, OL), s);
+ for (let x = 8; x < 420; x += 30) el("path", Object.assign({d: `M${x} 330 V246 L${x + 10} 233 L${x + 20} 246 V330 Z`, fill: C.card}, OL), s);
+ // gateposts and the arch
+ el("rect", Object.assign({x: 430, y: 196, width: 32, height: 140, rx: 3, fill: C.wood}, OL), s);
+ el("rect", Object.assign({x: 608, y: 196, width: 32, height: 140, rx: 3, fill: C.wood}, OL), s);
+ line(s, "M446 196 Q535 120 624 196", NAVY, 14); line(s, "M446 196 Q535 120 624 196", C.stone, 9);
+ // the hedge: where the host's sight ends; the gardener hides behind it
+ const hg = el("g", {"data-ref": "gardener"}, s);
+ use(hg, "i-gardener", 836, 196, 60, 90);
+ use(hg, "i-sign", 920, 222, 56, 42, "", {"data-ref": "sign"});
+ let hd = "M650 340 V268"; for (let i = 0; i < 10; i++) hd += " q17.5 -24 35 0"; hd += " V340 Z";
+ el("path", Object.assign({d: hd, fill: C.leaf, "data-ref": "hedge"}, OL), s);
+ for (let x = 676; x < 990; x += 62) line(s, `M${x} ${300 + (x % 3) * 8} q5 -5 10 0`, C.leafD, 2);
+ dual(s, 820, 318, "the hedge: what the host can see ends here", "edge of the camera's view", B(13, C.ink, MID));
+ dual(s, 905, 160, "a hidden gardener", "a hidden operator", B(13, C.stoneD, MID));
+ dual(s, 905, 178, "and the “back soon” sign", "and the curtain", B(13, C.stoneD, MID));
+ // basket and hourglass on the posts
+ use(s, "i-basket", 414, 142, 64, 60, "", {"data-ref": "basket"});
+ dual(s, 404, 178, "a flower for every guest", "the gift: needs no words", B(13, C.leafD, END));
+ use(s, "i-glass", 607, 146, 34, 51, "", {"data-ref": "glass"});
+ dual(s, 650, 214, "every visit has a budget", "dwell budget and cycle", B(13, C.stoneD));
+ // the group at the gate: the child has just answered
+ const gg = el("g", {"data-ref": "guest"}, s);
+ guest(gg, 160, 250, 52, 1); guest(gg, 238, 244, 56, 0); guest(gg, 350, 300, 38, 2);
+ say(s, 300, 250, 124, 32, "Are you real?", "guest", [372, 370, 302]);
+ // the host, its raised trumpet and its look
+ use(s, "i-host", 494, 214, 84, 140, "", {"data-ref": "host"});
+ trumpet(s, 517, 276, 35, true, 50, {"data-ref": "trumpet"});
+ line(s, "M500 293 L398 316", C.plumD, 3, {"stroke-dasharray": "7 5", "marker-end": "url(#ah-plum)"});
+ dual(s, 536, 96, "greets first · lifts the ear trumpet only after an answer", "speaks first · opens the microphone only after consent", B(15, C.skyD, MID));
+ dual(s, 536, 118, "looks at whoever it is answering", "aims the head at the addressee", B(15, C.plumD, MID));
+ dual(s, 536, 380, "the host", "the robot (child-sized)", B(14, C.ink, MID));
+ // the lane: passers-by keep coming (open-world arrivals)
+ dual(s, 24, 40, "The lane: strangers come and go", "Open world: people arrive and leave freely", B(16, C.ink));
+ tx(s, 24, 62, "no instructions · a few seconds · groups · noise · children", R(13, C.ink2));
+ const lane = "M40 438 H430";
+ [0, 1, 2].forEach(i => { const g = el("g", {class: "ride st-loop", style: `offset-path:path('${lane}');--T:11s;--dl:${-i * 3.7}s;--od:${18 + i * 32}%`}, s);
+  const b = el("g", {class: "bob st-loop", style: `animation-delay:${-i * 0.2}s`}, g); guest(b, -13, -47, 26, i + 1); });
+})();
+
+/* ---------------- SCENE 1: speak first, listen on consent ---------------- */
+(() => {
+ const s = svgOf("s-consent");
+ const base = el("g", {"data-s": "0"}, s);
+ el("rect", {x: 0, y: 234, width: 400, height: 126, rx: 12, fill: C.gravel}, base);
+ el("rect", Object.assign({x: 318, y: 150, width: 22, height: 110, rx: 3, fill: C.wood}, OL), base);
+ use(base, "i-host", 228, 140, 60, 100);
+ // the guest: present on steps 1-4, walking away on step 5
+ guest(el("g", {class: "st-at", "data-s": "1 2 3 4"}, s), 92, 150, 50, 0);
+ const away = el("g", {class: "st-at", "data-s": "5", opacity: .55}, s); guest(away, 22, 150, 50, 0);
+ tx(away, 100, 140, "← leaves", B(13, C.ink2, MID));
+ // step 1: the host waves and greets; the trumpet is down
+ say(el("g", {class: "st-at", "data-s": "1"}, s), 140, 100, 236, 34, "Hello! Lovely day for flowers.", "host", [254, 258, 160]);
+ const wave = el("g", {class: "st-at", "data-s": "1"}, s);
+ line(wave, "M296 182 q8 -8 0 -16", C.sunD, 2.5); line(wave, "M304 186 q12 -12 0 -24", C.sunD, 2.5);
+ trumpet(el("g", {class: "st-at", "data-s": "1 2 5", opacity: .5}, s), 242, 214, -75, true, 40);
+ trumpet(el("g", {class: "st-at", "data-s": "3 4"}, s), 247, 184, 30, true, 44);
+ dual(el("g", {class: "st-at", "data-s": "1 2 5"}, s), 258, 276, "trumpet down: not listening", "microphone not capturing", B(13, C.stoneD, MID));
+ dual(el("g", {class: "st-at", "data-s": "3 4"}, s), 258, 276, "trumpet up: listening", "listening indicator on = capturing", B(13, C.skyD, MID));
+ // step 2: the answer, and the four checks
+ say(el("g", {class: "st-at", "data-s": "2 3 4"}, s), 50, 104, 70, 34, "Hi!", "guest", [100, 112, 160]);
+ const s2 = el("g", {"data-s": "2"}, s);
+ dual(s2, 440, 38, "An answer opens the trumpet only if:", "Answer-as-consent qualifies only if:", B(15, C.ink));
+ [["greeted this guest, window open", "greeted, reply window open"], ["the guest is at the gate", "at counter distance and bearing"], ["the host is not speaking", "robot not speaking (+ a tail)"], ["longer than a cough", "past energy + duration thresholds"]]
+  .forEach(([k, e], i) => { const x = 440 + (i % 2) * 275, y = 52 + Math.floor(i / 2) * 38; bubble(s2, x, y, 265, 30, C.plumT, C.plumD); mark(s2, x + 16, y + 21, true, 16); dual(s2, x + 30, y + 20, k, e, R(13, C.ink)); });
+ // step 3: from the answer to a visible "listening"
+ const X = t => 440 + 450 * t;
+ const s3 = el("g", {"data-s": "3"}, s);
+ dual(s3, 440, 148, "from the answer to a visible “listening”", "consent action → listening indicator", B(13, C.ink));
+ const det = V("listening_indicator_detect_illustrative") / 1000, sig = V("listening_indicator_signal_illustrative") / 1000, flow = V("response_limit_flow");
+ el("rect", {x: X(0), y: 160, width: X(det) - X(0), height: 24, rx: 5, fill: C.plumT, stroke: C.plumD, "stroke-width": 2, class: "grow", "data-s": "3"}, s);
+ el("rect", {x: X(det), y: 160, width: X(det + sig) - X(det), height: 24, rx: 5, fill: C.sky, stroke: NAVY, "stroke-width": 2, class: "grow", "data-s": "3", style: "transition-delay:.4s"}, s);
+ s.appendChild(s3);
+ tx(s3, (X(0) + X(det)) / 2, 177, "hear it", B(12, C.plumD, MID)); tx(s3, (X(det) + X(det + sig)) / 2, 177, "show it", B(12, "#FFFFFF", MID));
+ line(s3, `M${X(flow)} 152 V206`, C.leafD, 2.5, {"stroke-dasharray": "5 4"});
+ tx(s3, X(flow), 146, `${flow} s flow limit`, B(12, C.leafD, MID));
+ tx(s3, X(det + sig) + 6, 177, `trumpet up at ${V("listening_indicator_budget_illustrative")} ms`, B(12, C.skyD));
+ line(s3, `M${X(0)} 206 H${X(1.2)}`, NAVY, 2);
+ [0, 0.5, 1].forEach(t => { line(s3, `M${X(t)} 206 v6`, NAVY, 2); tx(s3, X(t), 226, t + " s", R(12, C.ink2, MID)); });
+ // step 4: the lease; step 5: it closes when the guest leaves
+ const s4 = el("g", {"data-s": "4"}, s);
+ dual(s4, 440, 256, "the lease: open for the whole talk", "session lease: open across turns", B(13, C.ink));
+ el("rect", {x: 440, y: 266, width: 520, height: 24, rx: 6, fill: "none", stroke: C.skyD, "stroke-width": 2, "stroke-dasharray": "6 4"}, s4);
+ tx(s4, 960, 306, `cap ${V("interaction_cap_illustrative")} s`, B(12, C.skyD, END));
+ tx(s4, 440, 306, "lengths not to scale", R(11, C.ink2));
+ el("rect", {x: 440, y: 266, width: 340, height: 24, rx: 6, fill: C.sky, stroke: NAVY, "stroke-width": 2, class: "grow", "data-s": "4"}, s);
+ s.appendChild(s4);
+ tx(s4, 610, 283, "listening, so the guest can interrupt", B(12, "#FFFFFF", MID));
+ const s5 = el("g", {"data-s": "5"}, s);
+ line(s5, "M780 258 V298", C.coralD, 3);
+ tx(s5, 790, 330, `guest leaves → down within ${V("mic_close_on_permit_loss_illustrative")} ms`, B(13, C.coralD, MID));
+ const nb = el("g", {class: "st-at", "data-s": "5"}, s);
+ bubble(nb, 150, 294, 236, 56, C.card, NAVY);
+ dual(nb, 268, 316, "the host's notebook: empty", "kept after the visit: nothing", B(13, C.ink, MID));
+ tx(nb, 268, 338, "no recording · no transcript · no face", R(12, C.ink2, MID));
+})();
+
+/* ---------------- SCENE 2: the offer hub ---------------- */
+(() => {
+ const s = svgOf("s-hub"), PC = [500, 240];
+ const base = el("g", {"data-s": "0"}, s);
+ el("rect", {x: 0, y: 0, width: 1000, height: 380, rx: 14, fill: C.lawn}, base);
+ const ends = {chat: [210, 112], gift: [500, 96], photo: [790, 112]};
+ const pathD = k => `M${PC[0]} ${PC[1]} L${ends[k][0]} ${ends[k][1]}`;
+ for (const k in ends) { line(base, pathD(k), NAVY, 30); line(base, pathD(k), C.gravel, 25); }
+ line(base, `M500 240 V372`, NAVY, 30); line(base, `M500 240 V372`, C.gravel, 25);
+ el("circle", Object.assign({cx: PC[0], cy: PC[1], r: 54, fill: C.gravel}, OL), base);
+ // the three ends: a bench (chat), the basket (gift), a photo spot with the guest's own phone
+ el("rect", Object.assign({x: 160, y: 78, width: 100, height: 18, rx: 4, fill: C.wood}, OL), base);
+ el("rect", Object.assign({x: 160, y: 62, width: 100, height: 10, rx: 3, fill: C.wood}, OL), base);
+ line(base, "M172 96 V112 M248 96 V112", NAVY, 3);
+ dual(base, 210, 46, "a chat on the bench", "offering: chat", B(14, C.ink, MID));
+ use(base, "i-basket", 470, 40, 60, 56);
+ dual(base, 500, 28, "a flower", "offering: small gift", B(14, C.leafD, MID));
+ el("rect", Object.assign({x: 778, y: 70, width: 26, height: 42, rx: 5, fill: "#55607A"}, OL), base);
+ el("circle", {cx: 791, cy: 82, r: 5, fill: C.skyT, stroke: NAVY, "stroke-width": 1.5}, base);
+ line(base, "M791 112 V128 M781 128 H801", NAVY, 3);
+ dual(base, 790, 46, "a photo, on your own phone", "offering: photo (visitor's phone)", B(14, C.ink, MID));
+ const fg = el("g", {"data-s": "0"}, s); use(fg, "i-host", 478, 170, 44, 74);
+ guest(fg, 530, 188, 32, 3);
+ // the host's per-visit notes (state the hub tracks)
+ bubble(base, 700, 222, 290, 124, C.card, NAVY);
+ dual(base, 712, 242, "the host's notes for this visit", "per-visit state", B(13, C.ink));
+ ["mentioned", "offered", "declined"].forEach((h, i) => tx(base, 850 + i * 55, 260, h, R(11, C.ink2, MID)));
+ const ROW = {gift: 282, chat: 306, photo: 330}, COL = {m: 850, o: 905, d: 960};
+ [["gift", "flower", "gift"], ["chat", "chat", "chat"], ["photo", "photo", "photo"]].forEach(([k, a, b]) => dual(base, 712, ROW[k], a, b, R(13, C.ink)));
+ const tick = (step, row, col, col2) => mark(el("g", {"data-s": String(step)}, s), COL[col], ROW[row], true, 16, col2);
+ // step 1: one offer, the gift path lit
+ line(el("g", {class: "st-at", "data-s": "1"}, s), pathD("gift"), C.sun, 11);
+ say(el("g", {class: "st-at", "data-s": "1"}, s), 290, 140, 176, 32, "Would you like a flower?", "host", [446, 486, 188], {size: 13});
+ tick(1, "gift", "m"); tick(1, "gift", "o");
+ // step 2: "no thanks": that path closes for the visit
+ say(el("g", {class: "st-at", "data-s": "2"}, s), 556, 144, 120, 32, "No, thanks.", "guest", [576, 552, 190], {size: 13});
+ const s2 = el("g", {"data-s": "2"}, s);
+ el("rect", Object.assign({x: 474, y: 124, width: 52, height: 20, rx: 3, fill: C.card}, OL), s2);
+ line(s2, "M486 128 l28 12 M514 128 l-28 12", C.coralD, 3.5);
+ dual(s2, 536, 122, "a no is a no", "declined: never offered again", B(13, C.coralD));
+ tick(2, "gift", "d", C.coralD);
+ // step 3: a chat, and a mention of the photo spot
+ line(el("g", {"data-s": "3"}, s), pathD("chat"), C.leaf, 9, {opacity: .85});
+ const tk = el("g", {class: "st-tok", "data-s": "3", style: `offset-path:path('${pathD("chat")}');--dur:1500ms`}, s); el("circle", {r: 8, fill: C.leaf, stroke: NAVY, "stroke-width": 2}, tk);
+ say(el("g", {class: "st-at", "data-s": "3"}, s), 598, 138, 196, 30, "There's a photo spot, too.", "host", null, {size: 13, dash: true});
+ tx(el("g", {class: "st-at", "data-s": "3"}, s), 696, 188, "a mention: no answer expected", R(12, C.ink2, Object.assign({class: "halo"}, MID)));
+ tick(3, "chat", "m"); tick(3, "chat", "o"); tick(3, "photo", "m");
+ // step 4: silence → one specific thing
+ say(el("g", {class: "st-at", "data-s": "4"}, s), 556, 144, 60, 32, "…", "guest", [576, 552, 190]);
+ const s4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ bubble(s4, 240, 98, 226, 30, C.card2, C.stone);
+ tx(s4, 353, 118, "What would you like?", R(13, C.ink2, MID)); line(s4, "M252 113 H454", C.coralD, 3);
+ say(s4, 240, 140, 226, 32, "A photo by the roses?", "host", [446, 486, 188], {size: 13});
+ line(el("g", {class: "st-at", "data-s": "4"}, s), pathD("photo"), C.sun, 11);
+ tick(4, "photo", "o");
+ // step 5: every path offered at most once → the visit ends; the slate is wiped
+ const s5 = el("g", {"data-s": "5"}, s);
+ line(s5, "M470 300 V352", NAVY, 3.5, {"marker-end": "url(#ah-ink)"});
+ dual(s5, 486, 340, "goodbye: wave, close the gate, wipe the slate", "reset: confirmed stop, all visit state deleted", B(13, C.leafD));
+ const wipe = el("g", {class: "st-at", "data-s": "5"}, s);
+ el("rect", {x: 704, y: 266, width: 282, height: 76, rx: 8, fill: "url(#hatch)", opacity: .92}, wipe);
+ bubble(wipe, 770, 288, 150, 30, C.card, C.stoneD);
+ dual(wipe, 845, 308, "wiped at the gate", "deleted at reset", B(13, C.stoneD, MID));
+ s.appendChild(fg);  // host and guest stay above the lit paths
+})();
+</script>
+
+<script>
+/* ---------------- SCENE 4: who spoke? (top-down) ---------------- */
+(() => {
+ const s = svgOf("s-who"), H = [500, 384], RA = 300, BW = V("doa_bin_illustrative"), b = V("story_bearings"), HALF = V("fov_true_illustrative") / 2;
+ const at = (deg, r) => polar(H[0], H[1], deg, r);
+ const wedge = (a0, a1, r) => { const [x0, y0] = at(a0, r), [x1, y1] = at(a1, r); return `M${H[0]} ${H[1]} L${x0} ${y0} A${r} ${r} 0 0 1 ${x1} ${y1} Z`; };
+ const base = el("g", {"data-s": "0"}, s);
+ el("rect", {x: 0, y: 0, width: 1000, height: 420, rx: 14, fill: C.lawn}, base);
+ // four fence panels on an arc: each is one coarse direction
+ for (let i = 0; i < 4; i++) { const a0 = -90 + i * BW, a1 = a0 + BW;
+  el("path", {d: wedge(a0, a1, RA), fill: "none", stroke: C.line, "stroke-width": 1.5}, base);
+  const [x0, y0] = at(a0, RA), [x1, y1] = at(a1, RA);
+  el("path", {d: `M${x0} ${y0} A${RA} ${RA} 0 0 1 ${x1} ${y1}`, fill: "none", stroke: NAVY, "stroke-width": 9, "stroke-linecap": "butt"}, base);
+  el("path", {d: `M${x0} ${y0} A${RA} ${RA} 0 0 1 ${x1} ${y1}`, fill: "none", stroke: C.card, "stroke-width": 5, "stroke-linecap": "butt", "stroke-dasharray": "3 6"}, base);
+  const [lx, ly] = at(a0 + BW / 2, RA + 18); dual(base, lx, ly + 5, `panel ${i + 1}`, `bin ${i + 1}`, B(13, C.ink, i === 0 ? END : i === 3 ? {} : MID)); }
+ // the hedge: the host sees faces only between the two hedge rows
+ for (const sg of [-1, 1]) { for (let r = 70; r <= 290; r += 26) { const [x, y] = at(sg * HALF, r); el("circle", Object.assign({cx: x, cy: y, r: 15, fill: C.leaf}, OL), base); } }
+ dual(base, 20, 30, "behind the hedge: no faces", "off camera", B(13, C.leafD));
+ dual(base, 980, 30, "behind the hedge: no faces", "off camera", B(13, C.leafD, END));
+ // the guests and the radio
+ const pos = {parent: at(b.parent, 150), child: at(b.child, 232), friend: at(b.friend, 190), radio: at(b.radio, 210)};
+ topPerson(base, pos.parent[0], pos.parent[1], 19, 0); topPerson(base, pos.child[0], pos.child[1], 13, 2); topPerson(base, pos.friend[0], pos.friend[1], 17, 1);
+ use(base, "i-radio", pos.radio[0] - 22, pos.radio[1] - 20, 44, 40);
+ tx(base, pos.parent[0], pos.parent[1] + 36, "parent", R(12, C.ink2, MID)); tx(base, pos.friend[0] + 26, pos.friend[1] + 4, "friend", R(12, C.ink2));
+ tx(base, pos.child[0] + 2, pos.child[1] - 20, "child", R(12, C.ink2, MID));
+ // the host, top-down, looking straight ahead; two ears
+ el("circle", Object.assign({cx: H[0], cy: H[1], r: 24, fill: "#2E3A5C"}, OL), base);
+ el("circle", {cx: H[0], cy: H[1] - 24, r: 6, fill: SKIN[0], stroke: NAVY, "stroke-width": 2}, base);
+ for (const dx of [-26, 26]) el("circle", {cx: H[0] + dx, cy: H[1], r: 5, fill: SKIN[0], stroke: NAVY, "stroke-width": 2}, base);
+ const lit = (k, steps, col = C.plum) => { const [a0] = [Math.floor((k + 90) / BW) * BW - 90]; el("path", {d: wedge(a0, a0 + BW, RA - 6), fill: col, opacity: .22, class: "st-at", "data-s": steps}, s); };
+ const wave = (from, step, col = C.plumD) => { const g = el("g", {class: "st-tok", "data-s": String(step), style: `offset-path:path('M${from[0]} ${from[1]} L${H[0]} ${H[1] - 30}');--dur:1100ms`}, s);
+  el("circle", {r: 9, fill: "none", stroke: col, "stroke-width": 3}, g); el("circle", {r: 4, fill: col}, g); };
+ // step 1: the friend speaks; one face in the panel → bind
+ lit(b.friend, "1"); wave(pos.friend, 1);
+ const s1 = el("g", {class: "st-at", "data-s": "1"}, s);
+ dual(s1, H[0] + 40, H[1] - 6, "right ear first,", "TDOA between", B(12, C.plumD)); dual(s1, H[0] + 40, H[1] + 10, "left ear a moment later", "the two microphones", B(12, C.plumD));
+ mark(s1, pos.friend[0] + 34, pos.friend[1] - 18, true, 16); dual(s1, pos.friend[0] + 46, pos.friend[1] - 18, "one face: the friend", "one face in the bin: bind", B(12, C.leafD));
+ // step 2: the child speaks; two faces share the panel → the panel abstains, lips choose
+ lit(b.child, "2"); wave(pos.child, 2);
+ const s2 = el("g", {class: "st-at", "data-s": "2"}, s);
+ dual(s2, 30, 64, "two faces in one panel:", "two faces in the window:", B(14, C.ink)); dual(s2, 30, 80, "the panel abstains", "DoA abstains, defers to ASD", B(14, C.ink));
+ line(s2, `M${pos.child[0] - 6} ${pos.child[1] + 5} q6 5 12 0`, C.plumD, 3);
+ mark(s2, pos.child[0] + 26, pos.child[1] + 4, true, 16); dual(s2, pos.child[0] + 38, pos.child[1] + 8, "lips move", "mouth moves with audio", B(12, C.leafD));
+ dual(s2, 30, 110, "lips choose: the child", "ASD selects among faces", B(14, C.plumD));
+ // step 3: within one turn the panel flickers; take the mode of the turn
+ lit(b.child, "3"); const smp = V("story_turn_samples"), cnt = [0, 0, 0, 0]; smp.forEach(i => cnt[i]++);
+ const s3 = el("g", {class: "st-at", "data-s": "3"}, s);
+ dual(s3, 30, 50, "one turn, panel by panel:", "bearing samples in one turn:", B(14, C.ink));
+ smp.forEach((k, i) => { el("rect", {x: 30 + i * 17, y: 62, width: 13, height: 18, rx: 3, fill: k === 1 ? C.plum : C.card2, stroke: NAVY, "stroke-width": 1.5}, s3); tx(s3, 36.5 + i * 17, 95, String(k + 1), R(10, C.ink2, MID)); });
+ cnt.forEach((n, i) => { const x = 40 + i * 36; el("rect", {x, y: 196 - n * 10, width: 24, height: n * 10 || 1, fill: i === 1 ? C.plum : C.card2, stroke: NAVY, "stroke-width": 1.5}, s3); tx(s3, x + 12, 212, `${i + 1}`, R(12, C.ink2, MID)); if (n) tx(s3, x + 12, 191 - n * 10, String(n), B(12, C.ink, MID)); });
+ dual(s3, 30, 230, `panel 2: ${COMP.modalShare} of ${COMP.modalN}`, `modal bin 2: ${COMP.modalShare} of ${COMP.modalN}`, B(13, C.plumD));
+ dual(s3, 30, 248, "→ accept", "→ accepted", B(13, C.leafD));
+ // step 4: a radio behind the hedge; old rule vs honest abstention
+ lit(b.radio, "4", C.coral); wave(pos.radio, 4, C.stoneD);
+ const s4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ line(s4, `M${pos.radio[0] - 26} ${pos.radio[1] - 14} Q${(pos.radio[0] + pos.parent[0]) / 2} ${pos.parent[1] - 120} ${pos.parent[0] + 22} ${pos.parent[1] - 14}`, C.coralD, 2.5, {"stroke-dasharray": "6 5", "marker-end": "url(#ah-coral)"});
+ const [mx, my] = [(pos.radio[0] + pos.parent[0]) / 2, pos.parent[1] - 66];
+ bubble(s4, mx - 100, my - 20, 200, 28, C.card2, C.coralD); dual(s4, mx, my, "old rule: “the parent said it”", "old: every path names somebody", B(12, C.coralD, MID)); line(s4, `M${mx - 88} ${my - 5} H${mx + 88}`, C.coralD, 2.5);
+ bubble(s4, 800, 196, 186, 52, C.plumT, C.plumD, {"stroke-dasharray": "6 4"});
+ dual(s4, 893, 218, "“someone off camera”", "visitor_id: null", B(13, C.plumD, MID)); dual(s4, 893, 238, "no name", "reason: off camera", R(12, C.plumD, MID));
+ // step 5: two questions, two rules
+ const s5 = el("g", {class: "st-at", "data-s": "5"}, s);
+ bubble(s5, 196, 386, 230, 28, C.leafT, C.leafD); dual(s5, 311, 405, "Answer? Lean yes", "Directedness: permissive", B(13, C.leafD, MID));
+ bubble(s5, 574, 386, 230, 28, C.plumT, C.plumD); dual(s5, 689, 405, "Who? Only on evidence", "Identity: strict, may abstain", B(13, C.plumD, MID));
+})();
+
+/* ---------------- SCENE 5: gaze ---------------- */
+(() => {
+ const fig = document.getElementById("s-gaze"), s = svgOf("s-gaze"), H = [280, 350], b = V("story_bearings");
+ const at = (deg, r) => polar(H[0], H[1], deg, r);
+ const base = el("g", {"data-s": "0"}, s);
+ el("rect", {x: 0, y: 0, width: 560, height: 400, rx: 14, fill: C.lawn}, base);
+ const pos = {parent: at(b.parent, 138), child: at(b.child, 232), friend: at(b.friend, 200)};
+ dual(base, 20, 30, "seen from above", "top view", R(13, C.ink2));
+ // the gaze cone: one group that glides to the target angle
+ const hg = el("g", {transform: `translate(${H[0]},${H[1]})`}, s);
+ const ghost = (deg, steps) => { const g = el("g", {class: "st-at", "data-s": steps, transform: `translate(${H[0]},${H[1]}) rotate(${deg})`}, s);
+  el("path", {d: "M0 0 L-34 -250 Q0 -262 34 -250 Z", fill: C.coral, opacity: .14, stroke: C.coralD, "stroke-width": 1.5, "stroke-dasharray": "5 4"}, g); };
+ ghost(b.parent, "2"); ghost(b.friend, "2");
+ const turn = el("g", {class: "turn"}, hg);
+ const cone = el("path", {d: "M0 0 L-34 -250 Q0 -262 34 -250 Z", fill: C.plum, opacity: .24, stroke: C.plumD, "stroke-width": 2}, turn);
+ el("circle", Object.assign({cx: 0, cy: 0, r: 26, fill: "#2E3A5C"}, OL), turn);
+ el("circle", {cx: 0, cy: -26, r: 7, fill: SKIN[0], stroke: NAVY, "stroke-width": 2}, turn);
+ topPerson(s, pos.parent[0], pos.parent[1], 20, 0); topPerson(s, pos.child[0], pos.child[1], 13, 2); topPerson(s, pos.friend[0], pos.friend[1], 17, 1);
+ tx(s, pos.parent[0] - 36, pos.parent[1] + 4, "parent (nearest)", R(12, C.ink2, END)); tx(s, pos.child[0], pos.child[1] - 20, "child", R(12, C.ink2, MID)); tx(s, pos.friend[0], pos.friend[1] + 34, "friend", R(12, C.ink2, MID));
+ const talk = (p, steps, col = C.plumD) => { const g = el("g", {class: "st-at", "data-s": steps}, s); for (const r of [6, 12]) line(g, `M${p[0] + 16 + r} ${p[1] - 10 - r * .4} q${4 + r * .3} ${8 + r * .4} 0 ${16 + r * .8}`, col, 2.5); return g; };
+ talk(pos.child, "1"); talk(pos.parent, "2"); talk(pos.friend, "2");
+ const s2 = el("g", {class: "st-at", "data-s": "2"}, s);
+ line(s2, `M${pos.parent[0] + 26} ${pos.parent[1] - 26} Q${(pos.parent[0] + pos.friend[0]) / 2} ${pos.parent[1] - 70} ${pos.friend[0] - 22} ${pos.friend[1] - 18}`, C.plumD, 2.5, {"marker-end": "url(#ah-plum)", "marker-start": "url(#ah-plum)"});
+ const s3 = el("g", {class: "st-at", "data-s": "3"}, s);
+ for (const r of [8, 15]) line(s3, `M${H[0] + 30 + r} ${H[1] - 12 - r * .4} q${5 + r * .3} ${10 + r * .4} 0 ${20 + r * .8}`, C.sunD, 3);
+ dual(s3, H[0] + 60, H[1] + 10, "the host answers the child", "robot speaking to the addressee", B(12, C.sunD));
+ // right half: verdicts (steps 1-3), glide chart (step 4), gates (step 5)
+ const verdict = (step, ok, k, e) => { const g = el("g", {class: "st-at", "data-s": String(step)}, s); mark(g, 610, 80, ok, 30); dual(g, 636, 80, k, e, B(17, ok ? C.leafD : C.coralD)); return g; };
+ const v1 = verdict(1, false, "looks at the nearest, not the talker", "nearest-visitor gaze: wrong person");
+ dual(v1, 610, 112, "In a group the nearest body is often", "The nearest face is often not the", R(14, C.ink)); dual(v1, 610, 132, "not the person who talks.", "active speaker.", R(14, C.ink));
+ const v2 = verdict(2, true, "contested → hold still", "contested state → hold");
+ dual(v2, 610, 112, "Following every voice would swing", "A label-follower re-aims on every", R(14, C.ink)); dual(v2, 610, 132, "the head like a rally (dashed).", "turn: a rally (dashed cones).", R(14, C.ink));
+ const v3 = verdict(3, true, "hold the one you answer", "hold the addressee while speaking");
+ use(v3, "i-host", 612, 110, 54, 90);
+ line(v3, "M628 140 q8 -7 16 0 M652 140 q8 -7 16 0", NAVY, 3);
+ dual(v3, 684, 140, "an eyebrow beat:", "eyebrow beat:", B(14, C.ink)); dual(v3, 684, 160, "a look-away that keeps", "social aversion; the camera", R(14, C.ink)); dual(v3, 684, 180, "the guest in view", "stays on the face", R(14, C.ink));
+ const s4 = el("g", {class: "st-at", "data-s": "4"}, s), X0 = 620, X1 = 970, Y0 = 320, Y1 = 120, D = V("story_glide_deg");
+ const T = 1.5 * rad(D) / V("head_slew_cap_illustrative"), TS = V("saccade_40deg_duration") / 1000, SPAN = 1.0;
+ const X = t => X0 + (X1 - X0) * t / SPAN, Y = d => Y0 - (Y0 - Y1) * d / D;
+ dual(s4, X0 - 10, 70, "one 40° turn, over time", "head yaw vs time for a 40° re-aim", B(15, C.ink));
+ line(s4, `M${X0} ${Y0} H${X1} M${X0} ${Y0} V${Y1 - 10}`, NAVY, 2);
+ [0, 0.5, 1].forEach(t => { line(s4, `M${X(t)} ${Y0} v6`, NAVY, 2); tx(s4, X(t), Y0 + 22, t + " s", R(12, C.ink2, MID)); });
+ tx(s4, X0 - 8, Y(D) + 4, D + "°", R(12, C.ink2, END)); tx(s4, X0 - 8, Y0 + 4, "0°", R(12, C.ink2, END));
+ const curve = dur => { let d = ""; for (let i = 0; i <= 40; i++) { const u = i / 40, sm = 3 * u * u - 2 * u * u * u; d += (i ? " L" : "M") + X(u * dur).toFixed(1) + " " + Y(D * sm).toFixed(1); } return d + ` L${X(SPAN)} ${Y(D)}`; };
+ const dS = curve(TS), dG = curve(T);
+ line(s4, dS, C.stoneD, 3, {"stroke-dasharray": "6 4"}); line(s4, dG, C.plumD, 4);
+ for (const [d, col, dur] of [[dS, C.stoneD, 500], [dG, C.plumD, 2200]]) { const g = el("g", {class: "st-tok", "data-s": "4", style: `offset-path:path('${d}');--dur:${dur}ms`}, s); el("circle", {r: 7, fill: col, stroke: NAVY, "stroke-width": 2}, g); }
+ dual(s4, X(TS) + 10, Y(D) - 14, `human eye: ${V("saccade_40deg_duration")} ms`, `saccade: ${V("saccade_40deg_duration")} ms`, B(12, C.stoneD));
+ dual(s4, X(0.42), Y(0) - 34, `host: eased glide, ≈ ${COMP.glideS} s`, `smoothstep glide, ≈ ${COMP.glideS} s`, B(12, C.plumD));
+ tx(s4, X(0.42), Y(0) - 16, `peak speed capped at ${V("head_slew_cap_illustrative")} rad/s`, R(12, C.plumD));
+ const s5 = el("g", {class: "st-at", "data-s": "5"}, s);
+ dual(s5, 600, 40, "May I turn now? Nine gates, in order", "Gaze policy: ordered gates", B(15, C.ink));
+ [["is the label fresh?", "1 staleness"], ["is the evidence good?", "2 evidence grade"], ["am I speaking? (my own voice)", "3 self-speech suppression"], ["am I mid-turn?", "4 slew hold"],
+  [`is it more than ≈ 3°?`, `5 deadband (${V("gaze_deadband_illustrative")} rad)`], [`${V("gaze_dwell_illustrative")} s since my last turn?`, `6 dwell (${V("gaze_dwell_illustrative")} s)`], ["are two voices trading fast?", "7 contested → hold"], ["follow the same face", "8 pursuit"], ["one glance at a voice off camera", "9 sector glance"]]
+  .forEach(([k, e], i) => { const y = 54 + i * 36; bubble(s5, 600, y, 380, 30, i < 7 ? C.card : C.plumT, i < 7 ? NAVY : C.plumD); tx(s5, 616, y + 21, String(i + 1), B(14, C.ink)); dual(s5, 636, y + 20, k, e, R(13, C.ink)); });
+ // the glide: the cone eases to its angle on each step (wrong turns coral)
+ const ANG = [b.parent, b.child, b.child, b.child, b.child];
+ fig.addEventListener("st-step", e => { const k = e.detail.step; turn.style.transform = `rotate(${ANG[k - 1]}deg)`;
+  cone.setAttribute("fill", k === 1 ? C.coral : C.plum); cone.setAttribute("stroke", k === 1 ? C.coralD : C.plumD); });
+})();
+
+/* ---------------- SCENE 6a: the host hears himself ---------------- */
+(() => {
+ const s = svgOf("s-hear");
+ const base = el("g", {"data-s": "0"}, s);
+ el("rect", {x: 0, y: 0, width: 420, height: 340, rx: 14, fill: C.lawn}, base);
+ el("rect", {x: 0, y: 252, width: 420, height: 88, rx: 14, fill: C.gravel}, base);
+ use(base, "i-host", 120, 76, 96, 160, "", {"data-ref": "host"});
+ use(base, "i-clog", 104, 228, 54, 39, "", {"data-ref": "clog"}); use(base, "i-clog", 170, 228, 54, 39);
+ trumpet(base, 190, 140, -30, false, 46);
+ guest(base, 312, 120, 54, 1);
+ for (const r of [6, 12]) line(base, `M${300 - r} ${128 - r * .4} q${-4 - r * .3} ${8 + r * .4} 0 ${16 + r * .8}`, C.plumD, 2.5);
+ const nod = el("g", {class: "st-at", "data-s": "1 2"}, s);
+ line(nod, "M108 112 q-10 14 0 30", C.ink2, 2.5, {"marker-end": "url(#ah-ink)"}); tx(nod, 96, 104, "nod", R(12, C.ink2, END));
+ const clat = el("g", {"data-s": "0"}, s);
+ for (const [x, y] of [[96, 262], [232, 262], [104, 286], [224, 286]]) line(clat, `M${x} ${y} l${x < 160 ? -12 : 12} 0`, C.coralD, 3);
+ tx(clat, 164, 312, "clatter on every nod", B(13, C.coralD, MID));
+ const tk = el("g", {class: "st-tok", "data-s": "1", style: "offset-path:path('M164 236 C 120 190, 200 170, 226 120');--dur:1200ms"}, s);
+ el("circle", {r: 8, fill: C.coral, stroke: NAVY, "stroke-width": 2}, tk);
+ // step 1: on the channel the model hears, the clatter beats the guest
+ const s1 = el("g", {class: "st-at", "data-s": "1"}, s);
+ dual(s1, 460, 52, "What the trumpet passes on while the head moves", "Processed channel, head moving", B(15, C.ink));
+ const lift = V("actuator_lift_processed_illustrative"), over = V("motion_over_speech_processed_illustrative"), PX = 18;
+ el("rect", {x: 460, y: 74, width: lift * PX, height: 30, rx: 6, fill: C.coralT, stroke: C.coralD, "stroke-width": 2.5, class: "grow st-at", "data-s": "1"}, s);
+ dual(s1, 470, 95, "the host's own clatter", "actuator noise", B(13, C.coralD)); tx(s1, 470 + lift * PX, 95, `+${lift} dB`, B(13, C.coralD));
+ el("rect", {x: 460, y: 120, width: (lift - over) * PX, height: 30, rx: 6, fill: C.plumT, stroke: C.plumD, "stroke-width": 2.5, class: "grow st-at", "data-s": "1", style: "transition-delay:.3s"}, s);
+ s.appendChild(s1);
+ dual(s1, 470, 141, "a guest talking nearby", "a nearby talker", B(13, C.plumD)); tx(s1, 470 + (lift - over) * PX, 141, `${over} dB quieter`, B(13, C.plumD));
+ dual(s1, 460, 186, "No feedback canceller removes it:", "AEC cannot remove it:", B(14, C.ink)); dual(s1, 460, 206, "the clogs send no copy of their sound.", "motors have no reference signal.", R(14, C.ink));
+ // step 2: noise becomes words; the host stops mid-sentence
+ say(el("g", {class: "st-at", "data-s": "2"}, s), 30, 18, 210, 34, "Roses are my fav—", "host", null);
+ tx(el("g", {class: "st-at", "data-s": "2"}, s), 30, 72, "stops mid-sentence", B(13, C.coralD));
+ const s2 = el("g", {class: "st-at", "data-s": "2"}, s), [nw, nn] = V("noise_only_transcripts_illustrative");
+ dual(s2, 460, 52, "Clatter only, sent to a transcriber:", "Noise-only clips → transcription model:", B(15, C.ink));
+ for (let i = 0; i < nn; i++) { const x = 460 + i * 100; el("rect", Object.assign({x, y: 72, width: 84, height: 62, rx: 6, fill: C.card}, OL), s2);
+  for (let j = 0; j < 3; j++) line(s2, `M${x + 12} ${90 + j * 14} q10 -6 20 0 t20 0 t${12 + (i * 5 + j * 7) % 14} 0`, C.ink2, 2); }
+ dual(s2, 460, 166, `${nw} of ${nn} came back as words`, `${nw} of ${nn} returned text`, B(16, C.coralD));
+ dual(s2, 460, 190, "so the host thinks a guest cut in.", "a phantom barge-in.", R(14, C.ink));
+ // step 3: the vowel check
+ const s3 = el("g", {class: "st-at", "data-s": "3"}, s), CX0 = 470, CX1 = 950, MAX = 12, cx = d => CX0 + (CX1 - CX0) * d / MAX, AY = 280;
+ bubble(s3, 460, 30, 500, 32, C.sunT, C.coralD);
+ dual(s3, 710, 52, `and one more rule: ignore the first ${V("guard_onset_grace_illustrative")} s after I start talking`, `+ onset grace: reject onsets within ${V("guard_onset_grace_illustrative")} s of robot speech`, B(13, C.coralD, MID));
+ dual(s3, 460, 96, "The vowel check: does the best short window sound like a voice?", "Spectral guard: max over sub-windows of speech-band ÷ rumble-band", B(14, C.ink));
+ line(s3, `M${CX0} ${AY} H${CX1}`, NAVY, 2);
+ [0, V("guard_phantom_max_illustrative"), V("guard_threshold_illustrative"), V("guard_real_min_illustrative"), MAX].forEach(d => { line(s3, `M${cx(d)} ${AY} v6`, NAVY, 2); tx(s3, cx(d), AY + 22, d + " dB", R(12, C.ink2, MID)); });
+ const pm = V("guard_phantom_max_illustrative"), rm = V("guard_real_min_illustrative");
+ [0.3, 0.55, 0.75, 1].forEach((f, i) => el("circle", {cx: cx(pm * f), cy: 236 - (i % 2) * 18, r: 9, fill: C.coral, stroke: NAVY, "stroke-width": 2}, s3));
+ [0, 0.25, 0.45, 0.7].forEach((f, i) => el("circle", {cx: cx(rm + (MAX - 0.5 - rm) * f), cy: 236 - (i % 2) * 18, r: 9, fill: C.plum, stroke: NAVY, "stroke-width": 2}, s3));
+ dual(s3, cx(pm / 2), 192, `clatter: up to ${pm} dB`, `motor onsets ≤ ${pm} dB`, B(13, C.coralD, MID));
+ dual(s3, cx((rm + MAX) / 2), 192, `voices: from ${rm} dB`, `real onsets ≥ ${rm} dB`, B(13, C.plumD, MID));
+ line(s3, `M${cx(V("guard_threshold_illustrative"))} 132 V${AY}`, NAVY, 2.5, {"stroke-dasharray": "6 4"});
+ tx(s3, cx(V("guard_threshold_illustrative")) + 6, 150, `line at ${V("guard_threshold_illustrative")} dB`, B(12, C.ink));
+})();
+
+/* ---------------- SCENE 6b: the onset grace meets the short greeting ---------------- */
+(() => {
+ const s = svgOf("s-grace"), X0 = 170, X1 = 760, SPAN = 3, X = t => X0 + (X1 - X0) * t / SPAN;
+ const G = V("proactive_greeting_illustrative"), GR = V("guard_onset_grace_illustrative"), RA = +COMP.replyAt, RE = RA + 0.8;  // reply length: schematic
+ const L = {host: 54, grace: 104, guest: 154, ear: 204};
+ const base = el("g", {"data-s": "0"}, s);
+ [["host", "host speaks", "robot speech"], ["grace", "“ignore” window", "onset grace"], ["guest", "the guest", "visitor speech"], ["ear", "ear trumpet", "listening"]]
+  .forEach(([k, a, e]) => { dual(base, X0 - 14, L[k] + 20, a, e, B(13, C.ink, END)); el("line", {x1: X0, y1: L[k] + 15, x2: X1, y2: L[k] + 15, stroke: C.line, "stroke-width": 1.5, "stroke-dasharray": "4 6"}, base); });
+ line(base, `M${X0} 248 H${X1}`, NAVY, 2);
+ for (let t = 0; t <= SPAN; t += 0.5) { line(base, `M${X(t)} 248 v6`, NAVY, 2); tx(base, X(t), 270, t + " s", R(12, C.ink2, MID)); }
+ tx(base, X1, 292, "reply length is schematic", R(11, C.ink2, END));
+ el("rect", {x: X(0), y: L.host, width: X(G) - X(0), height: 30, rx: 7, fill: C.sun, stroke: NAVY, "stroke-width": 2}, base);
+ tx(base, (X(0) + X(G)) / 2, L.host + 20, "“Hello there!”", B(13, C.ink, MID));
+ el("rect", {x: X(0), y: L.grace, width: X(GR) - X(0), height: 30, rx: 7, fill: "url(#hatch-c)", stroke: C.coralD, "stroke-width": 2, class: "st-at", "data-s": "1 2 3"}, s);
+ tx(el("g", {class: "st-at", "data-s": "1 2 3"}, s), X(GR) + 8, L.grace + 20, `${GR} s`, B(13, C.coralD));
+ const off = el("g", {class: "st-at", "data-s": "4"}, s);
+ el("rect", {x: X(0), y: L.grace, width: X(GR) - X(0), height: 30, rx: 7, fill: "none", stroke: C.stone, "stroke-width": 2, "stroke-dasharray": "6 4"}, off);
+ tx(off, (X(0) + X(GR)) / 2, L.grace + 20, "off by default", B(13, C.stoneD, MID));
+ el("rect", {x: X(RA), y: L.guest, width: X(RE) - X(RA), height: 30, rx: 7, fill: C.plumT, stroke: C.plumD, "stroke-width": 2.5}, base);
+ tx(base, (X(RA) + X(RE)) / 2, L.guest + 20, "“Hi!”", B(13, C.plumD, MID));
+ const gap = el("g", {"data-s": "1"}, s);
+ line(gap, `M${X(G)} ${L.host + 34} V${L.guest + 15}`, C.plumD, 1.5, {"stroke-dasharray": "3 3"});
+ tx(gap, X(G) - 6, L.guest + 20, `${V("turn_gap_typical")} ms later →`, B(12, C.plumD, END));
+ // steps 1-2: the trumpet is up; step 2 the reply is thrown away
+ el("rect", {x: X(0), y: L.ear, width: X(RE) - X(0), height: 30, rx: 7, fill: C.sky, stroke: NAVY, "stroke-width": 2, class: "st-at", "data-s": "1 2 3"}, s);
+ const rej = el("g", {class: "st-at", "data-s": "2 3"}, s);
+ line(rej, `M${X(RA) + 6} ${L.guest + 4} L${X(RE) - 6} ${L.guest + 26} M${X(RE) - 6} ${L.guest + 4} L${X(RA) + 6} ${L.guest + 26}`, C.coralD, 4);
+ dual(rej, X(RE) + 10, L.guest + 20, `starts at ${RA} s: thrown away`, `onset at ${RA} s < ${GR} s: rejected`, B(13, C.coralD));
+ // step 3: no answer arrives, the host goes idle, the guest walks on
+ const s3 = el("g", {class: "st-at", "data-s": "3"}, s);
+ el("rect", {x: X(RE), y: L.ear, width: X1 - X(RE), height: 30, rx: 7, fill: "url(#hatch)", stroke: C.stone, "stroke-width": 2}, s3);
+ dual(s3, X1 + 10, L.ear + 12, "idle: the trumpet drops,", "idle: no listening,", B(13, C.ink)); dual(s3, X1 + 10, L.ear + 29, "the guest walks on", "the visit is over", B(13, C.ink));
+ dual(s3, X(G) + 12, L.host + 20, "waits for an answer it threw away", "model holds an unanswered greeting", B(13, C.coralD));
+ // step 4: the default flipped off: the reply is heard and answered
+ const s4 = el("g", {class: "st-at", "data-s": "4"}, s);
+ el("rect", {x: X(0), y: L.ear, width: X1 - X(0), height: 30, rx: 7, fill: C.sky, stroke: NAVY, "stroke-width": 2}, s4);
+ mark(s4, X(RE) + 18, L.guest + 22, true, 20); dual(s4, X(RE) + 34, L.guest + 20, "heard", "accepted", B(13, C.leafD));
+ el("rect", {x: X(RE + 0.2), y: L.host, width: X(SPAN) - X(RE + 0.2), height: 30, rx: 7, fill: C.sun, stroke: NAVY, "stroke-width": 2}, s4);
+ tx(s4, X1 + 10, L.host + 20, "the host answers", B(13, C.ink));
+})();
+
+/* ---------------- SCENE 7: the rungs (flip cards) ---------------- */
+(() => {
+ const box = document.getElementById("cards");
+ const R7 = [
+  {k: "Full voice", e: "Rung 1: full voice", pic: "full", see: "Greeted, chats, gets the flower.", run: "The show acts first, consent by answering, an open microphone, full duplex.", when: "The default."},
+  {k: "A quieter host", e: "Rung 2: constrained voice", pic: "quiet", see: "A slightly quieter host.", run: "A short listening window and terser, canned-leaning replies.", when: "Automatically, on a rolling recognition-confidence or noise signal."},
+  {k: "No words needed", e: "Rung 3: no voice", pic: "none", see: "Greeted, invited: “reach out and grab one.”", run: "The robot speaks and gestures; the gift needs no microphone.", when: "Room too loud, wake word failing, or the guest cannot or will not speak."},
+  {k: "The hidden gardener", e: "Rung 4: operator-driven (Wizard of Oz)", pic: "oz", see: "Looks the same.", run: "A hidden operator triggers each step; lines are scripted. “The floor, not a prototype.”", when: "Any time, and as the first milestone."},
+  {k: "The “back soon” sign", e: "L3: the curtain", pic: "sign", see: "Lights go to “back soon”; a curtain drops.", run: "The emergency stop stays in firmware; the curtain comes after it, and an operator is paged.", when: "A fall, an emergency stop, the stack down, or repeated graceful closes."}];
+ R7.forEach((r, i) => {
+  const b = document.createElement("button"); b.className = "st-card"; b.setAttribute("aria-label", `${r.e}: flip for what the guest sees`);
+  b.innerHTML = `<span class="in"><span class="face front"><svg viewBox="0 0 240 130" role="img" aria-label="${r.k}"></svg><b class="ct"><span class="lbl-k">${r.k}</span><span class="lbl-e">${r.e}</span></b><span style="font-size:14px;color:var(--ink-2)">${i < 4 ? "the flower still arrives ✓" : "the fault ends out of sight"}</span><span class="hint">tap to flip</span></span>
+   <span class="face back"><dl><dt>The guest sees</dt><dd>${r.see}</dd><dt>Really runs</dt><dd>${r.run}</dd><dt>Entered when</dt><dd>${r.when}</dd></dl><span class="hint">tap to flip back</span></span></span>`;
+  box.appendChild(b);
+  const s = b.querySelector("svg");
+  el("rect", {x: 0, y: 0, width: 240, height: 130, rx: 12, fill: C.lawn}, s); el("rect", {x: 0, y: 104, width: 240, height: 26, fill: C.gravel}, s);
+  if (r.pic === "sign") { use(s, "i-hedge", 10, 60, 90, 56); use(s, "i-hedge", 140, 60, 90, 56); use(s, "i-sign", 70, 30, 100, 75); return; }
+  use(s, "i-host", 130, 26, 54, 90); guest(s, 40, 44, 38, i); use(s, "i-basket", 192, 62, 44, 41);
+  if (r.pic === "full") { trumpet(s, 144, 64, 30, true, 34); say(s, 6, 6, 84, 26, "Roses!", "guest", null, {size: 12}); say(s, 150, 2, 86, 26, "Me too!", "host", null, {size: 12}); }
+  if (r.pic === "quiet") { trumpet(s, 144, 64, 30, true, 34); say(s, 150, 2, 60, 26, "Nice!", "host", null, {size: 12}); }
+  if (r.pic === "none") { trumpet(s, 146, 92, -75, true, 30); say(s, 92, 2, 144, 26, "Grab one!", "host", null, {size: 12}); use(s, "i-flower", 84, 58, 14, 28); }
+  if (r.pic === "oz") { use(s, "i-hedge", 0, 74, 60, 38); use(s, "i-gardener", 4, 20, 40, 60); use(s, "i-hedge", 0, 84, 70, 44); guest(s, 74, 44, 38, i); say(s, 150, 2, 86, 26, "A flower?", "host", null, {size: 12}); }
+ });
+})();
+
+/* ---------------- sources table ---------------- */
+(() => { const tb = document.querySelector("#src tbody");
+ const show = v => Array.isArray(v) ? v.join(", ") : typeof v === "object" ? Object.entries(v).map(([a, b]) => `${a} ${b}`).join("; ") : fmt(v);
+ for (const [k, o] of Object.entries(P)) { if (k.startsWith("_")) continue;
+  const tr = document.createElement("tr"); tr.innerHTML = `<td><code>${k}</code></td><td>${show(o.value)} ${o.unit}</td><td><span class="tag ${o.class === "public" ? "pub" : "ill"}">${o.class}</span></td><td>${o.source}</td>`; tb.appendChild(tr); } })();
+
+/* ---------------- fill {{key}}, {{key/sub}}, {{key%}}, {{@computed}} in text and attributes ---------------- */
+(() => {
+ const rep = str => str.replace(/\{\{(@?)([\w\-]+)((?:\/[^}\/%]+)*)(%?)\}\}/g, (m, at, k, path, pct) => {
+  if (at) { if (!(k in COMP)) { console.error("missing computed " + k); return m; } return COMP[k]; }
+  const v = V(k + path); if (v === undefined || (typeof v === "number" && isNaN(v))) return m;
+  return pct ? Math.round(v * 100) + " %" : fmt(v); });
+ const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, {acceptNode: n => n.parentNode && /^(SCRIPT|STYLE)$/.test(n.parentNode.nodeName) ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT});
+ for (let n; (n = w.nextNode());) if (n.nodeValue.includes("{{")) n.nodeValue = rep(n.nodeValue);
+ for (const a of ["data-why", "aria-label"]) document.querySelectorAll(`[${a}*="{{"]`).forEach(e => e.setAttribute(a, rep(e.getAttribute(a))));
+ // slider defaults come from the params, not from the markup
+ document.getElementById("gC").value = V("beat_converse_illustrative"); document.getElementById("gR").value = V("reset_turnover_illustrative");
+})();
+</script>
+<script src="../../stories/story.js"></script>
+<script>
+/* ?view=eng: keep the switch's pressed state in step with the labels */
+if (document.body.classList.contains("view-eng")) document.querySelectorAll("[data-view-switch] [data-view]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.view === "eng")));
+
+/* ---------------- LIVE: the hourglass sets the queue ---------------- */
+(() => {
+ const s = document.getElementById("glass"), root = document.getElementById("glass-live"), out = document.getElementById("glass-read");
+ const X0 = 60, PX = 4, X = t => X0 + PX * t;
+ const COL = [[C.sun, "greet", "greet"], [C.sky, "reply", "reply window"], [C.plum, "talk", "converse"], [C.leaf, "flower", "offer"], [C.sunT, "cheer", "celebrate"], [C.stoneT, "bye", "goodbye"]];
+ const base = V("throughput_realistic_illustrative");
+ Story.bind(root, glassModel, o => {
+  document.getElementById("gC-v").textContent = o.b[2] + " s"; document.getElementById("gR-v").textContent = o.reset + " s";
+  s.textContent = "";
+  dual(s, X0, 28, "One cycle at the gate (the hourglass)", "One cycle: beats + reset", B(15, C.ink));
+  let t = 0;
+  o.b.forEach((d, i) => { el("rect", {x: X(t), y: 44, width: PX * d, height: 40, fill: COL[i][0], stroke: NAVY, "stroke-width": 2}, s);
+   if (PX * d >= 34) dual(s, X(t) + PX * d / 2, 69, COL[i][1], COL[i][2], B(PX * d >= 60 ? 12 : 10, C.ink, MID));
+   tx(s, X(t) + PX * d / 2, 100, d + "", R(11, C.ink2, MID)); t += d; });
+  el("rect", {x: X(t), y: 44, width: PX * o.reset || 0.5, height: 40, fill: "url(#hatch)", stroke: NAVY, "stroke-width": 2}, s);
+  if (PX * o.reset >= 40) dual(s, X(t) + PX * o.reset / 2, 69, "reset", "reset", B(12, C.ink, MID));
+  tx(s, X(t) + PX * o.reset / 2, 100, o.reset + "", R(11, C.ink2, MID));
+  const cap = V("interaction_cap_illustrative");
+  line(s, `M${X(cap)} 36 V92`, C.coralD, 2.5, {"stroke-dasharray": "5 4"});
+  tx(s, X(cap) + 6, 40, `chatty cap ${cap} s`, B(11, C.coralD));
+  tx(s, X(o.cycle) + 8, 70, `${o.cycle} s`, B(14, C.ink));
+  dual(s, X0, 130, "Guests welcomed per hour", "Visitors per hour", B(15, C.ink));
+  const theo = Math.floor(o.theo), real = Math.round(o.real), N = 72;
+  for (let i = 0; i < N; i++) { const x = X0 + (i % 36) * 24, y = 144 + Math.floor(i / 36) * 52;
+   if (i < real) guest(s, x, y, 18, i % 4);
+   else el("path", {d: `M${x + 3} ${y + 32} V${y + 22} a6 6 0 0 1 12 0 V${y + 32} Z M${x + 9} ${y + 13} m-5 0 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0`, fill: "none", stroke: i < theo ? C.ink2 : C.line, "stroke-width": 1.5, "stroke-dasharray": i < theo ? "" : "2 3"}, s); }
+  tx(s, X0, 268, `filled: about ${real} with queue friction · outlined: ${theo} in theory`, R(13, C.ink2));
+  const d = real - base;
+  out.innerHTML = `Dwell <b>${o.dwell} s</b> + reset <b>${o.reset} s</b> = cycle <b>${o.cycle} s</b> → <b>${o.theo.toFixed(1)}</b> guests per hour in theory, about <b>${real}</b> after friction, about <b>${real * V("show_day_illustrative")}</b> in a ${V("show_day_illustrative")} h day. ` +
+   (d === 0 ? "That is the kit's budget." : d > 0 ? `<span class="ok">${d} more per hour than the kit's budget.</span>` : `<span class="no">${-d} fewer per hour than the kit's budget.</span>`) +
+   (o.overCap ? ` <span class="no">The visit is past the ${cap} s chatty cap: the cap ends it.</span>` : "");
+ });
+})();
+</script>
+</body>
+</html>

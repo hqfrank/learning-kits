@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A green simulation run proves the kernel rules, not the robot: conformance coverage explorer</title>
+<style>
+/*CSS-START*/
+  :root{
+    --bg:#0f1115; --panel:#1a1d24; --ink:#eef1f6; --muted:#aeb6c4;
+    --accent:#5ec8ff; --ok:#49d17a; --bad:#ff7a7a; --line:#3a3f4a;
+    --warn:#ffd36b; --phone:#c9a0ff; --cloud:#5ec8ff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+  header{padding:18px 22px;border-bottom:1px solid var(--line)}
+  h1{font-size:19px;margin:0 0 4px}
+  h2{font-size:15px;margin:0 0 8px}
+  .sub{color:var(--muted);max-width:78ch;margin:4px 0}
+  .banner{border-left:3px solid var(--warn);padding:6px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0;max-width:78ch;font-size:13.5px}
+  main{display:grid;grid-template-columns:340px 1fr;gap:18px;padding:18px 22px}
+  main>*{min-width:0}
+  @media(max-width:860px){main{grid-template-columns:1fr;padding:12px}}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+  .ctrl{margin:0 0 14px}
+  label,.lbl{display:block;font-weight:600;margin-bottom:4px}
+  .val{color:var(--accent);font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%}
+  select{width:100%;background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px}
+  .hint{color:var(--muted);font-size:12.5px;margin-top:2px}
+  .cases{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  button{background:#12151c;color:var(--ink);border:1px solid var(--line);border-radius:6px;padding:5px 9px;font:inherit;font-size:13px;cursor:pointer}
+  button[aria-pressed=true]{border-color:var(--accent);color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+  .radio{display:flex;gap:14px;flex-wrap:wrap}
+  .radio label{font-weight:400;display:inline-flex;gap:5px;align-items:center}
+  .headline{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .metric{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:8px 11px;min-width:120px;flex:1 1 140px}
+  .metric .k{color:var(--muted);font-size:12px}
+  .metric .v{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+  .tag{font-size:11px;padding:1px 6px;border-radius:4px;border:1px solid var(--line);color:var(--muted);margin-left:6px;vertical-align:middle;white-space:nowrap}
+  .tag.ill{color:var(--warn);border-color:var(--warn)}
+  .tag.pub{color:var(--ok);border-color:var(--ok)}
+  .tag.der{color:var(--accent);border-color:var(--accent)}
+  .tag.est{color:var(--phone);border-color:var(--phone)}
+  svg{width:100%;height:auto;display:block;background:#12151c;border-radius:8px;border:1px solid var(--line)}
+  svg text:not([fill]){fill:var(--ink)}
+  .why{margin-top:14px;background:#12151c;border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+  .why h3{margin:0 0 6px;font-size:14px}
+  .callout{border-left:3px solid var(--warn);padding:8px 12px;margin-top:10px;background:#1c1a12;color:#f3e6c0;border-radius:0 8px 8px 0}
+  .tablewrap{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;font-size:12.5px;margin-top:8px}
+  th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+  th{color:var(--muted);font-weight:600}
+  #sources td:first-child code{overflow-wrap:normal;white-space:nowrap}
+  footer{color:var(--muted);font-size:12px;padding:14px 22px;border-top:1px solid var(--line)}
+  code{background:#12151c;padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+  a{color:var(--accent)}
+  .sources{margin:0 22px 18px}
+  @media(max-width:860px){.sources{margin:0 12px 12px}}
+  @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  .cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin-top:12px}
+  .box{background:#12151c;border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:13px;min-width:0}
+  .box h4{margin:0 0 5px;font-size:12.5px;color:var(--muted);font-weight:600}
+  .box dl{display:grid;grid-template-columns:auto 1fr;gap:1px 8px;margin:0}
+  .box dt{color:var(--muted)} .box dd{margin:0;overflow-wrap:anywhere}
+  .box ul{margin:0;padding-left:18px}
+  tr.cur td{background:#20263a}
+  .okc{color:var(--ok)} .badc{color:var(--bad)} .warnc{color:var(--warn)} .mutc{color:var(--muted)}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  .row select{width:auto;flex:1 1 120px}
+  .checks label{font-weight:400;display:flex;gap:6px;align-items:flex-start;margin:3px 0}
+  #log td:first-child,#log th:first-child{white-space:nowrap}
+  #rules td:first-child,#rules td:last-child{white-space:nowrap}
+  #rules td:nth-child(4){white-space:nowrap}
+/*CSS-END*/
+</style>
+</head>
+<body>
+<header>
+  <h1>A green simulation run proves the kernel rules, not the robot: the gap is named, not hidden</h1>
+  <p class="sub">Every experience climbs the same ladder: the kernel conformance suite, its own experience suite, simulation
+  acceptance, then, separately, physical acceptance on the robot (C2). Each rule below is exercised by one or more rungs. Switch rungs
+  off, restrict the scope to the simulation target, drop the negative tests, or take the cloud away, and see which rules stay proven,
+  which milestone you may claim, and what remains a gap. "Done" must always name its milestone (C2).</p>
+  <p class="banner">A page judgement, not a measurement. The rules, rungs and milestones are read from notes B4, C1, C2 and C3; which
+  rung exercises which rule follows those notes, and every row cites its note. Where a row is my reading rather than a statement in the
+  notes, the row says so. There are no numbers to measure here; the only counts are the page's own.</p>
+</header>
+
+<main>
+  <section class="panel" aria-label="Controls">
+    <span class="lbl" id="cases-l">Preloaded cases</span>
+    <div class="cases" id="cases" role="group" aria-labelledby="cases-l"></div>
+    <div class="ctrl">
+      <label for="scope">Targets in scope</label>
+      <select id="scope"><option value="sim">simulation target only</option><option value="both">simulation and physical targets</option></select>
+      <div class="hint">On the simulation target there are no cloud credentials, no network egress and no hardware for the simulation milestone (C2).</div>
+    </div>
+    <div class="ctrl checks" id="suites_box">
+      <span class="lbl">Rungs that run</span>
+      <div id="suites"></div>
+    </div>
+    <div class="ctrl checks">
+      <span class="lbl">Evidence quality</span>
+      <label><input type="checkbox" id="neg"> each safety, authority and cleanup invariant has a negative test that fails when the rule is broken</label>
+      <label><input type="checkbox" id="cloud"> the cloud model is reachable (needed only by the live-chat gate)</label>
+    </div>
+    <p class="hint" id="live" role="status" aria-live="polite"></p>
+  </section>
+
+  <section class="panel" aria-label="Outputs" id="out">
+    <div class="headline" id="headline"></div>
+    <svg id="pic" viewBox="0 0 720 600" role="img" aria-labelledby="pic-t"><title id="pic-t">Which rung exercises which rule</title></svg>
+    <div class="why">
+      <h3>What you may claim</h3>
+      <p id="why_text"></p>
+      <div class="callout" id="callout"></div>
+    </div>
+    <h2 style="margin-top:14px">Rules and their sources</h2>
+    <div class="tablewrap"><table id="rules"><thead><tr><th>#</th><th>Rule</th><th>Exercised by</th><th>Status now</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+  </section>
+</main>
+
+<section class="panel sources" aria-label="Sources">
+  <h2>Parameters and sources</h2>
+  <p class="hint">This page has no numeric constants. The params block (also shipped as <code>params.json</code>) records the size of
+  the page's rule matrix; each row of the matrix carries its own source above. <span class="tag ill">illustrative</span> = a page
+  judgement, never a measurement; <span class="tag der">derived</span> = counted by this page.</p>
+  <p class="hint" id="tests-sum"></p>
+  <div class="tablewrap"><table id="sources"><thead><tr><th>Key</th><th>Value</th><th>Class</th><th>Source</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<footer>
+  Generated 2026-11-14 · Study aid for <em>hri-experience-platform</em> (rung 3). Sources: notes B4, C1, C2, C3 of this kit; Pact
+  documentation (consumer-driven contract tests); North, "Introducing BDD" (2006). This is a study aid.
+</footer>
+
+<script type="application/json" id="params" data-keys="page_rules_04">
+{
+ "page_rules_04": {
+  "value": {
+   "rules": 32,
+   "suites": 6
+  },
+  "unit": "rows, columns",
+  "class": "illustrative",
+  "source": "page judgement (not in constants.json): which rung of the ladder exercises which rule, read from notes B4, C1, C2, C3; every row of the matrix cites its note"
+ }
+}
+</script>
+
+<script>
+/*MODEL-START*/
+const MODEL = (function(){
+  "use strict";
+  const SUITES = {
+    K: {name: "kernel conformance suite", short: ["kernel", "suite"], target: "sim"},
+    E: {name: "experience suite", short: ["experience", "suite"], target: "sim"},
+    S: {name: "simulation acceptance", short: ["sim", "acceptance"], target: "sim"},
+    L: {name: "live-chat gate", short: ["live-chat", "gate"], target: "sim", cloud: true},
+    P: {name: "physical acceptance (hardware-in-the-loop)", short: ["physical", "(HIL)"], target: "physical"},
+    R: {name: "representative acceptance (live human)", short: ["live", "human"], target: "row"},
+  };
+  // where: sim (provable on the simulation target), physical (needs the robot), either, outside (no rung covers it).
+  // ms: the milestone the rule belongs to (sim, live, xt) or null. neg: an invariant that needs a failing negative test.
+  const r = (label, text, by, where, ms, neg, src) => ({label, text, by, where, ms, neg, src});
+  const RULES = [
+    r("deterministic replay", "Identical inputs under the replay clock give identical state encodings, invocation sequences and evidence digests", ["K"], "sim", "sim", false, "C2"),
+    r("safety preempts from every local state", "Safety preemption from every local state of every registered experience", ["K"], "sim", "sim", true, "B4, C2"),
+    r("departure enters common cleanup", "Participant departure enters common cleanup", ["K"], "sim", "sim", true, "C2"),
+    r("stale inputs rejected", "Stale session, generation, command and timestamp rejection at admission", ["K"], "sim", "sim", true, "B4, C2"),
+    r("no raw adapter or middleware access", "No raw adapter or middleware access from experience code (source fence)", ["K"], "sim", "sim", true, "C2"),
+    r("allowlists and reserved policy", "Effect and primitive allowlist enforcement, and reserved-policy refusal", ["K"], "sim", "sim", true, "B1, C2"),
+    r("commit before dispatch", "Materialisation before dispatch, and cleanup acknowledgement before new admission", ["K"], "sim", "sim", true, "B3, C2"),
+    r("no retained authority across sessions", "Back-to-back sessions without retained authority", ["K"], "sim", "sim", true, "C2"),
+    r("bounded timers, queues, retries", "Bounded timers, queues, retries and diagnostics", ["K"], "sim", "sim", true, "C2"),
+    r("resource-claim matrix", "Two physical actions never admitted together; audio-out conflict refused; exclusive head refused while gaze is active; both acquisition orders", ["K", "S"], "sim", "sim", true, "B3, C2"),
+    r("stuck cancel → forced cleanup → recovery", "A stuck cancellation enters forced cleanup, keeps every claim, and reaches recovery when quiescence never arrives", ["K"], "sim", "sim", true, "B3, C2"),
+    r("lease expiry is not quiescence", "Lease expiry never counts as quiescence", ["K"], "sim", "sim", true, "B3, C2"),
+    r("reasoner profile has no tools", "Readiness fails if the reasoner profile has tools, context, abilities or camera egress", ["K"], "sim", "sim", true, "B6, C2"),
+    r("non-participant gesture rejected", "A gesture from a track that is not the participant is rejected", ["K"], "sim", "sim", true, "B2, C2"),
+    r("transition matrix", "Transition-matrix tests for each experience", ["E"], "sim", "sim", false, "C2"),
+    r("policy validation", "Policy validation tests", ["E"], "sim", "sim", false, "C2"),
+    r("happy and bounded-failure replay", "Happy-path and bounded-failure replay scenarios", ["E"], "sim", "sim", false, "C2"),
+    r("capability degradation", "Capability-degradation scenarios", ["E"], "sim", "sim", false, "B5, C2"),
+    r("command and cancellation traces", "Expected command and cancellation traces", ["E"], "sim", "sim", false, "C2"),
+    r("projection", "Projection tests (the story projector's display values)", ["E"], "sim", "sim", false, "B1, C2"),
+    r("three contract kinds, every path", "All three primitive contract kinds invoked through success, cancellation and failure by the contract-smoke experience", ["S"], "sim", "sim", false, "C2"),
+    r("one new input through the catalog", "One new input added through the input catalog", ["S"], "sim", "sim", false, "B5, C2"),
+    r("showcase overlap scenario", "Gaze, brokered speech over gaze, positive gaze clear, speech over a wave, wave completion, gaze reacquired, cleanup with no retained claim", ["S"], "sim", "sim", false, "C2"),
+    r("clean second browser session", "Per experience, a clean second browser session back to back with the first", ["S"], "sim", "sim", false, "C1, C2"),
+    r("live conversation, real model", "Live conversation through the real model on the simulation target", ["L"], "sim", "live", false, "C2"),
+    r("equivalent evidence across targets", "Physical adapters and producers give evidence equivalent under the cross-target comparator", ["P"], "physical", "xt", false, "C2, C3"),
+    r("contact force, grasp hardware", "Contact force and hardware safety of a grasp (simulated grasp evidence validates logic only); my reading: physical acceptance is the rung, the notes do not list this check", ["P"], "physical", null, false, "C1"),
+    r("perception quality", "Perception quality on the robot's own sensors (browser depth is an estimate)", ["R"], "physical", null, false, "C1"),
+    r("conversation quality, social timing", "Conversation quality and social timing need a live human run, never a CI test", ["R"], "either", null, false, "C1"),
+    r("manipulation fidelity", "Manipulation fidelity", ["R"], "physical", null, false, "C1"),
+    r("hardware emergency stop", "The guaranteed stop is a hardware relay; no software state is load-bearing for the safety case", [], "outside", null, false, "B4"),
+    r("security for public exposure", "Trusted-network security for the simulation is not sufficient for public exposure; no rung of the ladder covers it", [], "outside", null, false, "C1"),
+  ];
+  const RANK = {proven: 4, "positive only": 3, blocked: 2, off: 1, none: 0};
+  // Coverage of one rule under the current switches x = {scope, on: {K..R}, neg, cloud}.
+  function cell_C2(rule, s, x){
+    const S = SUITES[s];
+    if (!x.on[s]) return "off";
+    const needRobot = S.target === "physical" || (S.target === "row" && rule.where === "physical");
+    if (needRobot && x.scope !== "both") return "blocked";
+    if (S.cloud && !x.cloud) return "blocked";
+    if (rule.neg && !x.neg) return "positive only";
+    return "proven";
+  }
+  function coverage_C2(x){
+    const rows = RULES.map((rule, i) => {
+      const cells = {}; for (const s of Object.keys(SUITES)) cells[s] = rule.by.includes(s) ? cell_C2(rule, s, x) : null;
+      let status = rule.where === "outside" ? "outside the ladder" : "none";
+      for (const s of rule.by) if (RANK[cells[s]] > (RANK[status] || 0)) status = cells[s];
+      if (status === "blocked" || status === "off" || status === "none") status = rule.where === "physical" && x.scope !== "both" ? "needs the robot" : "not exercised";
+      return {i: i + 1, rule, cells, status};
+    });
+    const proven = rows.filter(r => r.status === "proven").length;
+    const simMs = rows.filter(r => r.rule.ms === "sim").every(r => r.status === "proven");
+    const live = rows.filter(r => r.rule.ms === "live").every(r => r.status === "proven");
+    const xt = simMs && x.scope === "both" && rows.filter(r => r.rule.ms === "xt").every(r => r.status === "proven");
+    const gaps = rows.filter(r => r.status !== "proven");
+    return {rows, proven, simMs, live, xt, gaps, posOnly: rows.filter(r => r.status === "positive only").length};
+  }
+  const ALL = () => ({K: true, E: true, S: true, L: true, P: true, R: true});
+  function cases(){
+    const d = {scope: "sim", on: ALL(), neg: true, cloud: true};
+    const c = o => Object.assign({}, d, o, {on: Object.assign(ALL(), o.on || {})});
+    return [
+      {name: "Simulation milestone", x: c({})},
+      {name: "Positive tests only", x: c({neg: false})},
+      {name: "Cloud outage", x: c({cloud: false})},
+      {name: "Skip the kernel suite", x: c({on: {K: false}})},
+      {name: "Simulation and physical", x: c({scope: "both"})},
+      {name: "Robot runs without the simulation rungs", x: c({scope: "both", on: {K: false, E: false, S: false}})},
+    ];
+  }
+  function sweep(){
+    const out = [], ks = Object.keys(SUITES);
+    for (let m = 0; m < (1 << ks.length); m++) for (const scope of ["sim", "both"]) for (const neg of [false, true]) for (const cloud of [false, true]){
+      const on = {}; ks.forEach((k, j) => on[k] = !!(m & (1 << j)));
+      const c = coverage_C2({scope, on, neg, cloud});
+      out.push({p: c.proven, g: c.gaps.length, q: c.posOnly, sum: c.proven + c.gaps.length});
+    }
+    return out;
+  }
+  function selfTest(P, assert){
+    let passed = 0, failed = 0;
+    const t = (c, m) => { assert(c, m); if (c) passed++; else failed++; };
+    t(RULES.length === P.page_rules_04.value.rules && Object.keys(SUITES).length === P.page_rules_04.value.suites, "matrix size matches the params block");
+    t(RULES.every(r => r.src && (r.by.length > 0 || r.where === "outside")), "every rule cites a note and is exercised by a rung or marked outside the ladder");
+    const C = cases(), cov = i => coverage_C2(C[i].x);
+    let c = cov(0);
+    t(c.simMs && c.live && !c.xt, "simulation scope, all rungs: simulation milestone and live-chat gate, no cross-target milestone");
+    t(c.gaps.length === 6 && c.gaps.filter(g => g.status === "needs the robot").length === 4, "the gap is 4 rules that need the robot plus 2 outside the ladder (C1, B4)");
+    t(c.rows.find(r => /conversation quality/.test(r.rule.label)).status === "proven", "a live human run in the browser covers conversation quality in simulation scope (my reading of C1)");
+    c = cov(1);
+    t(!c.simMs && c.posOnly === RULES.filter(r => r.neg).length, "without negative tests every invariant is positive only, and the simulation milestone fails (C2)");
+    c = cov(2);
+    t(c.simMs && !c.live, "a cloud outage blocks the live-chat gate but not the offline simulation milestone (C2)");
+    c = cov(3);
+    t(!c.simMs, "skipping the kernel suite loses the simulation milestone");
+    c = cov(4);
+    t(c.simMs && c.xt && c.gaps.length === 2 && c.gaps.every(g => g.status === "outside the ladder"), "both targets, all rungs: cross-target milestone; only the two outside rules remain");
+    c = cov(5);
+    t(!c.xt && c.rows.find(r => r.rule.ms === "xt").status === "proven", "physical acceptance alone does not give the cross-target milestone: it needs the simulation milestone too");
+    t(sweep().every(s => s.sum === RULES.length), "every rule is either proven or listed as a gap, for every switch combination");
+    return {passed, failed};
+  }
+  return {SUITES, RULES, coverage_C2, cases, sweep, selfTest};
+})();
+/*MODEL-END*/
+if (typeof window !== "undefined") window.MODEL = MODEL;
+</script>
+
+<script>
+/*COMMON-START*/
+/* shared helpers, identical on every page of this kit (synced by a generator) */
+const $ = id => document.getElementById(id);
+const PARAMS = JSON.parse($("params").textContent);
+// V(key[, field]) reads a loaded parameter; it throws on a missing key so a typo cannot hide.
+const V = (k, f) => { const o = PARAMS[k]; if (!o) throw new Error("missing param " + k);
+  return f === undefined ? o.value : o.value[f]; };
+// fmt prints "NaN" for non-finite values on purpose, so a sweep for NaN in the page text finds it.
+function fmt(x, d = 0){ if (typeof x !== "number" || !isFinite(x)) return "NaN";
+  return x.toLocaleString("en-US", {minimumFractionDigits: d, maximumFractionDigits: d}); }
+function showVal(v){ if (Array.isArray(v)) return v.map(showVal).join(", ");
+  if (v && typeof v === "object") return Object.entries(v).map(([a, b]) => a + ": " + showVal(b)).join("; ");
+  return String(v); }
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+const TAGS = {ill: {cls: "ill", txt: "illustrative"}, pub: {cls: "pub", txt: "public"},
+  der: {cls: "der", txt: "derived"}, est: {cls: "est", txt: "my estimate"}};
+function tag(t){ return t ? `<span class="tag ${t.cls}">${t.txt}</span>` : ""; }
+function metric(k, v, t){ return `<div class="metric"><div class="k">${k}${tag(t)}</div><div class="v">${v}</div></div>`; }
+function renderSources(){
+  const tb = $("sources").querySelector("tbody"); tb.innerHTML = "";
+  for (const [k, o] of Object.entries(PARAMS)){
+    const tr = document.createElement("tr");
+    const t = o.class === "public" ? TAGS.pub : TAGS.ill;
+    tr.innerHTML = `<td><code>${esc(k)}</code></td><td>${esc(showVal(o.value))} ${esc(o.unit || "")}</td>` +
+      `<td>${tag(t)}</td><td>${esc(o.source)}</td>`;
+    tb.appendChild(tr);
+  }
+}
+// <span data-p="key" data-f="field"> is filled from the params block, so prose cannot drift from constants.json.
+function fillDataP(){ document.querySelectorAll("[data-p]").forEach(el => {
+  el.textContent = showVal(V(el.dataset.p, el.dataset.f || undefined)); }); }
+function runSelfTests(){
+  const r = MODEL.selfTest(PARAMS, console.assert);
+  $("tests-sum").textContent = `Self-tests: ${r.passed} passed, ${r.failed} failed ` +
+    `(console.assert on this page; the same function runs under node).`;
+  return r;
+}
+function onInput(ids, fn){ let raf = null;
+  ids.forEach(id => $(id).addEventListener("input", () => { if (raf) cancelAnimationFrame(raf); raf = requestAnimationFrame(fn); })); }
+function setPressed(container, idx){ [...$(container).querySelectorAll("button")].forEach((b, i) => b.setAttribute("aria-pressed", String(i === idx))); }
+/*COMMON-END*/
+</script>
+
+<script>
+(function(){
+  if (typeof window === "undefined") return;
+  const CASES = MODEL.cases(PARAMS), KS = Object.keys(MODEL.SUITES);
+  CASES.forEach((c, i) => { const b = document.createElement("button"); b.type = "button"; b.textContent = c.name; b.addEventListener("click", () => applyCase(i)); $("cases").appendChild(b); });
+  KS.forEach(k => { const l = document.createElement("label"); l.innerHTML = `<input type="checkbox" id="s_${k}"> ${esc(MODEL.SUITES[k].name)}`; $("suites").appendChild(l); });
+  function applyCase(i){ const x = CASES[i].x; $("scope").value = x.scope; $("neg").checked = x.neg; $("cloud").checked = x.cloud;
+    KS.forEach(k => $("s_" + k).checked = x.on[k]); update(); setPressed("cases", i); }
+  const read = () => { const on = {}; KS.forEach(k => on[k] = $("s_" + k).checked); return {scope: $("scope").value, on, neg: $("neg").checked, cloud: $("cloud").checked}; };
+  const CC = {proven: "#49d17a", "positive only": "#ffd36b", blocked: "#ff7a7a", off: "#3a3f4a"};
+  const SC = {proven: "#49d17a", "positive only": "#ffd36b", "needs the robot": "#c9a0ff", "not exercised": "#ff7a7a", "outside the ladder": "#8a93a3"};
+  function draw(c){
+    const W = 720, padL = 262, cw = 58, rh = 16, top = 44, stX = padL + KS.length * cw + 10;
+    let s = `<title id="pic-t">Rule-by-rung coverage: ${c.proven} of ${c.rows.length} rules proven</title>`;
+    KS.forEach((k, j) => MODEL.SUITES[k].short.forEach((w, i) => s += `<text x="${padL + j * cw + cw / 2}" y="${top - 22 + i * 12}" text-anchor="middle" font-size="10">${esc(w)}</text>`));
+    s += `<text x="${stX}" y="${top - 10}" font-size="11" fill="#aeb6c4">status</text>`;
+    c.rows.forEach((r, i) => { const y = top + i * rh;
+      if (i > 0 && r.rule.by[0] !== c.rows[i - 1].rule.by[0]) s += `<line x1="8" y1="${y - 1}" x2="${W - 8}" y2="${y - 1}" stroke="#3a3f4a"/>`;
+      s += `<text x="${padL - 8}" y="${y + 11}" text-anchor="end" font-size="11">${r.i}. ${esc(r.rule.label)}</text>`;
+      KS.forEach((k, j) => { const v = r.cells[k]; const x0 = padL + j * cw + 3;
+        if (v === null) s += `<rect x="${x0}" y="${y + 2}" width="${cw - 6}" height="${rh - 4}" fill="none" stroke="#2a2e37"/>`;
+        else { s += `<rect x="${x0}" y="${y + 2}" width="${cw - 6}" height="${rh - 4}" rx="2" fill="${CC[v]}" opacity="${v === "off" ? 1 : 0.8}"/>`;
+          const sym = v === "proven" ? "✓" : v === "positive only" ? "+" : v === "blocked" ? "✕" : "–";
+          s += `<text x="${x0 + (cw - 6) / 2}" y="${y + 11}" text-anchor="middle" font-size="10" fill="${v === "off" ? "#aeb6c4" : "#0f1115"}">${sym}</text>`; } });
+      s += `<text x="${stX}" y="${y + 11}" font-size="11" fill="${SC[r.status]}">${esc(r.status)}</text>`; });
+    const ly = top + c.rows.length * rh + 18;
+    s += `<text x="12" y="${ly}" font-size="11" fill="#aeb6c4">✓ proven (with a negative test where the rule is an invariant) · + positive test only · – rung switched off</text>`;
+    s += `<text x="12" y="${ly + 15}" font-size="11" fill="#aeb6c4">✕ rung blocked (no robot in scope, or no cloud) · empty = this rung does not exercise the rule</text>`;
+    $("pic").setAttribute("viewBox", `0 0 ${W} ${ly + 24}`); $("pic").innerHTML = s;
+  }
+  function update(){
+    const x = read(), c = MODEL.coverage_C2(x);
+    const ms = c.xt ? "cross-target" : c.simMs ? "simulation" : "none";
+    $("headline").innerHTML =
+      metric("Rules proven", `${c.proven} of ${c.rows.length}`, TAGS.der) +
+      metric("Milestone you may name", `<span class="${ms === "none" ? "badc" : "okc"}">${ms}</span>`, TAGS.der) +
+      metric("Live-chat gate", `<span class="${c.live ? "okc" : "warnc"}">${c.live ? "passed" : "not passed"}</span>`, TAGS.der) +
+      metric("Gaps", String(c.gaps.length), TAGS.der);
+    draw(c);
+    const nr = c.gaps.filter(g => g.status === "needs the robot").length, ne = c.gaps.filter(g => g.status === "not exercised").length;
+    let why = ms === "cross-target" ? "The same experiences pass on both targets with equivalent evidence under the cross-target comparator, on top of the simulation milestone. Physical deployment still needs sign-off by the architecture and quality reviewers (C2)." :
+      ms === "simulation" ? "Every kernel rule, experience suite and simulation-acceptance criterion is proven on the simulation target. That is the simulation milestone, and it does not authorise physical deployment of anything (C2)." :
+      `No milestone: ${c.posOnly ? `${c.posOnly} invariant(s) have only a positive test, which cannot show the rule is enforced` : ne ? `${ne} rule(s) of the simulation milestone are not exercised` : "the simulation milestone is incomplete"}. The design forbids "done" without a named milestone (C2).`;
+    if (nr) why += ` ${nr} rule(s) need the robot and stay open until physical scope; a green simulation run says nothing about them (C1).`;
+    $("why_text").textContent = why;
+    $("callout").innerHTML = !x.neg ? `<strong>A positive test does not prove an invariant.</strong> Each safety, authority and cleanup rule needs a negative test that fails when the rule is broken; without it the rung only shows the happy path (C2).` :
+      !x.cloud ? `<strong>The cloud is a separate gate.</strong> A cloud outage may block the live-chat gate but must not invalidate the offline simulation milestone (C2).` :
+      `<strong>Two rules sit outside every rung.</strong> The guaranteed stop is a hardware relay, so no software test is load-bearing for the safety case (B4); and the simulation's trusted-network security is not a basis for public exposure (C1). The ladder names them so nobody assumes them covered.`;
+    const tb = $("rules").querySelector("tbody"); tb.innerHTML = "";
+    c.rows.forEach(r => { const tr = document.createElement("tr");
+      tr.innerHTML = `<td>${r.i}</td><td>${esc(r.rule.text)}</td><td>${esc(r.rule.by.map(k => MODEL.SUITES[k].name).join(", ") || "no rung")}</td>` +
+        `<td style="color:${SC[r.status]}">${esc(r.status)}</td><td>note ${esc(r.rule.src)}</td>`; tb.appendChild(tr); });
+    $("live").textContent = `${c.proven} of ${c.rows.length} rules proven; milestone: ${ms}.`;
+  }
+  ["scope", "neg", "cloud", ...KS.map(k => "s_" + k)].forEach(id => $(id).addEventListener("change", () => { setPressed("cases", -1); update(); }));
+  window.Story = {scenes: {out: {n: CASES.length}}, go: (id, k) => { if (id === "out") applyCase(k - 1); }};
+  fillDataP(); renderSources(); runSelfTests();
+  applyCase(0);
+})();
+</script>
+</body>
+</html>

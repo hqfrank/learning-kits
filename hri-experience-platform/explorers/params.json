@@ -1,0 +1,101 @@
+{
+ "gesture_wait_timeout_s_illustrative": {
+  "value": 10,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter; experience-policy timer for the 'await wave' local state of the example wave experience"
+ },
+ "cleanup_ack_timeout_ms_illustrative": {
+  "value": 10000,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; kernel cleanup acknowledgement deadline. Every settle bound must be strictly shorter"
+ },
+ "cancel_settle_target_ms_illustrative": {
+  "value": 1500,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; one target adapter's bound for positive proof that a cancelled primitive is quiet. Must be <= cancel_settle_ceiling_ms_illustrative and < cleanup_ack_timeout_ms_illustrative"
+ },
+ "cancel_settle_ceiling_ms_illustrative": {
+  "value": 2000,
+  "unit": "ms",
+  "class": "illustrative",
+  "source": "design parameter; catalog-wide ceiling pinned in the deployment profile, shared by every target"
+ },
+ "page_timing_01": {
+  "value": {
+   "greeting_s": 3,
+   "reply_s": 2,
+   "wave_s": 2,
+   "quiesce_s": 0.5,
+   "builder_gap_s": 1.5
+  },
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): how long the toy greeting, reply turn and wave primitives run, how long a cancelled primitive takes to prove it is quiet (below the settle target), and the default gap for an appended event"
+ },
+ "sim_cold_start_s_illustrative": {
+  "value": 600,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative order of magnitude of a physics-simulator cold start to a healthy scene; not a measurement"
+ },
+ "sim_launch_timeout_s_illustrative": {
+  "value": 1200,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter; launch bound, chosen larger than the cold start"
+ },
+ "sim_retire_timeout_s_illustrative": {
+  "value": 300,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "design parameter; bound on stopping and retiring one simulation instance"
+ },
+ "matrix_profiles_illustrative": {
+  "value": 5,
+  "unit": "profiles",
+  "class": "illustrative",
+  "source": "illustrative number of experience profiles validated by the serial profile-matrix runner"
+ },
+ "matrix_run_s_illustrative": {
+  "value": 300,
+  "unit": "s",
+  "class": "illustrative",
+  "source": "illustrative scenario run time per profile in the serial matrix"
+ },
+ "page_switch_02": {
+  "value": {
+   "stores_proof_s": 5,
+   "readiness_s": 30,
+   "cleanup_typical_s": 3
+  },
+  "unit": "s",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): time to prove every store clean, time to rerun readiness and qualification, and a typical cleanup of an active visit"
+ },
+ "page_dispatch_03": {
+  "value": {
+   "ack_timeout_floor_ms": 500,
+   "lost_ack_share": 0.5,
+   "dispatch_step_ms": 5,
+   "commit_ms": 10,
+   "pause_threshold_ms": 1000,
+   "mc_events": 20000,
+   "strip_events": 24
+  },
+  "unit": "ms (shares and counts unitless)",
+  "class": "illustrative",
+  "source": "page model choice (not in constants.json): ack timeout = max(floor, 2 x latency); share of failures that are lost acknowledgements (the action ran) rather than lost requests; per-effect send time and commit time of the naive dispatcher; the pause a visitor notices; Monte Carlo sizes"
+ },
+ "page_rules_04": {
+  "value": {
+   "rules": 32,
+   "suites": 6
+  },
+  "unit": "rows, columns",
+  "class": "illustrative",
+  "source": "page judgement (not in constants.json): which rung of the ladder exercises which rule, read from notes B4, C1, C2, C3; every row of the matrix cites its note"
+ }
+}
